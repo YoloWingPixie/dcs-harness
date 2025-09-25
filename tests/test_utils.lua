@@ -174,6 +174,19 @@ function HarnessTestCase:new(testClass)
             loggers = {},
             defaultNamespace = "Harness"
         }
+        -- Initialize minimal cache structure for tests (no production changes)
+        _HarnessInternal.cache = {
+            units = {},
+            groups = {},
+            controllers = {},
+            airbases = {},
+            stats = { hits = 0, misses = 0, evictions = 0 },
+            config = { maxUnits = 1000, maxGroups = 500, maxControllers = 500, maxAirbases = 100, ttl = 300 }
+        }
+        -- Load production cache module to attach cache methods (no edits to production code)
+        package.path = package.path .. ';../src/?.lua'
+        if not package.loaded['logger'] then require('logger') end
+        if not package.loaded['cache'] then require('cache') end
     end
     
     -- Override setUp
@@ -274,11 +287,30 @@ function CreateIsolatedTestSuite(name, testDefinitions)
                         loggers = {},
                         defaultNamespace = "Harness"
                     }
+                    -- Initialize minimal cache structure for tests (no production changes)
+                    _HarnessInternal.cache = {
+                        units = {},
+                        groups = {},
+                        controllers = {},
+                        airbases = {},
+                        stats = { hits = 0, misses = 0, evictions = 0 },
+                        config = { maxUnits = 1000, maxGroups = 500, maxControllers = 500, maxAirbases = 100, ttl = 300 }
+                    }
+                    -- Load production cache module to attach cache methods (no edits to production code)
+                    package.path = package.path .. ';../src/?.lua'
+                    if not package.loaded['logger'] then require('logger') end
+                    if not package.loaded['cache'] then require('cache') end
                     
                     -- User setup
                     if userSetUp then
                         userSetUp(self)
                     end
+
+                    -- After user setup (which may reset _HarnessInternal via _header),
+                    -- reload cache module so its functions attach to the fresh structure
+                    package.path = package.path .. ';../src/?.lua'
+                    package.loaded['cache'] = nil
+                    require('cache')
                 end)
             elseif k == "tearDown" then
                 userTearDown = v

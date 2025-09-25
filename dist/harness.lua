@@ -1,8 +1,8 @@
-if log and log.info then log.info("harness: 0.1.0 loading...", "Build") end
+if log and log.info then log.info("harness: 0.2.0 loading...", "Build") end
 
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.1.0"
+HARNESS_VERSION = "0.2.0"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 -- ==== END: src\_header.lua ====
@@ -1569,20 +1569,173 @@ end
     Internal caching system for DCS object handles
 ==================================================================================================
 ]]
--- Ensure cache tables exist (may have been initialized in _header.lua)
-_HarnessInternal.cache = _HarnessInternal.cache or {
-    units = {},
-    groups = {},
-    controllers = {},
-    airbases = {},
-    
-    -- Statistics
-    stats = {
-        hits = 0,
-        misses = 0,
-        evictions = 0
+-- Ensure cache structure exists and (re)attach methods after any environment reset
+function EnsureCacheInitialized()
+    _HarnessInternal = _HarnessInternal or {}
+    _HarnessInternal.cache = _HarnessInternal.cache or {}
+
+    -- Core tables
+    _HarnessInternal.cache.units = _HarnessInternal.cache.units or {}
+    _HarnessInternal.cache.groups = _HarnessInternal.cache.groups or {}
+    _HarnessInternal.cache.controllers = _HarnessInternal.cache.controllers or {}
+    _HarnessInternal.cache.airbases = _HarnessInternal.cache.airbases or {}
+
+    -- Stats and config
+    _HarnessInternal.cache.stats = _HarnessInternal.cache.stats or { hits = 0, misses = 0, evictions = 0 }
+    _HarnessInternal.cache.config = _HarnessInternal.cache.config or {
+        maxUnits = 1000,
+        maxGroups = 500,
+        maxControllers = 500,
+        maxAirbases = 100,
+        ttl = 300
     }
-}
+
+    -- Attach internal helpers if missing (they may be lost when _HarnessInternal is reset)
+    if not _HarnessInternal.cache.isExpired then
+        function _HarnessInternal.cache.isExpired(entry)
+            if not entry or not entry.time then
+                return true
+            end
+            local currentTime = timer and timer.getTime and timer.getTime() or os.time()
+            return (currentTime - entry.time) > _HarnessInternal.cache.config.ttl
+        end
+    end
+
+    if not _HarnessInternal.cache.addUnit then
+        function _HarnessInternal.cache.addUnit(name, unit)
+            if not name or not unit then return end
+            local count = 0
+            for _ in pairs(_HarnessInternal.cache.units) do count = count + 1 end
+            if count >= _HarnessInternal.cache.config.maxUnits then
+                local oldestKey, oldestTime = nil, math.huge
+                for k, v in pairs(_HarnessInternal.cache.units) do
+                    if v.time < oldestTime then
+                        oldestKey = k
+                        oldestTime = v.time
+                    end
+                end
+                if oldestKey then
+                    _HarnessInternal.cache.units[oldestKey] = nil
+                    _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+                end
+            end
+            _HarnessInternal.cache.units[name] = {
+                object = unit,
+                time = timer and timer.getTime and timer.getTime() or os.time()
+            }
+        end
+    end
+
+    if not _HarnessInternal.cache.getUnit then
+        function _HarnessInternal.cache.getUnit(name)
+            if not name then return nil end
+            local entry = _HarnessInternal.cache.units[name]
+            if not entry then
+                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+                return nil
+            end
+            if _HarnessInternal.cache.isExpired(entry) then
+                _HarnessInternal.cache.units[name] = nil
+                _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+                return nil
+            end
+            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+            return entry.object
+        end
+    end
+
+    if not _HarnessInternal.cache.addGroup then
+        function _HarnessInternal.cache.addGroup(name, group)
+            if not name or not group then return end
+            local count = 0
+            for _ in pairs(_HarnessInternal.cache.groups) do count = count + 1 end
+            if count >= _HarnessInternal.cache.config.maxGroups then
+                local oldestKey, oldestTime = nil, math.huge
+                for k, v in pairs(_HarnessInternal.cache.groups) do
+                    if v.time < oldestTime then
+                        oldestKey = k
+                        oldestTime = v.time
+                    end
+                end
+                if oldestKey then
+                    _HarnessInternal.cache.groups[oldestKey] = nil
+                    _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+                end
+            end
+            _HarnessInternal.cache.groups[name] = {
+                object = group,
+                time = timer and timer.getTime and timer.getTime() or os.time()
+            }
+        end
+    end
+
+    if not _HarnessInternal.cache.getGroup then
+        function _HarnessInternal.cache.getGroup(name)
+            if not name then return nil end
+            local entry = _HarnessInternal.cache.groups[name]
+            if not entry then
+                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+                return nil
+            end
+            if _HarnessInternal.cache.isExpired(entry) then
+                _HarnessInternal.cache.groups[name] = nil
+                _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+                return nil
+            end
+            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+            return entry.object
+        end
+    end
+
+    if not _HarnessInternal.cache.addController then
+        function _HarnessInternal.cache.addController(key, controller)
+            if not key or not controller then return end
+            local count = 0
+            for _ in pairs(_HarnessInternal.cache.controllers) do count = count + 1 end
+            if count >= _HarnessInternal.cache.config.maxControllers then
+                local oldestKey, oldestTime = nil, math.huge
+                for k, v in pairs(_HarnessInternal.cache.controllers) do
+                    if v.time < oldestTime then
+                        oldestKey = k
+                        oldestTime = v.time
+                    end
+                end
+                if oldestKey then
+                    _HarnessInternal.cache.controllers[oldestKey] = nil
+                    _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+                end
+            end
+            _HarnessInternal.cache.controllers[key] = {
+                object = controller,
+                time = timer and timer.getTime and timer.getTime() or os.time()
+            }
+        end
+    end
+
+    if not _HarnessInternal.cache.getController then
+        function _HarnessInternal.cache.getController(key)
+            if not key then return nil end
+            local entry = _HarnessInternal.cache.controllers[key]
+            if not entry then
+                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+                return nil
+            end
+            if _HarnessInternal.cache.isExpired(entry) then
+                _HarnessInternal.cache.controllers[key] = nil
+                _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+                return nil
+            end
+            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+            return entry.object
+        end
+    end
+end
+
+-- Initialize on first load
+EnsureCacheInitialized()
 
 -- Cache configuration
 _HarnessInternal.cache.config = _HarnessInternal.cache.config or {
@@ -1596,6 +1749,7 @@ _HarnessInternal.cache.config = _HarnessInternal.cache.config or {
 --- Clear all caches
 ---@usage ClearAllCaches()
 function ClearAllCaches()
+    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.units) do
         count = count + 1
@@ -1625,6 +1779,7 @@ end
 --- Clear unit cache
 ---@usage ClearUnitCache()
 function ClearUnitCache()
+    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.units) do
         count = count + 1
@@ -1637,6 +1792,7 @@ end
 --- Clear group cache
 ---@usage ClearGroupCache()
 function ClearGroupCache()
+    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.groups) do
         count = count + 1
@@ -1649,6 +1805,7 @@ end
 --- Clear controller cache
 ---@usage ClearControllerCache()
 function ClearControllerCache()
+    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.controllers) do
         count = count + 1
@@ -1662,6 +1819,7 @@ end
 ---@param unitName string Unit name
 ---@usage RemoveUnitFromCache("Pilot-1")
 function RemoveUnitFromCache(unitName)
+    EnsureCacheInitialized()
     if unitName and _HarnessInternal.cache.units[unitName] then
         _HarnessInternal.cache.units[unitName] = nil
         _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
@@ -1673,6 +1831,7 @@ end
 ---@param groupName string Group name
 ---@usage RemoveGroupFromCache("Blue Squadron")
 function RemoveGroupFromCache(groupName)
+    EnsureCacheInitialized()
     if groupName and _HarnessInternal.cache.groups[groupName] then
         _HarnessInternal.cache.groups[groupName] = nil
         _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
@@ -1684,6 +1843,7 @@ end
 ---@return table stats Cache statistics
 ---@usage local stats = GetCacheStats()
 function GetCacheStats()
+    EnsureCacheInitialized()
     local stats = {
         hits = _HarnessInternal.cache.stats.hits,
         misses = _HarnessInternal.cache.stats.misses,
@@ -1722,6 +1882,7 @@ end
 ---@param config table Configuration options
 ---@usage SetCacheConfig({maxUnits = 2000, ttl = 600})
 function SetCacheConfig(config)
+    EnsureCacheInitialized()
     if type(config) ~= "table" then
         _HarnessInternal.log.error("SetCacheConfig requires table", "SetCacheConfig")
         return
@@ -1750,6 +1911,7 @@ end
 ---@return table caches All cache tables
 ---@usage local caches = GetCacheTables()
 function GetCacheTables()
+    EnsureCacheInitialized()
     return {
         units = _HarnessInternal.cache.units,
         groups = _HarnessInternal.cache.groups,
@@ -1763,197 +1925,37 @@ end
 --- Check if cache entry is expired
 ---@param entry table Cache entry
 ---@return boolean expired True if expired
-function _HarnessInternal.cache.isExpired(entry)
-    if not entry or not entry.time then
-        return true
-    end
-    
-    local currentTime = timer and timer.getTime and timer.getTime() or os.time()
-    return (currentTime - entry.time) > _HarnessInternal.cache.config.ttl
-end
+-- The internal methods below are also attached by EnsureCacheInitialized() when needed
 
 --- Add unit to cache
 ---@param name string Unit name
 ---@param unit table Unit object
-function _HarnessInternal.cache.addUnit(name, unit)
-    if not name or not unit then
-        return
-    end
-    
-    -- Check cache size
-    local count = 0
-    for _ in pairs(_HarnessInternal.cache.units) do
-        count = count + 1
-    end
-    
-    if count >= _HarnessInternal.cache.config.maxUnits then
-        -- Evict oldest entry
-        local oldestKey, oldestTime = nil, math.huge
-        for k, v in pairs(_HarnessInternal.cache.units) do
-            if v.time < oldestTime then
-                oldestKey = k
-                oldestTime = v.time
-            end
-        end
-        if oldestKey then
-            _HarnessInternal.cache.units[oldestKey] = nil
-            _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        end
-    end
-    
-    _HarnessInternal.cache.units[name] = {
-        object = unit,
-        time = timer and timer.getTime and timer.getTime() or os.time()
-    }
-end
+-- (definitions moved to EnsureCacheInitialized for resilience)
 
 --- Get unit from cache
 ---@param name string Unit name
 ---@return table? unit Unit object or nil
-function _HarnessInternal.cache.getUnit(name)
-    if not name then
-        return nil
-    end
-    
-    local entry = _HarnessInternal.cache.units[name]
-    if not entry then
-        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-        return nil
-    end
-    
-    -- Check expiration
-    if _HarnessInternal.cache.isExpired(entry) then
-        _HarnessInternal.cache.units[name] = nil
-        _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-        return nil
-    end
-    
-    _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
-    return entry.object
-end
+-- (definitions moved to EnsureCacheInitialized for resilience)
 
 --- Add group to cache
 ---@param name string Group name
 ---@param group table Group object
-function _HarnessInternal.cache.addGroup(name, group)
-    if not name or not group then
-        return
-    end
-    
-    -- Check cache size
-    local count = 0
-    for _ in pairs(_HarnessInternal.cache.groups) do
-        count = count + 1
-    end
-    
-    if count >= _HarnessInternal.cache.config.maxGroups then
-        -- Evict oldest entry
-        local oldestKey, oldestTime = nil, math.huge
-        for k, v in pairs(_HarnessInternal.cache.groups) do
-            if v.time < oldestTime then
-                oldestKey = k
-                oldestTime = v.time
-            end
-        end
-        if oldestKey then
-            _HarnessInternal.cache.groups[oldestKey] = nil
-            _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        end
-    end
-    
-    _HarnessInternal.cache.groups[name] = {
-        object = group,
-        time = timer and timer.getTime and timer.getTime() or os.time()
-    }
-end
+-- (definitions moved to EnsureCacheInitialized for resilience)
 
 --- Get group from cache
 ---@param name string Group name
 ---@return table? group Group object or nil
-function _HarnessInternal.cache.getGroup(name)
-    if not name then
-        return nil
-    end
-    
-    local entry = _HarnessInternal.cache.groups[name]
-    if not entry then
-        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-        return nil
-    end
-    
-    -- Check expiration
-    if _HarnessInternal.cache.isExpired(entry) then
-        _HarnessInternal.cache.groups[name] = nil
-        _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-        return nil
-    end
-    
-    _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
-    return entry.object
-end
+-- (definitions moved to EnsureCacheInitialized for resilience)
 
 --- Add controller to cache
 ---@param key string Cache key (unit/group name + type)
 ---@param controller table Controller object
-function _HarnessInternal.cache.addController(key, controller)
-    if not key or not controller then
-        return
-    end
-    
-    -- Check cache size
-    local count = 0
-    for _ in pairs(_HarnessInternal.cache.controllers) do
-        count = count + 1
-    end
-    
-    if count >= _HarnessInternal.cache.config.maxControllers then
-        -- Evict oldest entry
-        local oldestKey, oldestTime = nil, math.huge
-        for k, v in pairs(_HarnessInternal.cache.controllers) do
-            if v.time < oldestTime then
-                oldestKey = k
-                oldestTime = v.time
-            end
-        end
-        if oldestKey then
-            _HarnessInternal.cache.controllers[oldestKey] = nil
-            _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        end
-    end
-    
-    _HarnessInternal.cache.controllers[key] = {
-        object = controller,
-        time = timer and timer.getTime and timer.getTime() or os.time()
-    }
-end
+-- (definitions moved to EnsureCacheInitialized for resilience)
 
 --- Get controller from cache
 ---@param key string Cache key
 ---@return table? controller Controller object or nil
-function _HarnessInternal.cache.getController(key)
-    if not key then
-        return nil
-    end
-    
-    local entry = _HarnessInternal.cache.controllers[key]
-    if not entry then
-        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-        return nil
-    end
-    
-    -- Check expiration
-    if _HarnessInternal.cache.isExpired(entry) then
-        _HarnessInternal.cache.controllers[key] = nil
-        _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-        return nil
-    end
-    
-    _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
-    return entry.object
-end
+-- (definitions moved to EnsureCacheInitialized for resilience)
 
 -- Caching Decorator
 
@@ -7604,6 +7606,7 @@ end
 ---@return table? group The group object if found, nil otherwise
 ---@usage local group = GetGroup("Aerial-1")
 function GetGroup(groupName)
+    if type(EnsureCacheInitialized) == "function" then EnsureCacheInitialized() end
     if not groupName or type(groupName) ~= "string" then
         _HarnessInternal.log.error("GetGroup requires string group name", "GetGroup")
         return nil
@@ -10238,6 +10241,8 @@ end
 ---@return table? unit The unit object if found, nil otherwise
 ---@usage local unit = GetUnit("Player")
 function GetUnit(unitName)
+    -- Ensure cache is ready in case environment was reset by tests
+    if type(EnsureCacheInitialized) == "function" then EnsureCacheInitialized() end
     if not unitName or type(unitName) ~= "string" then
         _HarnessInternal.log.error("GetUnit requires string unit name", "GetUnit")
         return nil

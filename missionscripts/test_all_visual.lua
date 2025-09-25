@@ -10,7 +10,9 @@
 -- =============================
 local TEST_CENTER = {x = 0, y = 0, z = 0}
 local ALTITUDE = 0
-local GRID = 6000
+local NM = 1852
+local R = 5 * NM -- 5 NM radius => 10 NM diameter
+local GRID = 20000
 
 -- ID management for trigger marks
 local nextId = 40000
@@ -40,17 +42,6 @@ local function toVec3(points2, y)
     return ShapeToVec3(points2, y or ALTITUDE)
 end
 
--- Draw polyline by chaining LineToAll across points (closes polygon if closeLoop)
-local function drawPolyline(points3, color, lineType, closeLoop)
-    if not points3 or #points3 < 2 then return end
-    for i = 1, #points3 - 1 do
-        LineToAll(NextId(), points3[i], points3[i + 1], color, lineType or 1, true)
-    end
-    if closeLoop then
-        LineToAll(NextId(), points3[#points3], points3[1], color, lineType or 1, true)
-    end
-end
-
 -- Label helper
 local function label(pos, text, size, color)
     TextToAll(NextId(), text, {x = pos.x, y = ALTITUDE, z = pos.z}, color or COLORS.WHITE, nil, size or 16, true)
@@ -65,33 +56,63 @@ local function sectionBasic()
 
     -- Circle (outline via polyline for maximum compatibility)
     local cCenter = {x = TEST_CENTER.x - GRID * 2, y = ALTITUDE, z = TEST_CENTER.z + GRID * 2}
-    local circ = CreateCircle({x = cCenter.x, z = cCenter.z}, 1200, 48)
-    drawPolyline(toVec3(circ, ALTITUDE), COLORS.RED, 1, true)
-    label({x = cCenter.x, z = cCenter.z + 1600}, "Circle (outline)")
+    local circ = CreateCircle({x = cCenter.x, z = cCenter.z}, R, 72)
+    do
+        local pts = toVec3(circ, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.RED, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.RED, 1, true)
+    end
+    label({x = cCenter.x, z = cCenter.z + R + 500}, "Circle (outline)")
 
     -- Rectangle (rotated) via polygon outline
     local rCenter = {x = TEST_CENTER.x - GRID, y = ALTITUDE, z = TEST_CENTER.z + GRID * 2}
-    local rect = CreateRectangle({x = rCenter.x, z = rCenter.z}, 2800, 1400, 20)
-    drawPolyline(toVec3(rect, ALTITUDE), COLORS.GREEN, 1, true)
-    label({x = rCenter.x, z = rCenter.z + 1600}, "Rectangle (rot)")
+    local rect = CreateRectangle({x = rCenter.x, z = rCenter.z}, 2 * R, 1 * R, 20)
+    do
+        local pts = toVec3(rect, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.GREEN, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.GREEN, 1, true)
+    end
+    label({x = rCenter.x, z = rCenter.z + R + 500}, "Rectangle (rot)")
 
     -- Triangle (outline)
     local tCenter = {x = TEST_CENTER.x, y = ALTITUDE, z = TEST_CENTER.z + GRID * 2}
-    local tri = CreateTriangle({x = tCenter.x, z = tCenter.z}, 1800, 0)
-    drawPolyline(toVec3(tri, ALTITUDE), COLORS.BLUE, 1, true)
-    label({x = tCenter.x, z = tCenter.z + 1600}, "Triangle")
+    local tri = CreateTriangle({x = tCenter.x, z = tCenter.z}, 2 * R, 0)
+    do
+        local pts = toVec3(tri, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.BLUE, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.BLUE, 1, true)
+    end
+    label({x = tCenter.x, z = tCenter.z + R + 500}, "Triangle")
 
     -- Hexagon (outline)
     local hCenter = {x = TEST_CENTER.x + GRID, y = ALTITUDE, z = TEST_CENTER.z + GRID * 2}
-    local hex = CreateHexagon({x = hCenter.x, z = hCenter.z}, 1500, 0)
-    drawPolyline(toVec3(hex, ALTITUDE), COLORS.CYAN, 1, true)
-    label({x = hCenter.x, z = hCenter.z + 1600}, "Hexagon")
+    local hex = CreateHexagon({x = hCenter.x, z = hCenter.z}, R, 0)
+    do
+        local pts = toVec3(hex, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.CYAN, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.CYAN, 1, true)
+    end
+    label({x = hCenter.x, z = hCenter.z + R + 500}, "Hexagon")
 
     -- Star (outline)
     local sCenter = {x = TEST_CENTER.x + GRID * 2, y = ALTITUDE, z = TEST_CENTER.z + GRID * 2}
-    local star = CreateStar({x = sCenter.x, z = sCenter.z}, 1600, 800, 5, 0)
-    drawPolyline(toVec3(star, ALTITUDE), COLORS.MAGENTA, 1, true)
-    label({x = sCenter.x, z = sCenter.z + 1600}, "Star")
+    local star = CreateStar({x = sCenter.x, z = sCenter.z}, R, 0.5 * R, 5, 0)
+    do
+        local pts = toVec3(star, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.MAGENTA, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.MAGENTA, 1, true)
+    end
+    label({x = sCenter.x, z = sCenter.z + R + 500}, "Star")
 end
 
 local function sectionArcsFans()
@@ -99,15 +120,26 @@ local function sectionArcsFans()
 
     -- Arc (outline)
     local aCenter = {x = TEST_CENTER.x - GRID, y = ALTITUDE, z = TEST_CENTER.z}
-    local arc = CreateArc({x = aCenter.x, z = aCenter.z}, 1600, 0, 270, 31)
-    drawPolyline(toVec3(arc, ALTITUDE), COLORS.YELLOW, 1, false)
-    label({x = aCenter.x, z = aCenter.z + 1800}, "Arc 270°")
+    local arc = CreateArc({x = aCenter.x, z = aCenter.z}, R, 0, 270, 55)
+    do
+        local pts = toVec3(arc, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.YELLOW, 1, true)
+        end
+    end
+    label({x = aCenter.x, z = aCenter.z + R + 500}, "Arc 270°")
 
     -- Fan (sector outline)
     local fOrigin = {x = TEST_CENTER.x + GRID, y = ALTITUDE, z = TEST_CENTER.z}
-    local fan = CreateFan({x = fOrigin.x, z = fOrigin.z}, 45, 70, 3000, 16)
-    drawPolyline(toVec3(fan, ALTITUDE), COLORS.RED, 1, true)
-    label({x = fOrigin.x, z = fOrigin.z + 1800}, "Fan 70°")
+    local fan = CreateFan({x = fOrigin.x, z = fOrigin.z}, 45, 70, R, 25)
+    do
+        local pts = toVec3(fan, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.RED, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.RED, 1, true)
+    end
+    label({x = fOrigin.x, z = fOrigin.z + R + 500}, "Fan 70°")
 end
 
 local function sectionText()
@@ -115,11 +147,11 @@ local function sectionText()
 
     local pos = {x = TEST_CENTER.x, y = ALTITUDE, z = TEST_CENTER.z - GRID}
     MarkToAll(NextId(), "CENTER", pos, true)
-    TextToAll(NextId(), "HARNESS VISUAL TEST", pos, COLORS.WHITE, rgba(0, 0, 0, 0.25), 22, true)
+    TextToAll(NextId(), "HARNESS VISUAL TEST", pos, COLORS.WHITE, rgba(0, 0, 0, 0.25), 28, true)
 
     -- Crosshair
-    LineToAll(NextId(), {x = pos.x - 600, y = ALTITUDE, z = pos.z}, {x = pos.x + 600, y = ALTITUDE, z = pos.z}, COLORS.GRAY, 1, true)
-    LineToAll(NextId(), {x = pos.x, y = ALTITUDE, z = pos.z - 600}, {x = pos.x, y = ALTITUDE, z = pos.z + 600}, COLORS.GRAY, 1, true)
+    LineToAll(NextId(), {x = pos.x - R, y = ALTITUDE, z = pos.z}, {x = pos.x + R, y = ALTITUDE, z = pos.z}, COLORS.GRAY, 0, true)
+    LineToAll(NextId(), {x = pos.x, y = ALTITUDE, z = pos.z - R}, {x = pos.x, y = ALTITUDE, z = pos.z + R}, COLORS.GRAY, 0, true)
 end
 
 local function main()

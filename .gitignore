@@ -60,3 +60,5 @@ CLAUDE.md
 .claude/
 
 .task/
+
+.cursor/

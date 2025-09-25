@@ -1068,21 +1068,21 @@ end
 
 --- Sets an AI task for a group
 ---@param group table The group object
----@param aiTask table The AI task table
+---@param actionIndex number Group action index (as defined in mission editor)
 ---@return boolean? success Returns true if successful, nil on error
----@usage SetAITask(group, {id="Mission", params={...}})
-function SetAITask(group, aiTask)
+---@usage SetAITask(group, 1)
+function SetAITask(group, actionIndex)
     if not group then
         _HarnessInternal.log.error("SetAITask requires valid group", "Trigger.SetAITask")
         return nil
     end
 
-    if not aiTask or type(aiTask) ~= "table" then
-        _HarnessInternal.log.error("SetAITask requires valid AI task table", "Trigger.SetAITask")
+    if not actionIndex or type(actionIndex) ~= "number" or actionIndex < 1 then
+        _HarnessInternal.log.error("SetAITask requires valid action index", "Trigger.SetAITask")
         return nil
     end
 
-    local success, result = pcall(trigger.action.setAITask, group, aiTask)
+    local success, result = pcall(trigger.action.setAITask, group, actionIndex)
     if not success then
         _HarnessInternal.log.error("Failed to set AI task: " .. tostring(result), "Trigger.SetAITask")
         return nil
@@ -1093,21 +1093,21 @@ end
 
 --- Pushes an AI task to a group's task queue
 ---@param group table The group object
----@param aiTask table The AI task table
+---@param actionIndex number Group action index (as defined in mission editor)
 ---@return boolean? success Returns true if successful, nil on error
----@usage PushAITask(group, {id="EngageTargets", params={...}})
-function PushAITask(group, aiTask)
+---@usage PushAITask(group, 1)
+function PushAITask(group, actionIndex)
     if not group then
         _HarnessInternal.log.error("PushAITask requires valid group", "Trigger.PushAITask")
         return nil
     end
 
-    if not aiTask or type(aiTask) ~= "table" then
-        _HarnessInternal.log.error("PushAITask requires valid AI task table", "Trigger.PushAITask")
+    if not actionIndex or type(actionIndex) ~= "number" or actionIndex < 1 then
+        _HarnessInternal.log.error("PushAITask requires valid action index", "Trigger.PushAITask")
         return nil
     end
 
-    local success, result = pcall(trigger.action.pushAITask, group, aiTask)
+    local success, result = pcall(trigger.action.pushAITask, group, actionIndex)
     if not success then
         _HarnessInternal.log.error("Failed to push AI task: " .. tostring(result), "Trigger.PushAITask")
         return nil

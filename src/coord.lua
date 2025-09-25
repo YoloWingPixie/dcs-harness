@@ -5,6 +5,9 @@
     including Lat/Long, MGRS, and XYZ coordinate transformations.
 ]]
 
+require("logger")
+require("vector")
+
 --- Convert local coordinates to latitude/longitude
 ---@param vec3 table Vec3 position in local coordinates {x, y, z}
 ---@return table? latlon Table with latitude and longitude fields, nil on error

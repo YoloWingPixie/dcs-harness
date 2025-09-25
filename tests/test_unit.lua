@@ -1,16 +1,45 @@
 -- test_unit.lua
 local lu = require('luaunit')
+require('test_utils')
 
 -- Setup test environment
 package.path = package.path .. ';../src/?.lua'
-require('mock_dcs')
-require('_header')
-require('logger')
-require('unit')
 
-TestUnit = {}
+-- Create isolated test suite
+TestUnit = CreateIsolatedTestSuite('TestUnit', {})
 
 function TestUnit:setUp()
+    -- Load required modules
+    require('mock_dcs')
+    require('_header')
+    
+    -- Ensure _HarnessInternal has required fields before loading logger
+    if not _HarnessInternal.loggers then
+        _HarnessInternal.loggers = {}
+    end
+    if not _HarnessInternal.defaultNamespace then
+        _HarnessInternal.defaultNamespace = "Harness"
+    end
+    
+    require('logger')
+    
+    -- Ensure internal logger is created
+    if not _HarnessInternal.log then
+        _HarnessInternal.log = HarnessLogger("Harness")
+    end
+    
+    require('cache')
+    require('unit')
+    
+    -- Clear cache data but preserve functions
+    if _HarnessInternal.cache then
+        _HarnessInternal.cache.units = {}
+        _HarnessInternal.cache.groups = {}
+        _HarnessInternal.cache.controllers = {}
+        _HarnessInternal.cache.airbases = {}
+        _HarnessInternal.cache.stats = { hits = 0, misses = 0, evictions = 0 }
+    end
+    
     -- Save original mock function
     self.original_getByName = Unit.getByName
     
@@ -109,11 +138,22 @@ function TestUnit:testGetUnit_EmptyString()
 end
 
 function TestUnit:testGetUnit_APIError()
+    -- Clear cache first
+    ClearUnitCache()
+    
+    -- Save original function
+    local originalGetByName = Unit.getByName
+    
+    -- Override with error function
     Unit.getByName = function(name)
         error("DCS API error")
     end
-    local unit = GetUnit("Player")
+    
+    local unit = GetUnit("TestErrorUnit")
     lu.assertNil(unit)
+    
+    -- Restore original function
+    Unit.getByName = originalGetByName
 end
 
 -- UnitExists tests
@@ -174,9 +214,10 @@ function TestUnit:testGetUnitPosition_DestroyedUnit()
 end
 
 function TestUnit:testGetUnitPosition_InvalidPositionStructure()
+    -- Test handling of malformed position data (DCS should never return this, but test defensive coding)
     self.mockUnits["BadPosition"] = {
         isExist = function(self) return true end,
-        getPosition = function(self) return {} end,  -- Missing p field
+        getPosition = function(self) return {} end,  -- Intentionally missing p field for error testing
         getName = function(self) return "BadPosition" end
     }
     local pos = GetUnitPosition("BadPosition")

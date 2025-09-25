@@ -1,9 +1,34 @@
 -- Unit tests for time.lua module
 local lu = require('luaunit')
+require('test_utils')
 
-TestTime = {}
+-- Setup test environment
+package.path = package.path .. ';../src/?.lua'
+
+-- Create isolated test suite
+TestTime = CreateIsolatedTestSuite('TestTime', {})
 
 function TestTime:setUp()
+    -- Load required modules
+    require('mock_dcs')
+    require('_header')
+    
+    -- Ensure _HarnessInternal has required fields before loading logger
+    if not _HarnessInternal.loggers then
+        _HarnessInternal.loggers = {}
+    end
+    if not _HarnessInternal.defaultNamespace then
+        _HarnessInternal.defaultNamespace = "Harness"
+    end
+    
+    require('logger')
+    
+    -- Ensure internal logger is created
+    if not _HarnessInternal.log then
+        _HarnessInternal.log = HarnessLogger("Harness")
+    end
+    
+    require('time')
     -- Store original timer functions
     self.originalTimer = {
         getTime = timer.getTime,

@@ -5,6 +5,9 @@
 ==================================================================================================
 ]]
 
+require("logger")
+require("vector")
+
 --- Get terrain height at position
 ---@param position table Vec2 or Vec3 position
 ---@return number height Terrain height at position (0 on error)

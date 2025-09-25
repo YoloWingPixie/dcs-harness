@@ -2,6 +2,14 @@
 ==================================================================================================
     DATA STRUCTURES MODULE
     Common data structures optimized for DCS World scripting
+    
+    Structures Provided:
+    - Queue
+    - Stack
+    - Cache
+    - Heap/PriorityQueue
+    - Set
+    - Memoize
 ==================================================================================================
 ]]
 
@@ -155,6 +163,16 @@ end
 ---@return table cache New cache instance
 ---@usage local cache = Cache()
 function Cache(capacity)
+    -- Validate capacity
+    if capacity ~= nil and type(capacity) ~= "number" then
+        _HarnessInternal.log.error("Cache capacity must be a number", "DataStructures.Cache")
+        capacity = nil
+    end
+    if capacity and capacity < 1 then
+        _HarnessInternal.log.error("Cache capacity must be positive", "DataStructures.Cache")
+        capacity = nil
+    end
+    
     local cache = {
         _capacity = capacity or math.huge,
         _items = {},
@@ -422,12 +440,6 @@ function Cache(capacity)
         return self._size
     end
     
-    -- Backwards compatibility aliases
-    cache.put = cache.set
-    cache.remove = cache.del
-    cache.clear = cache.flushdb
-    cache.size = cache.dbsize
-    
     -- Internal: Move key to front of order list (for LRU)
     function cache:_moveToFront(key)
         self:_removeFromOrder(key)
@@ -559,6 +571,16 @@ end
 ---@return table heap New heap instance
 ---@usage local minHeap = Heap() or local maxHeap = Heap(false)
 function Heap(isMinHeap, compareFunc)
+    -- Validate parameters
+    if isMinHeap ~= nil and type(isMinHeap) ~= "boolean" then
+        _HarnessInternal.log.error("Heap isMinHeap must be boolean", "DataStructures.Heap")
+        isMinHeap = true
+    end
+    if compareFunc ~= nil and type(compareFunc) ~= "function" then
+        _HarnessInternal.log.error("Heap compareFunc must be a function", "DataStructures.Heap")
+        compareFunc = nil
+    end
+    
     isMinHeap = isMinHeap ~= false -- Default to min heap
     
     local heap = {
@@ -798,6 +820,12 @@ end
 ---@return table pqueue New priority queue instance
 ---@usage local pq = PriorityQueue(function(a, b) return a.priority < b.priority end)
 function PriorityQueue(compareFunc)
+    -- Validate compareFunc
+    if compareFunc ~= nil and type(compareFunc) ~= "function" then
+        _HarnessInternal.log.error("PriorityQueue compareFunc must be a function", "DataStructures.PriorityQueue")
+        compareFunc = nil
+    end
+    
     local heapCompareFunc = nil
     if not compareFunc then
         -- Default comparison for items with priority field

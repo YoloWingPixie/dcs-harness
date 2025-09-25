@@ -1,0 +1,83 @@
+version: '3'
+
+vars:
+  TEST_DIR: tests
+  BUILD_DIR: build
+  SRC_DIR: src
+
+tasks:
+  default:
+    desc: Run all tests
+    cmds:
+      - task: test
+
+  test:
+    desc: Run all unit tests
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - lua test_runner.lua
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - '{{.TEST_DIR}}/**/*.lua'
+
+  test:single:
+    desc: Run a single test file
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - lua {{.CLI_ARGS}}
+    requires:
+      vars: [CLI_ARGS]
+
+  test:watch:
+    desc: Watch files and run tests on changes
+    watch: true
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - '{{.TEST_DIR}}/**/*.lua'
+    cmds:
+      - task: test
+
+  build:
+    desc: Build dist/harness.lua (single-file release)
+    cmds:
+      - python build/scripts/build_single_lua_release.py
+      - python build/scripts/stamp_harness_version.py
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - 'build/scripts/build_single_lua_release.py'
+      - 'build/scripts/stamp_harness_version.py'
+      - '.buildrc'
+    generates:
+      - 'dist/harness.lua'
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -f {{.BUILD_DIR}}/*.lua
+
+  lint:
+    desc: Run linter on source files
+    cmds:
+      - luacheck {{.SRC_DIR}} {{.TEST_DIR}} --exclude-files {{.TEST_DIR}}/luaunit.lua
+
+  coverage:
+    desc: Run tests with coverage reporting
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - lua -lluacov test_runner.lua
+      - luacov
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - '{{.TEST_DIR}}/**/*.lua'
+
+  ci:
+    desc: Run CI pipeline (lint, test, build)
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
+
+  help:
+    desc: Show available tasks
+    cmds:
+      - task --list

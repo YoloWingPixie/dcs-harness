@@ -4,7 +4,7 @@
     This module provides validated wrapper functions for DCS F10 radio menu operations,
     including menu creation, command handling, and menu removal.
 ]]
-
+require("logger")
 --- Adds a command to the F10 radio menu
 --- @param path table Array of menu path elements (numbers or strings)
 --- @param menuItem table Menu item definition with name, enabled, and removable fields

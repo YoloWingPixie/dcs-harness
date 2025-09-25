@@ -4,7 +4,7 @@
     User flag utilities
 ==================================================================================================
 ]]
-
+require("logger")
 --- Get flag value
 ---@param flagName string? Name of the flag
 ---@return number value Flag value (0 if not found or error)

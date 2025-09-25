@@ -4,26 +4,26 @@
     This module provides validated wrapper functions for DCS controller operations,
     including AI tasking, commands, and behavior management.
 ]]
-
+require("logger")
 --- Sets a task for the controller
 ---@param controller table The controller object
 ---@param task table The task table to set
 ---@return boolean? success Returns true if successful, nil on error
----@usage setControllerTask(controller, {id="Mission", params={...}})
-function setControllerTask(controller, task)
+---@usage SetControllerTask(controller, {id="Mission", params={...}})
+function SetControllerTask(controller, task)
     if not controller then
-        _HarnessInternal.log.error("setControllerTask requires valid controller", "Controller.setTask")
+        _HarnessInternal.log.error("SetControllerTask requires valid controller", "Controller.SetTask")
         return nil
     end
 
     if not task or type(task) ~= "table" then
-        _HarnessInternal.log.error("setControllerTask requires valid task table", "Controller.setTask")
+        _HarnessInternal.log.error("SetControllerTask requires valid task table", "Controller.SetTask")
         return nil
     end
 
     local success, result = pcall(controller.setTask, controller, task)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller task: " .. tostring(result), "Controller.setTask")
+        _HarnessInternal.log.error("Failed to set controller task: " .. tostring(result), "Controller.SetTask")
         return nil
     end
 
@@ -33,16 +33,16 @@ end
 --- Resets the controller's current task
 ---@param controller table The controller object
 ---@return boolean? success Returns true if successful, nil on error
----@usage resetControllerTask(controller)
-function resetControllerTask(controller)
+---@usage ResetControllerTask(controller)
+function ResetControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("resetControllerTask requires valid controller", "Controller.resetTask")
+        _HarnessInternal.log.error("ResetControllerTask requires valid controller", "Controller.ResetTask")
         return nil
     end
 
     local success, result = pcall(controller.resetTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to reset controller task: " .. tostring(result), "Controller.resetTask")
+        _HarnessInternal.log.error("Failed to reset controller task: " .. tostring(result), "Controller.ResetTask")
         return nil
     end
 
@@ -53,21 +53,21 @@ end
 ---@param controller table The controller object
 ---@param task table The task table to push
 ---@return boolean? success Returns true if successful, nil on error
----@usage pushControllerTask(controller, {id="EngageTargets", params={...}})
-function pushControllerTask(controller, task)
+---@usage PushControllerTask(controller, {id="EngageTargets", params={...}})
+function PushControllerTask(controller, task)
     if not controller then
-        _HarnessInternal.log.error("pushControllerTask requires valid controller", "Controller.pushTask")
+        _HarnessInternal.log.error("PushControllerTask requires valid controller", "Controller.PushTask")
         return nil
     end
 
     if not task or type(task) ~= "table" then
-        _HarnessInternal.log.error("pushControllerTask requires valid task table", "Controller.pushTask")
+        _HarnessInternal.log.error("PushControllerTask requires valid task table", "Controller.PushTask")
         return nil
     end
 
     local success, result = pcall(controller.pushTask, controller, task)
     if not success then
-        _HarnessInternal.log.error("Failed to push controller task: " .. tostring(result), "Controller.pushTask")
+        _HarnessInternal.log.error("Failed to push controller task: " .. tostring(result), "Controller.PushTask")
         return nil
     end
 
@@ -77,16 +77,16 @@ end
 --- Pops a task from the controller's task queue
 ---@param controller table The controller object
 ---@return boolean? success Returns true if successful, nil on error
----@usage popControllerTask(controller)
-function popControllerTask(controller)
+---@usage PopControllerTask(controller)
+function PopControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("popControllerTask requires valid controller", "Controller.popTask")
+        _HarnessInternal.log.error("PopControllerTask requires valid controller", "Controller.PopTask")
         return nil
     end
 
     local success, result = pcall(controller.popTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to pop controller task: " .. tostring(result), "Controller.popTask")
+        _HarnessInternal.log.error("Failed to pop controller task: " .. tostring(result), "Controller.PopTask")
         return nil
     end
 
@@ -97,15 +97,15 @@ end
 ---@param controller table The controller object
 ---@return boolean? hasTask Returns true if controller has tasks, false if not, nil on error
 ---@usage local hasTasks = hasControllerTask(controller)
-function hasControllerTask(controller)
+function HasControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("hasControllerTask requires valid controller", "Controller.hasTask")
+        _HarnessInternal.log.error("HasControllerTask requires valid controller", "Controller.HasTask")
         return nil
     end
 
     local success, result = pcall(controller.hasTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to check controller task: " .. tostring(result), "Controller.hasTask")
+        _HarnessInternal.log.error("Failed to check controller task: " .. tostring(result), "Controller.HasTask")
         return nil
     end
 
@@ -116,21 +116,21 @@ end
 ---@param controller table The controller object
 ---@param command table The command table to set
 ---@return boolean? success Returns true if successful, nil on error
----@usage setControllerCommand(controller, {id="Script", params={...}})
-function setControllerCommand(controller, command)
+---@usage SetControllerCommand(controller, {id="Script", params={...}})
+function SetControllerCommand(controller, command)
     if not controller then
-        _HarnessInternal.log.error("setControllerCommand requires valid controller", "Controller.setCommand")
+        _HarnessInternal.log.error("SetControllerCommand requires valid controller", "Controller.SetCommand")
         return nil
     end
 
     if not command or type(command) ~= "table" then
-        _HarnessInternal.log.error("setControllerCommand requires valid command table", "Controller.setCommand")
+        _HarnessInternal.log.error("SetControllerCommand requires valid command table", "Controller.SetCommand")
         return nil
     end
 
     local success, result = pcall(controller.setCommand, controller, command)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller command: " .. tostring(result), "Controller.setCommand")
+        _HarnessInternal.log.error("Failed to set controller command: " .. tostring(result), "Controller.SetCommand")
         return nil
     end
 
@@ -141,21 +141,21 @@ end
 ---@param controller table The controller object
 ---@param onOff boolean True to enable, false to disable
 ---@return boolean? success Returns true if successful, nil on error
----@usage setControllerOnOff(controller, false)
-function setControllerOnOff(controller, onOff)
+---@usage SetControllerOnOff(controller, false)
+function SetControllerOnOff(controller, onOff)
     if not controller then
-        _HarnessInternal.log.error("setControllerOnOff requires valid controller", "Controller.setOnOff")
+        _HarnessInternal.log.error("SetControllerOnOff requires valid controller", "Controller.SetOnOff")
         return nil
     end
 
     if type(onOff) ~= "boolean" then
-        _HarnessInternal.log.error("setControllerOnOff requires boolean value", "Controller.setOnOff")
+        _HarnessInternal.log.error("SetControllerOnOff requires boolean value", "Controller.SetOnOff")
         return nil
     end
 
     local success, result = pcall(controller.setOnOff, controller, onOff)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller on/off: " .. tostring(result), "Controller.setOnOff")
+        _HarnessInternal.log.error("Failed to set controller on/off: " .. tostring(result), "Controller.SetOnOff")
         return nil
     end
 
@@ -167,21 +167,21 @@ end
 ---@param altitude number The altitude in meters
 ---@param altitudeType any? Optional altitude type parameter
 ---@return boolean? success Returns true if successful, nil on error
----@usage setControllerAltitude(controller, 5000)
-function setControllerAltitude(controller, altitude, altitudeType)
+---@usage SetControllerAltitude(controller, 5000)
+function SetControllerAltitude(controller, altitude, altitudeType)
     if not controller then
-        _HarnessInternal.log.error("setControllerAltitude requires valid controller", "Controller.setAltitude")
+        _HarnessInternal.log.error("SetControllerAltitude requires valid controller", "Controller.SetAltitude")
         return nil
     end
 
     if not altitude or type(altitude) ~= "number" then
-        _HarnessInternal.log.error("setControllerAltitude requires valid altitude", "Controller.setAltitude")
+        _HarnessInternal.log.error("SetControllerAltitude requires valid altitude", "Controller.SetAltitude")
         return nil
     end
 
     local success, result = pcall(controller.setAltitude, controller, altitude, altitudeType)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller altitude: " .. tostring(result), "Controller.setAltitude")
+        _HarnessInternal.log.error("Failed to set controller altitude: " .. tostring(result), "Controller.SetAltitude")
         return nil
     end
 
@@ -193,21 +193,21 @@ end
 ---@param speed number The speed in m/s
 ---@param speedType any? Optional speed type parameter
 ---@return boolean? success Returns true if successful, nil on error
----@usage setControllerSpeed(controller, 250)
-function setControllerSpeed(controller, speed, speedType)
+---@usage SetControllerSpeed(controller, 250)
+function SetControllerSpeed(controller, speed, speedType)
     if not controller then
-        _HarnessInternal.log.error("setControllerSpeed requires valid controller", "Controller.setSpeed")
+        _HarnessInternal.log.error("SetControllerSpeed requires valid controller", "Controller.SetSpeed")
         return nil
     end
 
     if not speed or type(speed) ~= "number" then
-        _HarnessInternal.log.error("setControllerSpeed requires valid speed", "Controller.setSpeed")
+        _HarnessInternal.log.error("SetControllerSpeed requires valid speed", "Controller.SetSpeed")
         return nil
     end
 
     local success, result = pcall(controller.setSpeed, controller, speed, speedType)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller speed: " .. tostring(result), "Controller.setSpeed")
+        _HarnessInternal.log.error("Failed to set controller speed: " .. tostring(result), "Controller.SetSpeed")
         return nil
     end
 
@@ -219,21 +219,21 @@ end
 ---@param optionId number The option ID
 ---@param optionValue any The value to set for the option
 ---@return boolean? success Returns true if successful, nil on error
----@usage setControllerOption(controller, 0, AI.Option.Air.val.ROE.WEAPON_FREE)
-function setControllerOption(controller, optionId, optionValue)
+---@usage SetControllerOption(controller, 0, AI.Option.Air.val.ROE.WEAPON_FREE)
+function SetControllerOption(controller, optionId, optionValue)
     if not controller then
-        _HarnessInternal.log.error("setControllerOption requires valid controller", "Controller.setOption")
+        _HarnessInternal.log.error("SetControllerOption requires valid controller", "Controller.SetOption")
         return nil
     end
 
     if not optionId or type(optionId) ~= "number" then
-        _HarnessInternal.log.error("setControllerOption requires valid option ID", "Controller.setOption")
+        _HarnessInternal.log.error("SetControllerOption requires valid option ID", "Controller.SetOption")
         return nil
     end
 
     local success, result = pcall(controller.setOption, controller, optionId, optionValue)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller option: " .. tostring(result), "Controller.setOption")
+        _HarnessInternal.log.error("Failed to set controller option: " .. tostring(result), "Controller.SetOption")
         return nil
     end
 
@@ -246,15 +246,15 @@ end
 ---@param categoryFilter any? Optional category filter
 ---@return table? targets Array of detected target objects or nil on error
 ---@usage local targets = getControllerDetectedTargets(controller)
-function getControllerDetectedTargets(controller, detectionType, categoryFilter)
+function GetControllerDetectedTargets(controller, detectionType, categoryFilter)
     if not controller then
-        _HarnessInternal.log.error("getControllerDetectedTargets requires valid controller", "Controller.getDetectedTargets")
+        _HarnessInternal.log.error("GetControllerDetectedTargets requires valid controller", "Controller.GetDetectedTargets")
         return nil
     end
 
     local success, result = pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
     if not success then
-        _HarnessInternal.log.error("Failed to get detected targets: " .. tostring(result), "Controller.getDetectedTargets")
+        _HarnessInternal.log.error("Failed to get detected targets: " .. tostring(result), "Controller.GetDetectedTargets")
         return nil
     end
 
@@ -267,21 +267,21 @@ end
 ---@param typeKnown boolean? Whether the target type is known
 ---@param distanceKnown boolean? Whether the target distance is known
 ---@return boolean? success Returns true if successful, nil on error
----@usage knowControllerTarget(controller, targetUnit, true, true)
-function knowControllerTarget(controller, target, typeKnown, distanceKnown)
+---@usage KnowControllerTarget(controller, targetUnit, true, true)
+function KnowControllerTarget(controller, target, typeKnown, distanceKnown)
     if not controller then
-        _HarnessInternal.log.error("knowControllerTarget requires valid controller", "Controller.knowTarget")
+        _HarnessInternal.log.error("KnowControllerTarget requires valid controller", "Controller.KnowTarget")
         return nil
     end
 
     if not target then
-        _HarnessInternal.log.error("knowControllerTarget requires valid target", "Controller.knowTarget")
+        _HarnessInternal.log.error("KnowControllerTarget requires valid target", "Controller.KnowTarget")
         return nil
     end
 
     local success, result = pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
     if not success then
-        _HarnessInternal.log.error("Failed to know target: " .. tostring(result), "Controller.knowTarget")
+        _HarnessInternal.log.error("Failed to know target: " .. tostring(result), "Controller.KnowTarget")
         return nil
     end
 
@@ -294,20 +294,20 @@ end
 ---@param detectionType any? Optional detection type
 ---@return boolean? isDetected Returns detection status or nil on error
 ---@usage local detected = isControllerTargetDetected(controller, targetUnit)
-function isControllerTargetDetected(controller, target, detectionType)
+function IsControllerTargetDetected(controller, target, detectionType)
     if not controller then
-        _HarnessInternal.log.error("isControllerTargetDetected requires valid controller", "Controller.isTargetDetected")
+        _HarnessInternal.log.error("IsControllerTargetDetected requires valid controller", "Controller.IsTargetDetected")
         return nil
     end
 
     if not target then
-        _HarnessInternal.log.error("isControllerTargetDetected requires valid target", "Controller.isTargetDetected")
+        _HarnessInternal.log.error("IsControllerTargetDetected requires valid target", "Controller.IsTargetDetected")
         return nil
     end
 
     local success, result = pcall(controller.isTargetDetected, controller, target, detectionType)
     if not success then
-        _HarnessInternal.log.error("Failed to check target detection: " .. tostring(result), "Controller.isTargetDetected")
+        _HarnessInternal.log.error("Failed to check target detection: " .. tostring(result), "Controller.IsTargetDetected")
         return nil
     end
 
@@ -322,7 +322,7 @@ end
 ---@param taskParams table? Additional task parameters
 ---@return table task The orbit task table
 ---@usage local task = createOrbitTask("Circle", {x=1000, y=0, z=2000}, 5000, 250)
-function createOrbitTask(pattern, point, altitude, speed, taskParams)
+function CreateOrbitTask(pattern, point, altitude, speed, taskParams)
     local task = {
         id = "Orbit",
         params = {
@@ -348,9 +348,9 @@ end
 ---@param lastWaypointIndex number? Last waypoint index to follow to
 ---@return table? task The follow task table or nil on error
 ---@usage local task = createFollowTask(1001, {x=100, y=0, z=100})
-function createFollowTask(groupId, position, lastWaypointIndex)
+function CreateFollowTask(groupId, position, lastWaypointIndex)
     if not groupId then
-        _HarnessInternal.log.error("createFollowTask requires valid group ID", "Controller.createFollowTask")
+        _HarnessInternal.log.error("CreateFollowTask requires valid group ID", "Controller.CreateFollowTask")
         return nil
     end
 
@@ -374,9 +374,9 @@ end
 ---@param engagementDistance number? Maximum engagement distance (default: 60000)
 ---@return table? task The escort task table or nil on error
 ---@usage local task = createEscortTask(1001, {x=200, y=0, z=0}, nil, 30000)
-function createEscortTask(groupId, position, lastWaypointIndex, engagementDistance)
+function CreateEscortTask(groupId, position, lastWaypointIndex, engagementDistance)
     if not groupId then
-        _HarnessInternal.log.error("createEscortTask requires valid group ID", "Controller.createEscortTask")
+        _HarnessInternal.log.error("CreateEscortTask requires valid group ID", "Controller.CreateEscortTask")
         return nil
     end
 
@@ -403,9 +403,9 @@ end
 ---@param direction number? Attack direction
 ---@return table? task The attack group task table or nil on error
 ---@usage local task = createAttackGroupTask(2001, nil, true)
-function createAttackGroupTask(groupId, weaponType, groupAttack, altitude, attackQty, direction)
+function CreateAttackGroupTask(groupId, weaponType, groupAttack, altitude, attackQty, direction)
     if not groupId then
-        _HarnessInternal.log.error("createAttackGroupTask requires valid group ID", "Controller.createAttackGroupTask")
+        _HarnessInternal.log.error("CreateAttackGroupTask requires valid group ID", "Controller.CreateAttackGroupTask")
         return nil
     end
 
@@ -433,9 +433,9 @@ end
 ---@param direction number? Attack direction
 ---@return table? task The attack unit task table or nil on error
 ---@usage local task = createAttackUnitTask(3001)
-function createAttackUnitTask(unitId, weaponType, groupAttack, altitude, attackQty, direction)
+function CreateAttackUnitTask(unitId, weaponType, groupAttack, altitude, attackQty, direction)
     if not unitId then
-        _HarnessInternal.log.error("createAttackUnitTask requires valid unit ID", "Controller.createAttackUnitTask")
+        _HarnessInternal.log.error("CreateAttackUnitTask requires valid unit ID", "Controller.CreateAttackUnitTask")
         return nil
     end
 
@@ -463,9 +463,9 @@ end
 ---@param direction number? Attack direction
 ---@return table? task The bombing task table or nil on error
 ---@usage local task = createBombingTask({x=1000, y=0, z=2000})
-function createBombingTask(point, weaponType, groupAttack, altitude, attackQty, direction)
+function CreateBombingTask(point, weaponType, groupAttack, altitude, attackQty, direction)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createBombingTask requires valid point with x, y, z", "Controller.createBombingTask")
+        _HarnessInternal.log.error("CreateBombingTask requires valid point with x, y, z", "Controller.CreateBombingTask")
         return nil
     end
 
@@ -493,9 +493,9 @@ end
 ---@param direction number? Attack direction
 ---@return table? task The bombing runway task table or nil on error
 ---@usage local task = createBombingRunwayTask(1)
-function createBombingRunwayTask(runwayId, weaponType, groupAttack, altitude, attackQty, direction)
+function CreateBombingRunwayTask(runwayId, weaponType, groupAttack, altitude, attackQty, direction)
     if not runwayId then
-        _HarnessInternal.log.error("createBombingRunwayTask requires valid runway ID", "Controller.createBombingRunwayTask")
+        _HarnessInternal.log.error("CreateBombingRunwayTask requires valid runway ID", "Controller.CreateBombingRunwayTask")
         return nil
     end
 
@@ -522,7 +522,7 @@ end
 ---@usage local task = createLandTask({x=1000, y=0, z=2000}, true, 300)
 function createLandTask(point, durationFlag, duration)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createLandTask requires valid point with x, y, z", "Controller.createLandTask")
+        _HarnessInternal.log.error("createLandTask requires valid point with x, y, z", "Controller.CreateLandTask")
         return nil
     end
 
@@ -541,7 +541,7 @@ end
 --- Creates a refueling task
 ---@return table task The refueling task table
 ---@usage local task = createRefuelingTask()
-function createRefuelingTask()
+function CreateRefuelingTask()
     local task = {
         id = "Refueling",
         params = {}
@@ -562,7 +562,7 @@ end
 ---@usage local task = createFACAttackGroupTask(2001)
 function createFACAttackGroupTask(groupId, priority, designation, datalink, frequency, modulation, callsign)
     if not groupId then
-        _HarnessInternal.log.error("createFACAttackGroupTask requires valid group ID", "Controller.createFACAttackGroupTask")
+        _HarnessInternal.log.error("createFACAttackGroupTask requires valid group ID", "Controller.CreateFACAttackGroupTask")
         return nil
     end
 
@@ -593,7 +593,7 @@ end
 ---@usage local task = createFireAtPointTask({x=1000, y=0, z=2000}, 100)
 function createFireAtPointTask(point, radius, expendQty, expendQtyEnabled, altitude, altitudeEnabled)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createFireAtPointTask requires valid point with x, y, z", "Controller.createFireAtPointTask")
+        _HarnessInternal.log.error("createFireAtPointTask requires valid point with x, y, z", "Controller.CreateFireAtPointTask")
         return nil
     end
 
@@ -652,7 +652,7 @@ end
 ---@usage local task = createWrappedAction({id="Script", params={...}})
 function createWrappedAction(action, stopFlag)
     if not action or type(action) ~= "table" then
-        _HarnessInternal.log.error("createWrappedAction requires valid action table", "Controller.createWrappedAction")
+        _HarnessInternal.log.error("createWrappedAction requires valid action table", "Controller.CreateWrappedAction")
         return nil
     end
 

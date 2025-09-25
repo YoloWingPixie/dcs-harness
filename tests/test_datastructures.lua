@@ -2,6 +2,16 @@ local lu = require('luaunit')
 
 TestDataStructures = {}
 
+function TestDataStructures:setUp()
+    -- Save original timer if we need to mock it
+    self.originalTimer = _G.timer
+end
+
+function TestDataStructures:tearDown()
+    -- Restore original timer
+    _G.timer = self.originalTimer
+end
+
 -- Queue Tests
 function TestDataStructures:testQueue()
     local q = Queue()
@@ -70,13 +80,13 @@ function TestDataStructures:testStack()
     lu.assertTrue(s:isEmpty())
 end
 
--- Basic Cache Tests (backwards compatibility)
+-- Basic Cache Tests
 function TestDataStructures:testCacheBasic()
     local cache = Cache(3)
     
     -- Test empty cache
     lu.assertNil(cache:get("key1"))
-    lu.assertEquals(cache:size(), 0)
+    lu.assertEquals(cache:dbsize(), 0)
     
     -- Test set and get
     lu.assertTrue(cache:set("key1", "value1"))
@@ -86,13 +96,13 @@ function TestDataStructures:testCacheBasic()
     lu.assertEquals(cache:get("key1"), "value1")
     lu.assertEquals(cache:get("key2"), "value2")
     lu.assertEquals(cache:get("key3"), "value3")
-    lu.assertEquals(cache:size(), 3)
+    lu.assertEquals(cache:dbsize(), 3)
     
     -- Test LRU eviction
     cache:set("key4", "value4") -- Should evict key1
     lu.assertNil(cache:get("key1"))
     lu.assertEquals(cache:get("key4"), "value4")
-    lu.assertEquals(cache:size(), 3)
+    lu.assertEquals(cache:dbsize(), 3)
     
     -- Test updating moves to front
     cache:get("key2") -- Move key2 to front
@@ -103,11 +113,11 @@ function TestDataStructures:testCacheBasic()
     -- Test del
     lu.assertEquals(cache:del("key2"), 1)
     lu.assertEquals(cache:del("key2"), 0)
-    lu.assertEquals(cache:size(), 2)
+    lu.assertEquals(cache:dbsize(), 2)
     
-    -- Test clear
-    cache:clear()
-    lu.assertEquals(cache:size(), 0)
+    -- Test flushdb
+    cache:flushdb()
+    lu.assertEquals(cache:dbsize(), 0)
 end
 
 -- Advanced Cache Tests (Redis-like features)
@@ -167,9 +177,6 @@ end
 
 -- Cache TTL Tests (need to mock timer)
 function TestDataStructures:testCacheTTL()
-    -- Save original timer
-    local originalTimer = _G.timer
-    
     -- Mock timer for testing
     local currentTime = 1000
     _G.timer = {
@@ -207,9 +214,6 @@ function TestDataStructures:testCacheTTL()
     -- Test setex
     cache:setex("key3", 15, "value3")
     lu.assertEquals(cache:ttl("key3"), 15)
-    
-    -- Restore original timer
-    _G.timer = originalTimer
 end
 
 -- Heap Tests

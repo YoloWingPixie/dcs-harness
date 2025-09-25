@@ -1,16 +1,44 @@
 -- test_group.lua
 local lu = require('luaunit')
+require('test_utils')
 
 -- Setup test environment
 package.path = package.path .. ';../src/?.lua'
-require('mock_dcs')
-require('_header')
-require('logger')
-require('group')
 
-TestGroup = {}
+-- Create isolated test suite
+TestGroup = CreateIsolatedTestSuite('TestGroup', {})
 
 function TestGroup:setUp()
+    -- Load required modules in clean environment
+    require('mock_dcs')
+    
+    -- Initialize _HarnessInternal before loading any harness modules
+    HARNESS_VERSION = "1.0.0-test"
+    _HarnessInternal = {
+        loggers = {},
+        defaultNamespace = "Harness"
+    }
+    
+    -- Load harness modules using dofile like the test runner does
+    dofile("../src/logger.lua")
+    dofile("../src/cache.lua")
+    dofile("../src/vector.lua")
+    dofile("../src/misc.lua")
+    dofile("../src/coalition.lua")
+    dofile("../src/group.lua")
+    
+    -- Internal logger should already be created by logger.lua
+    -- No need to create it manually
+    
+    -- Clear cache data but preserve functions
+    if _HarnessInternal.cache then
+        _HarnessInternal.cache.units = {}
+        _HarnessInternal.cache.groups = {}
+        _HarnessInternal.cache.controllers = {}
+        _HarnessInternal.cache.airbases = {}
+        _HarnessInternal.cache.stats = { hits = 0, misses = 0, evictions = 0 }
+    end
+    
     -- Save original mock functions
     self.original_getByName = Group.getByName
     self.original_getGroups = coalition.getGroups
@@ -140,11 +168,22 @@ function TestGroup:testGetGroup_EmptyString()
 end
 
 function TestGroup:testGetGroup_APIError()
+    -- Clear cache first
+    ClearGroupCache()
+    
+    -- Save original function
+    local originalGetByName = Group.getByName
+    
+    -- Override with error function
     Group.getByName = function(name)
         error("DCS API error")
     end
-    local group = GetGroup("Aerial-1")
+    
+    local group = GetGroup("TestErrorGroup")
     lu.assertNil(group)
+    
+    -- Restore original function
+    Group.getByName = originalGetByName
 end
 
 -- GroupExists tests
@@ -548,12 +587,22 @@ function TestGroup:testGetCoalitionGroups_EmptyResult()
 end
 
 function TestGroup:testGetCoalitionGroups_InvalidCoalition()
+    -- Ensure GetCoalitionGroups is loaded
+    lu.assertNotNil(GetCoalitionGroups, "GetCoalitionGroups function should exist")
+    
+    -- Direct call without pcall to see what happens
     local groups = GetCoalitionGroups(nil, 0)
+    
+    -- Test with nil coalition ID
+    lu.assertNotNil(groups, "GetCoalitionGroups should return a table, not nil")
+    lu.assertEquals(type(groups), "table", "GetCoalitionGroups should return a table")
     lu.assertEquals(#groups, 0)
 end
 
 function TestGroup:testGetCoalitionGroups_InvalidType()
     local groups = GetCoalitionGroups("not a number", 0)
+    lu.assertNotNil(groups, "GetCoalitionGroups should return a table, not nil")
+    lu.assertEquals(type(groups), "table", "GetCoalitionGroups should return a table")
     lu.assertEquals(#groups, 0)
 end
 

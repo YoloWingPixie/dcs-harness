@@ -5,6 +5,9 @@
     including wind, temperature, and pressure queries.
 ]]
 
+require("logger")
+require("vector")
+
 --- Get wind at a specific point
 ---@param point table? Vec3 position {x, y, z}
 ---@return table? wind Wind vector if successful, nil otherwise

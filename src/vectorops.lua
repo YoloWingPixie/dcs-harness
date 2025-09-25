@@ -6,6 +6,9 @@
     All shapes are represented as arrays of Vec2/Vec3 points.
 ]]
 
+require("logger")
+require("geomath")
+
 --- Finds intersection point of two 2D line segments
 --- @param p1 table First point of first line segment {x, z}
 --- @param p2 table Second point of first line segment {x, z}

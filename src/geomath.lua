@@ -6,6 +6,9 @@
     coordinate transformations, and geometric operations.
 ]]
 
+require("logger")
+require("vector")
+
 -- Constants
 local NM_TO_METERS = 1852
 local METERS_TO_NM = 1 / 1852

@@ -1,16 +1,35 @@
 -- test_coord.lua
 local lu = require('luaunit')
+require('test_utils')
 
 -- Setup test environment
 package.path = package.path .. ';../src/?.lua'
-require('mock_dcs')
-require('_header')
-require('logger')
-require('coord')
 
-TestCoord = {}
+-- Create isolated test suite
+TestCoord = CreateIsolatedTestSuite('TestCoord', {})
 
 function TestCoord:setUp()
+    -- Load required modules
+    require('mock_dcs')
+    require('_header')
+    
+    -- Ensure _HarnessInternal has required fields before loading logger
+    if not _HarnessInternal.loggers then
+        _HarnessInternal.loggers = {}
+    end
+    if not _HarnessInternal.defaultNamespace then
+        _HarnessInternal.defaultNamespace = "Harness"
+    end
+    
+    require('logger')
+    
+    -- Ensure internal logger is created
+    if not _HarnessInternal.log then
+        _HarnessInternal.log = HarnessLogger("Harness")
+    end
+    
+    require('coord')
+    
     -- Save original mock functions
     self.original_LOtoLL = coord.LOtoLL
     self.original_LLtoLO = coord.LLtoLO

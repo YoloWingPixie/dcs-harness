@@ -5,6 +5,9 @@
     including object queries, destruction, and property access.
 ]]
 
+require("logger")
+require("coalition")
+
 --- Gets a static object by its name
 ---@param name string The name of the static object
 ---@return table? staticObject The static object or nil if not found

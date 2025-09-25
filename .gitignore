@@ -54,3 +54,9 @@ Thumbs.db
 *.tmp
 *.bak
 *~
+
+
+CLAUDE.md
+.claude/
+
+.task/

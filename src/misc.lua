@@ -4,7 +4,7 @@
     Miscellaneous utility functions
 ==================================================================================================
 ]]
-
+require("logger")
 --- Deep copy a table
 ---@param original any Value to copy (tables are copied recursively)
 ---@return any copy Deep copy of the original

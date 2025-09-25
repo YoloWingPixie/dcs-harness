@@ -4,7 +4,7 @@
     Time and scheduling utilities
 ==================================================================================================
 ]]
-
+require("logger")
 --- Get mission time
 ---@return number time Current mission time in seconds
 ---@usage local time = GetTime()

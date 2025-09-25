@@ -24,7 +24,14 @@ land = {
     getIP = function(origin, direction, maxDistance) return {x = 100, y = 50, z = 200} end,
     profile = function(from, to) return {{x = 0, y = 100}, {x = 100, y = 120}} end,
     getClosestPointOnRoads = function(roadType, x, y) return {x = x, y = 0, z = y} end,
-    findPathOnRoads = function(roadType, x1, y1, x2, y2) return {{x = x1, y = 0, z = y1}, {x = x2, y = 0, z = y2}} end
+    findPathOnRoads = function(roadType, x1, y1, x2, y2) return {{x = x1, y = 0, z = y1}, {x = x2, y = 0, z = y2}} end,
+    SurfaceType = {
+        LAND = 1,
+        SHALLOW_WATER = 2,
+        WATER = 3,
+        ROAD = 4,
+        RUNWAY = 5
+    }
 }
 
 coord = {
@@ -40,15 +47,183 @@ trigger = {
         getUserFlag = function(name) return 0 end
     },
     action = {
-        setUserFlag = function(name, value) return true end,
-        outText = function(text, time, clear) return true end,
-        outTextForCoalition = function(coalition, text, time, clear) return true end,
-        outTextForGroup = function(group, text, time, clear) return true end,
-        explosion = function(pos, power) return true end,
-        smoke = function(pos, color, density, name) return true end,
-        effectSmokeBig = function(pos, preset, density, name) return true end,
-        signalFlare = function(pos, color, azimuth) return true end,
-        illuminationBomb = function(pos, power) return true end
+        -- Track function calls for testing
+        _called = {},
+        _callCount = 0,
+        _trackCall = function(funcName, ...)
+            trigger.action._callCount = trigger.action._callCount + 1
+            trigger.action._called[trigger.action._callCount] = {func = funcName, args = {...}}
+        end,
+        
+        setUserFlag = function(name, value) 
+            trigger.action._trackCall("setUserFlag", name, value)
+            return true 
+        end,
+        outText = function(text, time, clear) 
+            trigger.action._trackCall("outText", text, time, clear)
+            return true 
+        end,
+        outTextForCoalition = function(coalition, text, time, clear) 
+            trigger.action._trackCall("outTextForCoalition", coalition, text, time, clear)
+            return true 
+        end,
+        outTextForGroup = function(group, text, time, clear) 
+            trigger.action._trackCall("outTextForGroup", group, text, time, clear)
+            return true 
+        end,
+        outTextForUnit = function(unit, text, time, clear) 
+            trigger.action._trackCall("outTextForUnit", unit, text, time, clear)
+            return true 
+        end,
+        outSound = function(soundFile, soundType) 
+            trigger.action._trackCall("outSound", soundFile, soundType)
+            return true 
+        end,
+        outSoundForCoalition = function(coalition, soundFile, soundType) 
+            trigger.action._trackCall("outSoundForCoalition", coalition, soundFile, soundType)
+            return true 
+        end,
+        explosion = function(pos, power) 
+            trigger.action._trackCall("explosion", pos, power)
+            return true 
+        end,
+        smoke = function(pos, color, density, name) 
+            trigger.action._trackCall("smoke", pos, color, density, name)
+            return true 
+        end,
+        effectSmokeBig = function(pos, preset, density, name) 
+            trigger.action._trackCall("effectSmokeBig", pos, preset, density, name)
+            return true 
+        end,
+        effectSmokeStop = function(name) 
+            trigger.action._trackCall("effectSmokeStop", name)
+            return true 
+        end,
+        signalFlare = function(pos, color, azimuth) 
+            trigger.action._trackCall("signalFlare", pos, color, azimuth)
+            return true 
+        end,
+        illuminationBomb = function(pos, power) 
+            trigger.action._trackCall("illuminationBomb", pos, power)
+            return true 
+        end,
+        radioTransmission = function(filename, pos, modulation, loop, frequency, power, name) 
+            trigger.action._trackCall("radioTransmission", filename, pos, modulation, loop, frequency, power, name)
+            return true 
+        end,
+        stopRadioTransmission = function(name) 
+            trigger.action._trackCall("stopRadioTransmission", name)
+            return true 
+        end,
+        setMarkupRadius = function(id, radius) 
+            trigger.action._trackCall("setMarkupRadius", id, radius)
+            return true 
+        end,
+        setMarkupText = function(id, text) 
+            trigger.action._trackCall("setMarkupText", id, text)
+            return true 
+        end,
+        setMarkupColor = function(id, color) 
+            trigger.action._trackCall("setMarkupColor", id, color)
+            return true 
+        end,
+        setMarkupColorFill = function(id, colorFill) 
+            trigger.action._trackCall("setMarkupColorFill", id, colorFill)
+            return true 
+        end,
+        setMarkupFontSize = function(id, fontSize) 
+            trigger.action._trackCall("setMarkupFontSize", id, fontSize)
+            return true 
+        end,
+        removeMark = function(id) 
+            trigger.action._trackCall("removeMark", id)
+            return true 
+        end,
+        markToAll = function(id, text, pos, readOnly, message) 
+            trigger.action._trackCall("markToAll", id, text, pos, readOnly, message)
+            return true 
+        end,
+        markToCoalition = function(id, text, pos, coalition, readOnly, message) 
+            trigger.action._trackCall("markToCoalition", id, text, pos, coalition, readOnly, message)
+            return true 
+        end,
+        markToGroup = function(id, text, pos, groupId, readOnly, message) 
+            trigger.action._trackCall("markToGroup", id, text, pos, groupId, readOnly, message)
+            return true 
+        end,
+        lineToAll = function(id, startPoint, endPoint, color, lineType, readOnly, message) 
+            trigger.action._trackCall("lineToAll", id, startPoint, endPoint, color, lineType, readOnly, message)
+            return true 
+        end,
+        circleToAll = function(id, center, radius, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("circleToAll", id, center, radius, color, fillColor, lineType, readOnly, message)
+            return true 
+        end,
+        rectToAll = function(id, startPoint, endPoint, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("rectToAll", id, startPoint, endPoint, color, fillColor, lineType, readOnly, message)
+            return true 
+        end,
+        quadToAll = function(id, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("quadToAll", id, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
+            return true 
+        end,
+        textToAll = function(id, text, point, color, fillColor, fontSize, readOnly, message) 
+            trigger.action._trackCall("textToAll", id, text, point, color, fillColor, fontSize, readOnly, message)
+            return true 
+        end,
+        arrowToAll = function(id, startPoint, endPoint, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("arrowToAll", id, startPoint, endPoint, color, fillColor, lineType, readOnly, message)
+            return true 
+        end,
+        markupToAll = function(...) 
+            trigger.action._trackCall("markupToAll", ...)
+            return true 
+        end,
+        setAITask = function(group, task) 
+            trigger.action._trackCall("setAITask", group, task)
+            return true 
+        end,
+        pushAITask = function(group, task) 
+            trigger.action._trackCall("pushAITask", group, task)
+            return true 
+        end,
+        activateGroup = function(group) 
+            trigger.action._trackCall("activateGroup", group)
+            return true 
+        end,
+        deactivateGroup = function(group) 
+            trigger.action._trackCall("deactivateGroup", group)
+            return true 
+        end,
+        setGroupAIOn = function(group) 
+            trigger.action._trackCall("setGroupAIOn", group)
+            return true 
+        end,
+        setGroupAIOff = function(group) 
+            trigger.action._trackCall("setGroupAIOff", group)
+            return true 
+        end,
+        groupStopMoving = function(group) 
+            trigger.action._trackCall("groupStopMoving", group)
+            return true 
+        end,
+        groupContinueMoving = function(group) 
+            trigger.action._trackCall("groupContinueMoving", group)
+            return true 
+        end
+    },
+    smokeColor = {
+        Green = 0,
+        Red = 1,
+        White = 2,
+        Orange = 3,
+        Blue = 4
+    },
+    flareColor = {
+        Green = 0,
+        Red = 1,
+        White = 2,
+        Yellow = 3
     }
 }
 
@@ -68,9 +243,50 @@ Unit = {
             getFuel = function(self) return 0.8 end,
             inAir = function(self) return true end,
             getAmmo = function(self) return {} end,
-            getName = function(self) return name end
+            getName = function(self) return name end,
+            getID = function(self) return 1 end,
+            getNumber = function(self) return 1 end,
+            getCallsign = function(self) return "Enfield 1-1" end,
+            getObjectID = function(self) return 1001 end,
+            getCategoryEx = function(self) return 0 end,
+            getDesc = function(self) return {} end,
+            getForcesName = function(self) return "USA" end,
+            isActive = function(self) return true end,
+            getController = function(self) return {} end,
+            getSensors = function(self) return {} end,
+            hasSensors = function(self, sensorType, subCategory) return true end,
+            getRadar = function(self) return true, nil end,
+            enableEmission = function(self, enabled) return true end,
+            getNearestCargos = function(self) return {} end,
+            getCargosOnBoard = function(self) return {} end,
+            getDescentCapacity = function(self) return 10 end,
+            getDescentOnBoard = function(self) return {} end,
+            LoadOnBoard = function(self, cargo) return true end,
+            UnloadCargo = function(self, cargo) return true end,
+            openRamp = function(self) return true end,
+            checkOpenRamp = function(self) return false end,
+            disembarking = function(self) return true end,
+            markDisembarkingTask = function(self) return true end,
+            embarking = function(self) return false end,
+            getAirbase = function(self) return nil end,
+            canShipLanding = function(self) return false end,
+            hasCarrier = function(self) return false end,
+            getNearestCargosForAircraft = function(self) return {} end,
+            getFuelLowState = function(self) return 0.25 end,
+            OldCarrierMenuShow = function(self) return true end,
+            getDrawArgumentValue = function(self, arg) return 0 end,
+            getCommunicator = function(self) return {} end,
+            getSeats = function(self) return {} end,
+            getCategory = function(self) return 1 end
         }
-    end
+    end,
+    Category = {
+        AIRPLANE = 0,
+        HELICOPTER = 1,
+        GROUND_UNIT = 2,
+        SHIP = 3,
+        STRUCTURE = 4
+    }
 }
 
 Group = {
@@ -144,14 +360,272 @@ world = {
     removeEventHandler = function(handler) return true end,
     getPlayer = function() return Unit.getByName("Player") end,
     getAirbases = function(coalition) return {} end,
-    searchObjects = function(category, volume, handler) return {} end,
-    getMarkPanels = function() return {} end
+    searchObjects = function(category, volume, handler) 
+        -- Mock implementation that delegates to global SearchWorldObjects if it exists
+        -- This allows tests to override SearchWorldObjects behavior while still
+        -- going through the proper world.searchObjects call path
+        if _G.SearchWorldObjects then
+            return _G.SearchWorldObjects(category, volume, handler)
+        end
+        return {}
+    end,
+    getMarkPanels = function() return {} end,
+    getWeather = function() return {temperature = 15, pressure = 101325} end,
+    removeJunk = function(searchVolume) return 0 end,
+    onEvent = function(event) return true end,
+    addMarkingPanel = function(name, pos) return 1 end,
+    removeMarkingPanel = function(id) return true end,
+    VolumeType = {
+        SEGMENT = 0,
+        BOX = 1,
+        SPHERE = 2,
+        PYRAMID = 3
+    },
+    event = {
+        S_EVENT_SHOT = 1,
+        S_EVENT_HIT = 2,
+        S_EVENT_TAKEOFF = 3,
+        S_EVENT_LAND = 4,
+        S_EVENT_CRASH = 5,
+        S_EVENT_EJECTION = 6,
+        S_EVENT_REFUELING = 7,
+        S_EVENT_DEAD = 8,
+        S_EVENT_PILOT_DEAD = 9,
+        S_EVENT_BASE_CAPTURED = 10,
+        S_EVENT_MISSION_START = 15,
+        S_EVENT_MISSION_END = 16,
+        S_EVENT_TOOK_CONTROL = 17,
+        S_EVENT_REFUELING_STOP = 18,
+        S_EVENT_BIRTH = 20,
+        S_EVENT_HUMAN_FAILURE = 21,
+        S_EVENT_ENGINE_STARTUP = 23,
+        S_EVENT_ENGINE_SHUTDOWN = 24,
+        S_EVENT_PLAYER_ENTER_UNIT = 25,
+        S_EVENT_PLAYER_LEAVE_UNIT = 26,
+        S_EVENT_PLAYER_COMMENT = 27,
+        S_EVENT_SHOOTING_START = 28,
+        S_EVENT_SHOOTING_END = 29,
+        S_EVENT_MARK_ADDED = 30,
+        S_EVENT_MARK_CHANGE = 31,
+        S_EVENT_MARK_REMOVED = 32,
+        S_EVENT_KILL = 33,
+        S_EVENT_SCORE = 34,
+        S_EVENT_UNIT_LOST = 35,
+        S_EVENT_LANDING_AFTER_EJECTION = 36
+    }
 }
 
 country = {
     id = {
         USA = 1,
         RUSSIA = 2
+    }
+}
+
+-- Object category constants
+Object = {
+    Category = {
+        VOID = 0,
+        UNIT = 1,
+        WEAPON = 2,
+        STATIC = 3,
+        BASE = 4,
+        SCENERY = 5,
+        CARGO = 6
+    }
+}
+
+-- StaticObject API
+StaticObject = {
+    getByName = function(name) 
+        return {
+            getID = function(self) return 1 end,
+            getLife = function(self) return 1.0 end,
+            getCargoDisplayName = function(self) return "Cargo" end,
+            getCargoWeight = function(self) return 1000 end,
+            destroy = function(self) return true end,
+            getCategory = function(self) return 3 end,
+            getTypeName = function(self) return "Warehouse" end,
+            getDesc = function(self) return {} end,
+            isExist = function(self) return true end,
+            getCoalition = function(self) return 2 end,
+            getCountry = function(self) return 1 end,
+            getPoint = function(self) return {x = 100, y = 0, z = 200} end,
+            getPosition = function(self) return {p = {x = 100, y = 0, z = 200}, x = {x = 1, y = 0, z = 0}} end,
+            getVelocity = function(self) return {x = 0, y = 0, z = 0} end,
+            getName = function(self) return name end
+        }
+    end,
+    Category = {
+        VOID = 0,
+        UNIT = 1,
+        WEAPON = 2,
+        STATIC = 3,
+        BASE = 4,
+        SCENERY = 5,
+        CARGO = 6
+    }
+}
+
+-- Weapon API
+Weapon = {
+    Category = {
+        SHELL = 0,
+        MISSILE = 1,
+        ROCKET = 2,
+        BOMB = 3,
+        TORPEDO = 4
+    },
+    getDesc = function(self) return {} end,
+    getLauncher = function(self) return Unit.getByName("launcher") end,
+    getTarget = function(self) return nil end,
+    getCategory = function(self) return 2 end,  -- Weapon.Category.MISSILE
+    isExist = function(self) return true end,
+    getCoalition = function(self) return 2 end,
+    getCountry = function(self) return 1 end,
+    getPoint = function(self) return {x = 100, y = 50, z = 200} end,
+    getPosition = function(self) return {p = {x = 100, y = 50, z = 200}, x = {x = 1, y = 0, z = 0}} end,
+    getVelocity = function(self) return {x = 200, y = -10, z = 0} end,
+    getName = function(self) return "AGM-65" end,
+    getCategoryName = function(self) return "MISSILE" end,
+    isActive = function(self) return true end,
+    destroy = function(self) return true end
+}
+
+-- Controller API
+Controller = {
+    setTask = function(self, task) return true end,
+    resetTask = function(self) return true end,
+    pushTask = function(self, task) return true end,
+    popTask = function(self) return true end,
+    hasTask = function(self) return true end,
+    setCommand = function(self, command) return true end,
+    setOnOff = function(self, onOff) return true end,
+    setAltitude = function(self, altitude, altitudeType) return true end,
+    setSpeed = function(self, speed, speedType) return true end,
+    setOption = function(self, optionId, optionValue) return true end,
+    getDetectedTargets = function(self, detectionType, categoryFilter) return {} end,
+    knowTarget = function(self, target, typeKnown, distanceKnown) return true end,
+    isTargetDetected = function(self, target, detectionType) return true end
+}
+
+-- AI Constants
+AI = {
+    Option = {
+        Air = {
+            id = {
+                ROE = 0,
+                REACTION_ON_THREAT = 1,
+                RADAR_USING = 3,
+                FLARE_USING = 4,
+                FORMATION = 5,
+                RTB_ON_BINGO = 6,
+                SILENCE = 7,
+                ALARM_STATE = 9,
+                RTB_ON_OUT_OF_AMMO = 10,
+                ECM_USING = 13,
+                PROHIBIT_WP_PASS_REPORT = 14,
+                PROHIBIT_AA = 15,
+                PROHIBIT_JETT = 16,
+                PROHIBIT_AB = 17,
+                PROHIBIT_AG = 18,
+                MISSILE_ATTACK = 19,
+                PROHIBIT_WP_PASS_REPORT2 = 20,
+                DISPERSAL_ON_ATTACK = 21
+            },
+            val = {
+                ROE = {
+                    WEAPON_FREE = 0,
+                    OPEN_FIRE_WEAPON_FREE = 1,
+                    OPEN_FIRE = 2,
+                    RETURN_FIRE = 3,
+                    WEAPON_HOLD = 4
+                },
+                REACTION_ON_THREAT = {
+                    NO_REACTION = 0,
+                    PASSIVE_DEFENCE = 1,
+                    EVADE_FIRE = 2,
+                    BYPASS_AND_ESCAPE = 3,
+                    ALLOW_ABORT_MISSION = 4
+                }
+            }
+        },
+        Ground = {
+            id = {
+                ALARM_STATE = 9,
+                ROE = 0
+            },
+            val = {
+                ALARM_STATE = {
+                    AUTO = 0,
+                    GREEN = 1,
+                    RED = 2
+                },
+                ROE = {
+                    OPEN_FIRE = 2,
+                    RETURN_FIRE = 3,
+                    WEAPON_HOLD = 4
+                }
+            }
+        },
+        Naval = {
+            id = {
+                ROE = 0
+            },
+            val = {
+                ROE = {
+                    OPEN_FIRE = 2,
+                    RETURN_FIRE = 3,
+                    WEAPON_HOLD = 4
+                }
+            }
+        }
+    },
+    Skill = {
+        AVERAGE = "Average",
+        GOOD = "Good",
+        HIGH = "High",
+        EXCELLENT = "Excellent",
+        RANDOM = "Random"
+    }
+}
+
+-- Sensor Constants
+Sensor = {
+    RADAR = 1,
+    IRST = 2,
+    OPTIC = 3,
+    RWR = 4
+}
+
+-- Spot API
+Spot = {
+    createLaser = function(source, spotType, code) 
+        return {
+            destroy = function(self) return true end,
+            getPoint = function(self) return {x = 100, y = 0, z = 200} end,
+            setPoint = function(self, point) return true end,
+            getCode = function(self) return 1688 end,
+            setCode = function(self, code) return true end,
+            isExist = function(self) return true end,
+            getCategory = function(self) return 0, 0 end
+        }
+    end,
+    createInfraRed = function(source, target)
+        return {
+            destroy = function(self) return true end,
+            getPoint = function(self) return {x = 100, y = 0, z = 200} end,
+            setPoint = function(self, point) return true end,
+            isExist = function(self) return true end,
+            getCategory = function(self) return 0, 1 end
+        }
+    end,
+    LaserSpotType = {
+        LASER = 0
+    },
+    Category = {
+        LASER = 0,
+        INFRARED = 1
     }
 }
 

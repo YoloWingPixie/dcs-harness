@@ -6,6 +6,10 @@
     All shapes are geospatially aware and use real-world measurements.
 ]]
 
+require("logger")
+require("vector")
+require("geomath")
+
 --- Creates an equilateral triangle shape
 --- @param center table|Vec2 Center point of the triangle {x, z} or Vec2
 --- @param size number? Length of each side in meters (default: 1000)

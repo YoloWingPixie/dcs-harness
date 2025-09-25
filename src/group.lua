@@ -5,6 +5,10 @@
 ==================================================================================================
 ]]
 
+require("logger")
+require("cache")
+require("vector")
+
 --- Get group by name
 ---@param groupName string The name of the group to retrieve
 ---@return table? group The group object if found, nil otherwise
@@ -15,10 +19,31 @@ function GetGroup(groupName)
         return nil
     end
     
+    -- Check cache first
+    local cached = _HarnessInternal.cache.groups[groupName]
+    if cached then
+        -- Verify group still exists
+        local success, exists = pcall(function() return cached:isExist() end)
+        if success and exists then
+            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+            return cached
+        else
+            -- Remove from cache if no longer exists
+            RemoveGroupFromCache(groupName)
+        end
+    end
+    
+    -- Get from DCS API
     local success, group = pcall(Group.getByName, groupName)
     if not success then
         _HarnessInternal.log.error("Failed to get group: " .. tostring(group), "GetGroup")
         return nil
+    end
+    
+    -- Add to cache if valid
+    if group then
+        _HarnessInternal.cache.groups[groupName] = group
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
     end
     
     return group
@@ -162,6 +187,13 @@ end
 ---@return table? controller The controller object if found, nil otherwise
 ---@usage local controller = GetGroupController("Aerial-1")
 function GetGroupController(groupName)
+    -- Check cache first
+    local cacheKey = "group:" .. groupName
+    local cached = _HarnessInternal.cache.getController(cacheKey)
+    if cached then
+        return cached
+    end
+    
     local group = GetGroup(groupName)
     if not group then
         return nil
@@ -171,6 +203,11 @@ function GetGroupController(groupName)
     if not success then
         _HarnessInternal.log.error("Failed to get group controller: " .. tostring(controller), "GetGroupController")
         return nil
+    end
+    
+    -- Add to cache
+    if controller then
+        _HarnessInternal.cache.addController(cacheKey, controller)
     end
     
     return controller
@@ -291,4 +328,166 @@ function GetCoalitionGroups(coalitionId, categoryId)
     end
     
     return groups or {}
+end
+
+-- Advanced Group Functions
+
+--- Get group name
+---@param group table Group object
+---@return string? name Group name or nil on error
+---@usage local name = GetGroupName(group)
+function GetGroupName(group)
+    if not group then
+        _HarnessInternal.log.error("GetGroupName requires group", "GetGroupName")
+        return nil
+    end
+    
+    local success, name = pcall(function() return group:getName() end)
+    if not success then
+        _HarnessInternal.log.error("Failed to get group name: " .. tostring(name), "GetGroupName")
+        return nil
+    end
+    
+    return name
+end
+
+--- Get unit by index
+---@param group table Group object
+---@param index number Unit index (1-based)
+---@return table? unit Unit object or nil on error
+---@usage local unit = GetGroupUnit(group, 1)
+function GetGroupUnit(group, index)
+    if not group then
+        _HarnessInternal.log.error("GetGroupUnit requires group", "GetGroupUnit")
+        return nil
+    end
+    
+    if not index or type(index) ~= "number" then
+        _HarnessInternal.log.error("GetGroupUnit requires numeric index", "GetGroupUnit")
+        return nil
+    end
+    
+    local success, unit = pcall(function() return group:getUnit(index) end)
+    if not success then
+        _HarnessInternal.log.error("Failed to get unit by index: " .. tostring(unit), "GetGroupUnit")
+        return nil
+    end
+    
+    return unit
+end
+
+--- Get group category extended
+---@param group table Group object
+---@return number? category Extended category or nil on error
+---@usage local cat = GetGroupCategoryEx(group)
+function GetGroupCategoryEx(group)
+    if not group then
+        _HarnessInternal.log.error("GetGroupCategoryEx requires group", "GetGroupCategoryEx")
+        return nil
+    end
+    
+    local success, category = pcall(function() return group:getCategoryEx() end)
+    if not success then
+        _HarnessInternal.log.error("Failed to get group category ex: " .. tostring(category), "GetGroupCategoryEx")
+        return nil
+    end
+    
+    return category
+end
+
+--- Enable/disable group emissions
+---@param group table Group object
+---@param enabled boolean True to enable emissions
+---@return boolean success True if emissions were set
+---@usage EnableGroupEmissions(group, false) -- Go dark
+function EnableGroupEmissions(group, enabled)
+    if not group then
+        _HarnessInternal.log.error("EnableGroupEmissions requires group", "EnableGroupEmissions")
+        return false
+    end
+    
+    if type(enabled) ~= "boolean" then
+        _HarnessInternal.log.error("EnableGroupEmissions requires boolean enabled", "EnableGroupEmissions")
+        return false
+    end
+    
+    local success, result = pcall(function() group:enableEmission(enabled) end)
+    if not success then
+        _HarnessInternal.log.error("Failed to set group emissions: " .. tostring(result), "EnableGroupEmissions")
+        return false
+    end
+    
+    _HarnessInternal.log.info("Set group emissions: " .. tostring(enabled), "EnableGroupEmissions")
+    return true
+end
+
+--- Destroy group without events
+---@param group table Group object
+---@return boolean success True if destroyed
+---@usage DestroyGroup(group)
+function DestroyGroup(group)
+    if not group then
+        _HarnessInternal.log.error("DestroyGroup requires group", "DestroyGroup")
+        return false
+    end
+    
+    local success, result = pcall(function() group:destroy() end)
+    if not success then
+        _HarnessInternal.log.error("Failed to destroy group: " .. tostring(result), "DestroyGroup")
+        return false
+    end
+    
+    _HarnessInternal.log.info("Destroyed group", "DestroyGroup")
+    return true
+end
+
+--- Check if group is embarking
+---@param group table Group object
+---@return boolean? embarking True if embarking, nil on error
+---@usage if IsGroupEmbarking(group) then ... end
+function IsGroupEmbarking(group)
+    if not group then
+        _HarnessInternal.log.error("IsGroupEmbarking requires group", "IsGroupEmbarking")
+        return nil
+    end
+    
+    local success, embarking = pcall(function() return group:embarking() end)
+    if not success then
+        _HarnessInternal.log.error("Failed to check group embarking: " .. tostring(embarking), "IsGroupEmbarking")
+        return nil
+    end
+    
+    return embarking
+end
+
+--- Create map marker for group
+---@param group table Group object
+---@param point table Position for marker (Vec3)
+---@param text string Marker text
+---@return boolean success True if marker created
+---@usage MarkGroup(group, position, "Enemy armor")
+function MarkGroup(group, point, text)
+    if not group then
+        _HarnessInternal.log.error("MarkGroup requires group", "MarkGroup")
+        return false
+    end
+    
+    if not point or not IsVec3(point) then
+        _HarnessInternal.log.error("MarkGroup requires Vec3 position", "MarkGroup")
+        return false
+    end
+    
+    if not text or type(text) ~= "string" then
+        _HarnessInternal.log.error("MarkGroup requires string text", "MarkGroup")
+        return false
+    end
+    
+    local success, result = pcall(function() group:markGroup(point, text) end)
+    if not success then
+        _HarnessInternal.log.error("Failed to mark group: " .. tostring(result), "MarkGroup")
+        return false
+    end
+    
+    _HarnessInternal.log.info("Marked group with: " .. text, "MarkGroup")
+    return true
 end

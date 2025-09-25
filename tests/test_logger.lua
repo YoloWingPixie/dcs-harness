@@ -1,11 +1,32 @@
 -- Unit tests for logger.lua module
 local lu = require('luaunit')
+require('test_utils')
 
-TestLogger = {}
+-- Setup test environment
+package.path = package.path .. ';../src/?.lua'
+
+-- Create isolated test suite
+TestLogger = CreateIsolatedTestSuite('TestLogger', {})
 
 function TestLogger:setUp()
-    -- Reset loggers before each test
-    _HarnessInternal.loggers = {}
+    -- Load required modules
+    require('mock_dcs')
+    require('_header')
+    
+    -- Ensure _HarnessInternal has required fields before loading logger
+    if not _HarnessInternal.loggers then
+        _HarnessInternal.loggers = {}
+    end
+    if not _HarnessInternal.defaultNamespace then
+        _HarnessInternal.defaultNamespace = "Harness"
+    end
+    
+    require('logger')
+    
+    -- Ensure internal logger is created
+    if not _HarnessInternal.log then
+        _HarnessInternal.log = HarnessLogger("Harness")
+    end
     
     -- Capture log messages
     self.capturedLogs = {
@@ -14,7 +35,10 @@ function TestLogger:setUp()
         error = {}
     }
     
-    -- Mock env functions to capture output
+    -- Save original Log global
+    self.originalLog = Log
+    
+    -- Mock DCS env functions to capture output
     self.originalEnv = {
         info = env.info,
         warning = env.warning,
@@ -39,6 +63,9 @@ function TestLogger:tearDown()
     env.info = self.originalEnv.info
     env.warning = self.originalEnv.warning
     env.error = self.originalEnv.error
+    
+    -- Restore original Log global
+    Log = self.originalLog
 end
 
 -- Test logger creation with default namespace

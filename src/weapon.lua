@@ -5,6 +5,9 @@
     including weapon tracking, target queries, and launcher information.
 ]]
 
+require("logger")
+-- require("vector")
+
 --- Gets the type name of a weapon
 ---@param weapon table The weapon object
 ---@return string? typeName The weapon type name or nil on error

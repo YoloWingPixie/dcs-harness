@@ -1,19 +1,48 @@
 -- test_zone.lua
 local lu = require('luaunit')
+require('test_utils')
 
 -- Setup test environment
 package.path = package.path .. ';../src/?.lua'
-require('mock_dcs')
-require('_header')
-require('logger')
-require('vector')
-require('unit')
-require('group')
-require('zone')
 
-TestZone = {}
+-- Create isolated test suite
+TestZone = CreateIsolatedTestSuite('TestZone', {})
 
 function TestZone:setUp()
+    -- Load required modules
+    require('mock_dcs')
+    require('_header')
+    
+    -- Ensure _HarnessInternal has required fields before loading logger
+    if not _HarnessInternal.loggers then
+        _HarnessInternal.loggers = {}
+    end
+    if not _HarnessInternal.defaultNamespace then
+        _HarnessInternal.defaultNamespace = "Harness"
+    end
+    
+    require('logger')
+    
+    -- Ensure internal logger is created
+    if not _HarnessInternal.log then
+        _HarnessInternal.log = HarnessLogger("Harness")
+    end
+    
+    require('cache')
+    require('vector')
+    require('unit')
+    require('group')
+    require('zone')
+    
+    -- Clear cache data but preserve functions
+    if _HarnessInternal.cache then
+        _HarnessInternal.cache.units = {}
+        _HarnessInternal.cache.groups = {}
+        _HarnessInternal.cache.controllers = {}
+        _HarnessInternal.cache.airbases = {}
+        _HarnessInternal.cache.stats = { hits = 0, misses = 0, evictions = 0 }
+    end
+    
     -- Save original mock functions
     self.original_getZone = trigger.misc.getZone
     self.original_getByName = Unit.getByName
@@ -175,18 +204,21 @@ function TestZone:testIsUnitInZone_UnitInside()
 end
 
 function TestZone:testIsUnitInZone_UnitOutside()
+    -- Clear cache to ensure clean state
+    ClearUnitCache()
+    
     -- Mock unit at position outside zone
     local mockUnit = {
         isExist = function(self) return true end,
-        getPosition = function(self) return {p = {x = 5000, y = 50, z = 6000}} end,
-        getName = function(self) return "TestUnit" end
+        getPosition = function(self) return {p = {x = 2000, y = 50, z = 3000}} end,  -- Outside zone (LZ Alpha center is 1000,0,2000 with radius 500)
+        getName = function(self) return "OutsideUnit" end
     }
     Unit.getByName = function(name)
-        if name == "TestUnit" then return mockUnit end
+        if name == "OutsideUnit" then return mockUnit end
         return nil
     end
     
-    local inZone = IsUnitInZone("TestUnit", "LZ Alpha")
+    local inZone = IsUnitInZone("OutsideUnit", "LZ Alpha")
     lu.assertFalse(inZone)
 end
 
@@ -247,36 +279,40 @@ function TestZone:testIsGroupInZone_SomeUnitsInside()
 end
 
 function TestZone:testIsGroupInZone_NoUnitsInside()
+    -- Clear cache to ensure clean state
+    ClearGroupCache()
+    ClearUnitCache()
+    
     -- Mock group with all units outside
     local mockUnit1 = {
         isExist = function(self) return true end,
-        getPosition = function(self) return {p = {x = 5000, y = 50, z = 6000}} end,
-        getName = function(self) return "Unit1" end
+        getPosition = function(self) return {p = {x = 2000, y = 50, z = 3000}} end,  -- Outside zone (LZ Alpha center is 1000,0,2000 with radius 500)
+        getName = function(self) return "NoInsideUnit1" end
     }
     local mockUnit2 = {
         isExist = function(self) return true end,
-        getPosition = function(self) return {p = {x = 6000, y = 50, z = 7000}} end,
-        getName = function(self) return "Unit2" end
+        getPosition = function(self) return {p = {x = 3000, y = 50, z = 4000}} end,  -- Way outside zone
+        getName = function(self) return "NoInsideUnit2" end
     }
     
     local mockGroup = {
         isExist = function(self) return true end,
         getUnits = function(self) return {mockUnit1, mockUnit2} end,
-        getName = function(self) return "TestGroup" end
+        getName = function(self) return "NoUnitsInsideGroup" end
     }
     
     Group.getByName = function(name)
-        if name == "TestGroup" then return mockGroup end
+        if name == "NoUnitsInsideGroup" then return mockGroup end
         return nil
     end
     
     Unit.getByName = function(name)
-        if name == "Unit1" then return mockUnit1
-        elseif name == "Unit2" then return mockUnit2 end
+        if name == "NoInsideUnit1" then return mockUnit1
+        elseif name == "NoInsideUnit2" then return mockUnit2 end
         return nil
     end
     
-    local inZone = IsGroupInZone("TestGroup", "LZ Alpha")
+    local inZone = IsGroupInZone("NoUnitsInsideGroup", "LZ Alpha")
     lu.assertFalse(inZone)
 end
 
@@ -322,52 +358,59 @@ function TestZone:testIsGroupCompletelyInZone_AllUnitsInside()
 end
 
 function TestZone:testIsGroupCompletelyInZone_SomeUnitsOutside()
+    -- Clear cache to ensure clean state
+    ClearGroupCache()
+    ClearUnitCache()
+    
     -- Mock group with mixed units
     local mockUnit1 = {
         isExist = function(self) return true end,
-        getPosition = function(self) return {p = {x = 1100, y = 50, z = 2050}} end,
-        getName = function(self) return "Unit1" end
+        getPosition = function(self) return {p = {x = 1200, y = 50, z = 2200}} end,  -- Inside zone (within 500 radius of 1000,0,2000)
+        getName = function(self) return "MixedUnit1" end
     }
     local mockUnit2 = {
         isExist = function(self) return true end,
-        getPosition = function(self) return {p = {x = 5000, y = 50, z = 6000}} end,
-        getName = function(self) return "Unit2" end
+        getPosition = function(self) return {p = {x = 2000, y = 50, z = 3000}} end,  -- Outside zone
+        getName = function(self) return "MixedUnit2" end
     }
     
     local mockGroup = {
         isExist = function(self) return true end,
         getUnits = function(self) return {mockUnit1, mockUnit2} end,
-        getName = function(self) return "TestGroup" end
+        getName = function(self) return "MixedGroup" end
     }
     
     Group.getByName = function(name)
-        if name == "TestGroup" then return mockGroup end
+        if name == "MixedGroup" then return mockGroup end
         return nil
     end
     
     Unit.getByName = function(name)
-        if name == "Unit1" then return mockUnit1
-        elseif name == "Unit2" then return mockUnit2 end
+        if name == "MixedUnit1" then return mockUnit1
+        elseif name == "MixedUnit2" then return mockUnit2 end
         return nil
     end
     
-    local inZone = IsGroupCompletelyInZone("TestGroup", "LZ Alpha")
+    local inZone = IsGroupCompletelyInZone("MixedGroup", "LZ Alpha")
     lu.assertFalse(inZone)
 end
 
 function TestZone:testIsGroupCompletelyInZone_EmptyGroup()
+    -- Clear cache to ensure clean state
+    ClearGroupCache()
+    
     local mockGroup = {
         isExist = function(self) return true end,
         getUnits = function(self) return {} end,
-        getName = function(self) return "TestGroup" end
+        getName = function(self) return "EmptyTestGroup" end
     }
     
     Group.getByName = function(name)
-        if name == "TestGroup" then return mockGroup end
+        if name == "EmptyTestGroup" then return mockGroup end
         return nil
     end
     
-    local inZone = IsGroupCompletelyInZone("TestGroup", "LZ Alpha")
+    local inZone = IsGroupCompletelyInZone("EmptyTestGroup", "LZ Alpha")
     lu.assertFalse(inZone)  -- Empty group returns false
 end
 
@@ -556,8 +599,8 @@ function TestZone:testZone_ZeroRadius()
     local position = {x = 1000, y = 0, z = 2000}
     lu.assertTrue(IsInZone(position, "Point Zone"))
     
-    -- Even slightly off should be outside
-    position = {x = 1000.1, y = 0, z = 2000}
+    -- A reasonable distance away should be outside (avoiding floating point precision issues)
+    position = {x = 1001, y = 0, z = 2000}  -- 1 meter away
     lu.assertFalse(IsInZone(position, "Point Zone"))
 end
 

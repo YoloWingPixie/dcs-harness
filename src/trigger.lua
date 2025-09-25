@@ -35,6 +35,18 @@ local function _defaultFill(color, fill)
     return {r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25))}
 end
 
+-- Convert color table to array form {r,g,b,a} for DCS APIs
+local function _toArrayColor(color)
+    if type(color) ~= "table" then
+        return {1, 1, 1, 1}
+    end
+    local r = color.r or color[1] or 1
+    local g = color.g or color[2] or 1
+    local b = color.b or color[3] or 1
+    local a = color.a or color[4] or 1
+    return {r, g, b, a}
+end
+
 --- Displays text message to all players
 ---@param text string The text message to display
 ---@param displayTime number? The time in seconds to display (default: 10)
@@ -682,9 +694,35 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage LineToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function LineToAll(markId, startPos, endPos, color, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("LineToAll requires valid mark ID", "Trigger.LineToAll")
+function LineToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd, lineTypeOrColor, readOnlyOrLineType, messageOrReadOnly)
+    -- Backward-compatible signature handling:
+    -- Old: (id, startPos, endPos, color, lineType, readOnly, message)
+    -- New (DCS): (coalition, id, startPos, endPos, color, lineType, readOnly, message)
+    local coalitionArg, idArg, startPos, endPos, color, lineType, readOnly, message
+    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+        -- Old signature without coalition
+        coalitionArg = -1
+        idArg = coalitionOrId
+        startPos = startOrIdOrStart
+        endPos = endOrStartOrEnd
+        color = colorOrEnd
+        lineType = lineTypeOrColor
+        readOnly = readOnlyOrLineType
+        message = messageOrReadOnly
+    else
+        -- New signature
+        coalitionArg = coalitionOrId
+        idArg = startOrIdOrStart
+        startPos = endOrStartOrEnd
+        endPos = colorOrEnd
+        color = lineTypeOrColor
+        lineType = readOnlyOrLineType
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("LineToAll requires valid unique ID", "Trigger.LineToAll")
         return nil
     end
 
@@ -699,9 +737,8 @@ function LineToAll(markId, startPos, endPos, color, lineType, readOnly, message)
     end
 
     color = _normalizeColor(color)
-    -- DCS expects color then fillColor then lineType
-    local fillColor = _defaultFill(color)
-    local success, result = pcall(trigger.action.lineToAll, markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color)
+    local success, result = pcall(trigger.action.lineToAll, coalitionArg, idArg, startPos, endPos, colorArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create line for all: " .. tostring(result), "Trigger.LineToAll")
         return nil
@@ -721,9 +758,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage CircleToAll(1001, {x=1000, y=0, z=2000}, 500, {r=1, g=0, b=0, a=1}, {r=1, g=0, b=0, a=0.3})
-function CircleToAll(markId, center, radius, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("CircleToAll requires valid mark ID", "Trigger.CircleToAll")
+function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, colorOrRadiusOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, center, radius, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, center, radius, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, center, radius, color, fillColor, lineType, readOnly, message
+    if type(centerOrIdOrCenter) == "table" and centerOrIdOrCenter.x and centerOrIdOrCenter.y and centerOrIdOrCenter.z and type(radiusOrCenterOrRadius) == "number" then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        center = centerOrIdOrCenter
+        radius = radiusOrCenterOrRadius
+        color = colorOrRadiusOrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = centerOrIdOrCenter
+        center = radiusOrCenterOrRadius
+        radius = colorOrRadiusOrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("CircleToAll requires valid unique ID", "Trigger.CircleToAll")
         return nil
     end
 
@@ -739,7 +801,9 @@ function CircleToAll(markId, center, radius, color, fillColor, lineType, readOnl
 
     color = _normalizeColor(color)
     fillColor = _defaultFill(color, fillColor)
-    local success, result = pcall(trigger.action.circleToAll, markId, center, radius, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color)
+    local fillArr = _toArrayColor(fillColor)
+    local success, result = pcall(trigger.action.circleToAll, coalitionArg, idArg, center, radius, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create circle for all: " .. tostring(result), "Trigger.CircleToAll")
         return nil
@@ -759,9 +823,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage RectToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=0, g=1, b=0, a=1})
-function RectToAll(markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("RectToAll requires valid mark ID", "Trigger.RectToAll")
+function RectToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
+    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        startPos = startOrIdOrStart
+        endPos = endOrStartOrEnd
+        color = colorOrEndOrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = startOrIdOrStart
+        startPos = endOrStartOrEnd
+        endPos = colorOrEndOrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("RectToAll requires valid unique ID", "Trigger.RectToAll")
         return nil
     end
 
@@ -775,7 +864,9 @@ function RectToAll(markId, startPos, endPos, color, fillColor, lineType, readOnl
         return nil
     end
 
-    local success, result = pcall(trigger.action.rectToAll, markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or {1,1,1,1})
+    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
+    local success, result = pcall(trigger.action.rectToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create rectangle for all: " .. tostring(result), "Trigger.RectToAll")
         return nil
@@ -797,33 +888,47 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage QuadToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=2000}, {x=2000, y=0, z=3000}, {x=1000, y=0, z=3000})
-function QuadToAll(markId, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("QuadToAll requires valid mark ID", "Trigger.QuadToAll")
+function QuadToAll(coalitionOrId, p1OrIdOrP1, p2OrP1OrP2, p3OrP2OrP3, p4OrP3OrP4, colorOrP4OrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message
+    if type(p1OrIdOrP1) == "table" and p1OrIdOrP1.x and p1OrIdOrP1.y and p1OrIdOrP1.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        p1 = p1OrIdOrP1; p2 = p2OrP1OrP2; p3 = p3OrP2OrP3; p4 = p4OrP3OrP4
+        color = colorOrP4OrColor; fillColor = fillColorOrColorOrFill; lineType = lineTypeOrFillOrLine; readOnly = readOnlyOrLineOrReadOnly; message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = p1OrIdOrP1
+        p1 = p2OrP1OrP2; p2 = p3OrP2OrP3; p3 = p4OrP3OrP4; p4 = colorOrP4OrColor
+        color = fillColorOrColorOrFill; fillColor = lineTypeOrFillOrLine; lineType = readOnlyOrLineOrReadOnly; readOnly = messageOrReadOnly; message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("QuadToAll requires valid unique ID", "Trigger.QuadToAll")
         return nil
     end
 
-    if not point1 or type(point1) ~= "table" or not point1.x or not point1.y or not point1.z then
+    if not p1 or type(p1) ~= "table" or not p1.x or not p1.y or not p1.z then
         _HarnessInternal.log.error("QuadToAll requires valid point1 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
-
-    if not point2 or type(point2) ~= "table" or not point2.x or not point2.y or not point2.z then
+    if not p2 or type(p2) ~= "table" or not p2.x or not p2.y or not p2.z then
         _HarnessInternal.log.error("QuadToAll requires valid point2 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
-
-    if not point3 or type(point3) ~= "table" or not point3.x or not point3.y or not point3.z then
+    if not p3 or type(p3) ~= "table" or not p3.x or not p3.y or not p3.z then
         _HarnessInternal.log.error("QuadToAll requires valid point3 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
-
-    if not point4 or type(point4) ~= "table" or not point4.x or not point4.y or not point4.z then
+    if not p4 or type(p4) ~= "table" or not p4.x or not p4.y or not p4.z then
         _HarnessInternal.log.error("QuadToAll requires valid point4 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
 
-    local success, result = pcall(trigger.action.quadToAll, markId, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or {1,1,1,1})
+    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
+    local success, result = pcall(trigger.action.quadToAll, coalitionArg, idArg, p1, p2, p3, p4, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create quad for all: " .. tostring(result), "Trigger.QuadToAll")
         return nil
@@ -843,9 +948,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage TextToAll(1001, "Objective", {x=1000, y=0, z=2000}, {r=1, g=1, b=1, a=1}, nil, 14)
-function TextToAll(markId, text, pos, color, fillColor, fontSize, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("TextToAll requires valid mark ID", "Trigger.TextToAll")
+function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrColor, fillColorOrColorOrFill, fontSizeOrFillOrFont, readOnlyOrFontOrReadOnly, messageOrReadOnly)
+    -- Old: (id, text, pos, color, fillColor, fontSize, readOnly, message)
+    -- New: (coalition, id, text, pos, color, fillColor, fontSize, readOnly, message)
+    local coalitionArg, idArg, text, pos, color, fillColor, fontSize, readOnly, message
+    if type(textOrIdOrText) == "string" and type(posOrTextOrPos) == "table" and posOrTextOrPos.x and posOrTextOrPos.y and posOrTextOrPos.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        text = textOrIdOrText
+        pos = posOrTextOrPos
+        color = colorOrPosOrColor
+        fillColor = fillColorOrColorOrFill
+        fontSize = fontSizeOrFillOrFont
+        readOnly = readOnlyOrFontOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = textOrIdOrText
+        text = posOrTextOrPos
+        pos = colorOrPosOrColor
+        color = fillColorOrColorOrFill
+        fillColor = fontSizeOrFillOrFont
+        fontSize = readOnlyOrFontOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("TextToAll requires valid unique ID", "Trigger.TextToAll")
         return nil
     end
 
@@ -861,7 +991,10 @@ function TextToAll(markId, text, pos, color, fillColor, fontSize, readOnly, mess
 
     color = _normalizeColor(color)
     fillColor = _defaultFill(color, fillColor)
-    local success, result = pcall(trigger.action.textToAll, markId, text, pos, color, fillColor, fontSize, readOnly, message)
+    local colorArr = _toArrayColor(color)
+    local fillArr = _toArrayColor(fillColor)
+    -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
+    local success, result = pcall(trigger.action.textToAll, coalitionArg, idArg, pos, colorArr, fillArr, fontSize, readOnly, text)
     if not success then
         _HarnessInternal.log.error("Failed to create text for all: " .. tostring(result), "Trigger.TextToAll")
         return nil
@@ -881,9 +1014,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage ArrowToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function ArrowToAll(markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("ArrowToAll requires valid mark ID", "Trigger.ArrowToAll")
+function ArrowToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
+    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        startPos = startOrIdOrStart
+        endPos = endOrStartOrEnd
+        color = colorOrEndOrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = startOrIdOrStart
+        startPos = endOrStartOrEnd
+        endPos = colorOrEndOrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("ArrowToAll requires valid unique ID", "Trigger.ArrowToAll")
         return nil
     end
 
@@ -897,7 +1055,9 @@ function ArrowToAll(markId, startPos, endPos, color, fillColor, lineType, readOn
         return nil
     end
 
-    local success, result = pcall(trigger.action.arrowToAll, markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or {1,1,1,1})
+    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
+    local success, result = pcall(trigger.action.arrowToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create arrow for all: " .. tostring(result), "Trigger.ArrowToAll")
         return nil

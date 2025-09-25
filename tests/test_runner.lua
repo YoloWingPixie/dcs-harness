@@ -87,6 +87,7 @@ require('test_zone_cache')
 require('test_zone_search')
 require('test_drawing_search')
 require('test_shapecache')
+require('test_shapes')
 
 -- Run all tests
 os.exit(lu.LuaUnit.run())

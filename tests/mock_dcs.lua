@@ -151,28 +151,28 @@ trigger = {
             trigger.action._trackCall("markToGroup", id, text, pos, groupId, readOnly, message)
             return true 
         end,
-        lineToAll = function(id, startPoint, endPoint, color, lineType, readOnly, message) 
-            trigger.action._trackCall("lineToAll", id, startPoint, endPoint, color, lineType, readOnly, message)
+        lineToAll = function(coalition, id, startPoint, endPoint, color, lineType, readOnly, message) 
+            trigger.action._trackCall("lineToAll", coalition, id, startPoint, endPoint, color, lineType, readOnly, message)
             return true 
         end,
-        circleToAll = function(id, center, radius, color, fillColor, lineType, readOnly, message) 
-            trigger.action._trackCall("circleToAll", id, center, radius, color, fillColor, lineType, readOnly, message)
+        circleToAll = function(coalition, id, center, radius, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("circleToAll", coalition, id, center, radius, color, fillColor, lineType, readOnly, message)
             return true 
         end,
-        rectToAll = function(id, startPoint, endPoint, color, fillColor, lineType, readOnly, message) 
-            trigger.action._trackCall("rectToAll", id, startPoint, endPoint, color, fillColor, lineType, readOnly, message)
+        rectToAll = function(coalition, id, startPoint, endPoint, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("rectToAll", coalition, id, startPoint, endPoint, color, fillColor, lineType, readOnly, message)
             return true 
         end,
-        quadToAll = function(id, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message) 
-            trigger.action._trackCall("quadToAll", id, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
+        quadToAll = function(coalition, id, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("quadToAll", coalition, id, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
             return true 
         end,
-        textToAll = function(id, text, point, color, fillColor, fontSize, readOnly, message) 
-            trigger.action._trackCall("textToAll", id, text, point, color, fillColor, fontSize, readOnly, message)
+        textToAll = function(coalition, id, point, color, fillColor, fontSize, readOnly, text) 
+            trigger.action._trackCall("textToAll", coalition, id, point, color, fillColor, fontSize, readOnly, text)
             return true 
         end,
-        arrowToAll = function(id, startPoint, endPoint, color, fillColor, lineType, readOnly, message) 
-            trigger.action._trackCall("arrowToAll", id, startPoint, endPoint, color, fillColor, lineType, readOnly, message)
+        arrowToAll = function(coalition, id, startPoint, endPoint, color, fillColor, lineType, readOnly, message) 
+            trigger.action._trackCall("arrowToAll", coalition, id, startPoint, endPoint, color, fillColor, lineType, readOnly, message)
             return true 
         end,
         markupToAll = function(...) 

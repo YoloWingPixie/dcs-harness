@@ -23,7 +23,7 @@ end
 
 -- Color helpers (0..1)
 local function rgba(r, g, b, a)
-    return {r = r, g = g, b = b, a = a or 1}
+    return {r, g, b, a or 1}
 end
 
 local COLORS = {
@@ -142,6 +142,121 @@ local function sectionArcsFans()
     label({x = fOrigin.x, z = fOrigin.z + R + 500}, "Fan 70°")
 end
 
+local function sectionPolygons()
+    OutText("Harness Visual: Polygons & Ovals", 10)
+
+    -- Square (outline)
+    local sqCenter = {x = TEST_CENTER.x - GRID * 2, y = ALTITUDE, z = TEST_CENTER.z + GRID * 3}
+    local square = CreateSquare({x = sqCenter.x, z = sqCenter.z}, 2 * R, 15)
+    do
+        local pts = toVec3(square, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.WHITE, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.WHITE, 1, true)
+    end
+    label({x = sqCenter.x, z = sqCenter.z + R + 500}, "Square (rot)")
+
+    -- Trapezoid (outline)
+    local trapCenter = {x = TEST_CENTER.x - GRID, y = ALTITUDE, z = TEST_CENTER.z + GRID * 3}
+    local trap = CreateTrapezoid({x = trapCenter.x, z = trapCenter.z}, 1.0 * R, 2.0 * R, 1.0 * R, 10)
+    do
+        local pts = toVec3(trap, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.GRAY, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.GRAY, 1, true)
+    end
+    label({x = trapCenter.x, z = trapCenter.z + R + 500}, "Trapezoid")
+
+    -- Octagon (outline)
+    local octCenter = {x = TEST_CENTER.x, y = ALTITUDE, z = TEST_CENTER.z + GRID * 3}
+    local oct = CreateOctagon({x = octCenter.x, z = octCenter.z}, R, 0)
+    do
+        local pts = toVec3(oct, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.MAGENTA, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.MAGENTA, 1, true)
+    end
+    label({x = octCenter.x, z = octCenter.z + R + 500}, "Octagon")
+
+    -- Pentagon via generic polygon (outline)
+    local pentaCenter = {x = TEST_CENTER.x + GRID, y = ALTITUDE, z = TEST_CENTER.z + GRID * 3}
+    local penta = CreatePolygon({x = pentaCenter.x, z = pentaCenter.z}, R, 5, 0)
+    do
+        local pts = toVec3(penta, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.YELLOW, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.YELLOW, 1, true)
+    end
+    label({x = pentaCenter.x, z = pentaCenter.z + R + 500}, "Pentagon")
+
+    -- Oval (ellipse outline)
+    local ovalCenter = {x = TEST_CENTER.x + GRID * 2, y = ALTITUDE, z = TEST_CENTER.z + GRID * 3}
+    local oval = CreateOval({x = ovalCenter.x, z = ovalCenter.z}, 1.5 * R, 0.75 * R, 48)
+    do
+        local pts = toVec3(oval, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.CYAN, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.CYAN, 1, true)
+    end
+    label({x = ovalCenter.x, z = ovalCenter.z + R + 500}, "Oval")
+end
+
+local function sectionSpecial()
+    OutText("Harness Visual: Cross, Pill, Ring, Spiral", 10)
+
+    -- Cross (outline)
+    local crossCenter = {x = TEST_CENTER.x - GRID * 2, y = ALTITUDE, z = TEST_CENTER.z + GRID * 4}
+    local cross = CreateCross({x = crossCenter.x, z = crossCenter.z}, 2.0 * R, 0.4 * R, 0)
+    do
+        local pts = toVec3(cross, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.WHITE, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.WHITE, 1, true)
+    end
+    label({x = crossCenter.x, z = crossCenter.z + R + 500}, "Cross")
+
+    -- Pill (outline)
+    local pillCenter = {x = TEST_CENTER.x - GRID, y = ALTITUDE, z = TEST_CENTER.z + GRID * 4}
+    local pill = CreatePill({x = pillCenter.x, z = pillCenter.z}, 45, 2.5 * R, 0.6 * R, 19)
+    do
+        local pts = toVec3(pill, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.GREEN, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.GREEN, 1, true)
+    end
+    label({x = pillCenter.x, z = pillCenter.z + R + 500}, "Pill")
+
+    -- Ring (outline path)
+    local ringCenter = {x = TEST_CENTER.x, y = ALTITUDE, z = TEST_CENTER.z + GRID * 4}
+    local ring = CreateRing({x = ringCenter.x, z = ringCenter.z}, 1.2 * R, 0.7 * R, 48)
+    do
+        local pts = toVec3(ring, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.RED, 1, true)
+        end
+        LineToAll(NextId(), pts[#pts], pts[1], COLORS.RED, 1, true)
+    end
+    label({x = ringCenter.x, z = ringCenter.z + R + 500}, "Ring")
+
+    -- Spiral (polyline, open)
+    local sprCenter = {x = TEST_CENTER.x + GRID, y = ALTITUDE, z = TEST_CENTER.z + GRID * 4}
+    local spiral = CreateSpiral({x = sprCenter.x, z = sprCenter.z}, 0.2 * R, 1.2 * R, 3, 48)
+    do
+        local pts = toVec3(spiral, ALTITUDE)
+        for i = 1, #pts - 1 do
+            LineToAll(NextId(), pts[i], pts[i + 1], COLORS.MAGENTA, 1, true)
+        end
+    end
+    label({x = sprCenter.x, z = sprCenter.z + R + 500}, "Spiral")
+end
+
 local function sectionText()
     OutText("Harness Visual: Text & Marks", 10)
 
@@ -158,6 +273,8 @@ local function main()
     OutText("=== HARNESS VISUAL TEST START ===", 10, true)
     sectionBasic()
     sectionArcsFans()
+    sectionPolygons()
+    sectionSpecial()
     sectionText()
     OutText("=== HARNESS VISUAL TEST READY (F10 map) ===", 15)
 end

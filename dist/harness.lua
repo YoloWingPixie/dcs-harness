@@ -1569,173 +1569,20 @@ end
     Internal caching system for DCS object handles
 ==================================================================================================
 ]]
--- Ensure cache structure exists and (re)attach methods after any environment reset
-function EnsureCacheInitialized()
-    _HarnessInternal = _HarnessInternal or {}
-    _HarnessInternal.cache = _HarnessInternal.cache or {}
-
-    -- Core tables
-    _HarnessInternal.cache.units = _HarnessInternal.cache.units or {}
-    _HarnessInternal.cache.groups = _HarnessInternal.cache.groups or {}
-    _HarnessInternal.cache.controllers = _HarnessInternal.cache.controllers or {}
-    _HarnessInternal.cache.airbases = _HarnessInternal.cache.airbases or {}
-
-    -- Stats and config
-    _HarnessInternal.cache.stats = _HarnessInternal.cache.stats or { hits = 0, misses = 0, evictions = 0 }
-    _HarnessInternal.cache.config = _HarnessInternal.cache.config or {
-        maxUnits = 1000,
-        maxGroups = 500,
-        maxControllers = 500,
-        maxAirbases = 100,
-        ttl = 300
+-- Ensure cache tables exist (may have been initialized in _header.lua)
+_HarnessInternal.cache = _HarnessInternal.cache or {
+    units = {},
+    groups = {},
+    controllers = {},
+    airbases = {},
+    
+    -- Statistics
+    stats = {
+        hits = 0,
+        misses = 0,
+        evictions = 0
     }
-
-    -- Attach internal helpers if missing (they may be lost when _HarnessInternal is reset)
-    if not _HarnessInternal.cache.isExpired then
-        function _HarnessInternal.cache.isExpired(entry)
-            if not entry or not entry.time then
-                return true
-            end
-            local currentTime = timer and timer.getTime and timer.getTime() or os.time()
-            return (currentTime - entry.time) > _HarnessInternal.cache.config.ttl
-        end
-    end
-
-    if not _HarnessInternal.cache.addUnit then
-        function _HarnessInternal.cache.addUnit(name, unit)
-            if not name or not unit then return end
-            local count = 0
-            for _ in pairs(_HarnessInternal.cache.units) do count = count + 1 end
-            if count >= _HarnessInternal.cache.config.maxUnits then
-                local oldestKey, oldestTime = nil, math.huge
-                for k, v in pairs(_HarnessInternal.cache.units) do
-                    if v.time < oldestTime then
-                        oldestKey = k
-                        oldestTime = v.time
-                    end
-                end
-                if oldestKey then
-                    _HarnessInternal.cache.units[oldestKey] = nil
-                    _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-                end
-            end
-            _HarnessInternal.cache.units[name] = {
-                object = unit,
-                time = timer and timer.getTime and timer.getTime() or os.time()
-            }
-        end
-    end
-
-    if not _HarnessInternal.cache.getUnit then
-        function _HarnessInternal.cache.getUnit(name)
-            if not name then return nil end
-            local entry = _HarnessInternal.cache.units[name]
-            if not entry then
-                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-                return nil
-            end
-            if _HarnessInternal.cache.isExpired(entry) then
-                _HarnessInternal.cache.units[name] = nil
-                _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-                return nil
-            end
-            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
-            return entry.object
-        end
-    end
-
-    if not _HarnessInternal.cache.addGroup then
-        function _HarnessInternal.cache.addGroup(name, group)
-            if not name or not group then return end
-            local count = 0
-            for _ in pairs(_HarnessInternal.cache.groups) do count = count + 1 end
-            if count >= _HarnessInternal.cache.config.maxGroups then
-                local oldestKey, oldestTime = nil, math.huge
-                for k, v in pairs(_HarnessInternal.cache.groups) do
-                    if v.time < oldestTime then
-                        oldestKey = k
-                        oldestTime = v.time
-                    end
-                end
-                if oldestKey then
-                    _HarnessInternal.cache.groups[oldestKey] = nil
-                    _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-                end
-            end
-            _HarnessInternal.cache.groups[name] = {
-                object = group,
-                time = timer and timer.getTime and timer.getTime() or os.time()
-            }
-        end
-    end
-
-    if not _HarnessInternal.cache.getGroup then
-        function _HarnessInternal.cache.getGroup(name)
-            if not name then return nil end
-            local entry = _HarnessInternal.cache.groups[name]
-            if not entry then
-                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-                return nil
-            end
-            if _HarnessInternal.cache.isExpired(entry) then
-                _HarnessInternal.cache.groups[name] = nil
-                _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-                return nil
-            end
-            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
-            return entry.object
-        end
-    end
-
-    if not _HarnessInternal.cache.addController then
-        function _HarnessInternal.cache.addController(key, controller)
-            if not key or not controller then return end
-            local count = 0
-            for _ in pairs(_HarnessInternal.cache.controllers) do count = count + 1 end
-            if count >= _HarnessInternal.cache.config.maxControllers then
-                local oldestKey, oldestTime = nil, math.huge
-                for k, v in pairs(_HarnessInternal.cache.controllers) do
-                    if v.time < oldestTime then
-                        oldestKey = k
-                        oldestTime = v.time
-                    end
-                end
-                if oldestKey then
-                    _HarnessInternal.cache.controllers[oldestKey] = nil
-                    _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-                end
-            end
-            _HarnessInternal.cache.controllers[key] = {
-                object = controller,
-                time = timer and timer.getTime and timer.getTime() or os.time()
-            }
-        end
-    end
-
-    if not _HarnessInternal.cache.getController then
-        function _HarnessInternal.cache.getController(key)
-            if not key then return nil end
-            local entry = _HarnessInternal.cache.controllers[key]
-            if not entry then
-                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-                return nil
-            end
-            if _HarnessInternal.cache.isExpired(entry) then
-                _HarnessInternal.cache.controllers[key] = nil
-                _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-                _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-                return nil
-            end
-            _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
-            return entry.object
-        end
-    end
-end
-
--- Initialize on first load
-EnsureCacheInitialized()
+}
 
 -- Cache configuration
 _HarnessInternal.cache.config = _HarnessInternal.cache.config or {
@@ -1749,7 +1596,6 @@ _HarnessInternal.cache.config = _HarnessInternal.cache.config or {
 --- Clear all caches
 ---@usage ClearAllCaches()
 function ClearAllCaches()
-    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.units) do
         count = count + 1
@@ -1779,7 +1625,6 @@ end
 --- Clear unit cache
 ---@usage ClearUnitCache()
 function ClearUnitCache()
-    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.units) do
         count = count + 1
@@ -1792,7 +1637,6 @@ end
 --- Clear group cache
 ---@usage ClearGroupCache()
 function ClearGroupCache()
-    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.groups) do
         count = count + 1
@@ -1805,7 +1649,6 @@ end
 --- Clear controller cache
 ---@usage ClearControllerCache()
 function ClearControllerCache()
-    EnsureCacheInitialized()
     local count = 0
     for _ in pairs(_HarnessInternal.cache.controllers) do
         count = count + 1
@@ -1819,7 +1662,6 @@ end
 ---@param unitName string Unit name
 ---@usage RemoveUnitFromCache("Pilot-1")
 function RemoveUnitFromCache(unitName)
-    EnsureCacheInitialized()
     if unitName and _HarnessInternal.cache.units[unitName] then
         _HarnessInternal.cache.units[unitName] = nil
         _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
@@ -1831,7 +1673,6 @@ end
 ---@param groupName string Group name
 ---@usage RemoveGroupFromCache("Blue Squadron")
 function RemoveGroupFromCache(groupName)
-    EnsureCacheInitialized()
     if groupName and _HarnessInternal.cache.groups[groupName] then
         _HarnessInternal.cache.groups[groupName] = nil
         _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
@@ -1843,7 +1684,6 @@ end
 ---@return table stats Cache statistics
 ---@usage local stats = GetCacheStats()
 function GetCacheStats()
-    EnsureCacheInitialized()
     local stats = {
         hits = _HarnessInternal.cache.stats.hits,
         misses = _HarnessInternal.cache.stats.misses,
@@ -1882,7 +1722,6 @@ end
 ---@param config table Configuration options
 ---@usage SetCacheConfig({maxUnits = 2000, ttl = 600})
 function SetCacheConfig(config)
-    EnsureCacheInitialized()
     if type(config) ~= "table" then
         _HarnessInternal.log.error("SetCacheConfig requires table", "SetCacheConfig")
         return
@@ -1911,7 +1750,6 @@ end
 ---@return table caches All cache tables
 ---@usage local caches = GetCacheTables()
 function GetCacheTables()
-    EnsureCacheInitialized()
     return {
         units = _HarnessInternal.cache.units,
         groups = _HarnessInternal.cache.groups,
@@ -1925,37 +1763,197 @@ end
 --- Check if cache entry is expired
 ---@param entry table Cache entry
 ---@return boolean expired True if expired
--- The internal methods below are also attached by EnsureCacheInitialized() when needed
+function _HarnessInternal.cache.isExpired(entry)
+    if not entry or not entry.time then
+        return true
+    end
+    
+    local currentTime = timer and timer.getTime and timer.getTime() or os.time()
+    return (currentTime - entry.time) > _HarnessInternal.cache.config.ttl
+end
 
 --- Add unit to cache
 ---@param name string Unit name
 ---@param unit table Unit object
--- (definitions moved to EnsureCacheInitialized for resilience)
+function _HarnessInternal.cache.addUnit(name, unit)
+    if not name or not unit then
+        return
+    end
+    
+    -- Check cache size
+    local count = 0
+    for _ in pairs(_HarnessInternal.cache.units) do
+        count = count + 1
+    end
+    
+    if count >= _HarnessInternal.cache.config.maxUnits then
+        -- Evict oldest entry
+        local oldestKey, oldestTime = nil, math.huge
+        for k, v in pairs(_HarnessInternal.cache.units) do
+            if v.time < oldestTime then
+                oldestKey = k
+                oldestTime = v.time
+            end
+        end
+        if oldestKey then
+            _HarnessInternal.cache.units[oldestKey] = nil
+            _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+        end
+    end
+    
+    _HarnessInternal.cache.units[name] = {
+        object = unit,
+        time = timer and timer.getTime and timer.getTime() or os.time()
+    }
+end
 
 --- Get unit from cache
 ---@param name string Unit name
 ---@return table? unit Unit object or nil
--- (definitions moved to EnsureCacheInitialized for resilience)
+function _HarnessInternal.cache.getUnit(name)
+    if not name then
+        return nil
+    end
+    
+    local entry = _HarnessInternal.cache.units[name]
+    if not entry then
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+        return nil
+    end
+    
+    -- Check expiration
+    if _HarnessInternal.cache.isExpired(entry) then
+        _HarnessInternal.cache.units[name] = nil
+        _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+        return nil
+    end
+    
+    _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+    return entry.object
+end
 
 --- Add group to cache
 ---@param name string Group name
 ---@param group table Group object
--- (definitions moved to EnsureCacheInitialized for resilience)
+function _HarnessInternal.cache.addGroup(name, group)
+    if not name or not group then
+        return
+    end
+    
+    -- Check cache size
+    local count = 0
+    for _ in pairs(_HarnessInternal.cache.groups) do
+        count = count + 1
+    end
+    
+    if count >= _HarnessInternal.cache.config.maxGroups then
+        -- Evict oldest entry
+        local oldestKey, oldestTime = nil, math.huge
+        for k, v in pairs(_HarnessInternal.cache.groups) do
+            if v.time < oldestTime then
+                oldestKey = k
+                oldestTime = v.time
+            end
+        end
+        if oldestKey then
+            _HarnessInternal.cache.groups[oldestKey] = nil
+            _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+        end
+    end
+    
+    _HarnessInternal.cache.groups[name] = {
+        object = group,
+        time = timer and timer.getTime and timer.getTime() or os.time()
+    }
+end
 
 --- Get group from cache
 ---@param name string Group name
 ---@return table? group Group object or nil
--- (definitions moved to EnsureCacheInitialized for resilience)
+function _HarnessInternal.cache.getGroup(name)
+    if not name then
+        return nil
+    end
+    
+    local entry = _HarnessInternal.cache.groups[name]
+    if not entry then
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+        return nil
+    end
+    
+    -- Check expiration
+    if _HarnessInternal.cache.isExpired(entry) then
+        _HarnessInternal.cache.groups[name] = nil
+        _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+        return nil
+    end
+    
+    _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+    return entry.object
+end
 
 --- Add controller to cache
 ---@param key string Cache key (unit/group name + type)
 ---@param controller table Controller object
--- (definitions moved to EnsureCacheInitialized for resilience)
+function _HarnessInternal.cache.addController(key, controller)
+    if not key or not controller then
+        return
+    end
+    
+    -- Check cache size
+    local count = 0
+    for _ in pairs(_HarnessInternal.cache.controllers) do
+        count = count + 1
+    end
+    
+    if count >= _HarnessInternal.cache.config.maxControllers then
+        -- Evict oldest entry
+        local oldestKey, oldestTime = nil, math.huge
+        for k, v in pairs(_HarnessInternal.cache.controllers) do
+            if v.time < oldestTime then
+                oldestKey = k
+                oldestTime = v.time
+            end
+        end
+        if oldestKey then
+            _HarnessInternal.cache.controllers[oldestKey] = nil
+            _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+        end
+    end
+    
+    _HarnessInternal.cache.controllers[key] = {
+        object = controller,
+        time = timer and timer.getTime and timer.getTime() or os.time()
+    }
+end
 
 --- Get controller from cache
 ---@param key string Cache key
 ---@return table? controller Controller object or nil
--- (definitions moved to EnsureCacheInitialized for resilience)
+function _HarnessInternal.cache.getController(key)
+    if not key then
+        return nil
+    end
+    
+    local entry = _HarnessInternal.cache.controllers[key]
+    if not entry then
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+        return nil
+    end
+    
+    -- Check expiration
+    if _HarnessInternal.cache.isExpired(entry) then
+        _HarnessInternal.cache.controllers[key] = nil
+        _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
+        _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
+        return nil
+    end
+    
+    _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
+    return entry.object
+end
 
 -- Caching Decorator
 
@@ -7606,7 +7604,6 @@ end
 ---@return table? group The group object if found, nil otherwise
 ---@usage local group = GetGroup("Aerial-1")
 function GetGroup(groupName)
-    if type(EnsureCacheInitialized) == "function" then EnsureCacheInitialized() end
     if not groupName or type(groupName) ~= "string" then
         _HarnessInternal.log.error("GetGroup requires string group name", "GetGroup")
         return nil
@@ -9137,6 +9134,18 @@ local function _defaultFill(color, fill)
     return {r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25))}
 end
 
+-- Convert color table to array form {r,g,b,a} for DCS APIs
+local function _toArrayColor(color)
+    if type(color) ~= "table" then
+        return {1, 1, 1, 1}
+    end
+    local r = color.r or color[1] or 1
+    local g = color.g or color[2] or 1
+    local b = color.b or color[3] or 1
+    local a = color.a or color[4] or 1
+    return {r, g, b, a}
+end
+
 --- Displays text message to all players
 ---@param text string The text message to display
 ---@param displayTime number? The time in seconds to display (default: 10)
@@ -9784,9 +9793,35 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage LineToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function LineToAll(markId, startPos, endPos, color, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("LineToAll requires valid mark ID", "Trigger.LineToAll")
+function LineToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd, lineTypeOrColor, readOnlyOrLineType, messageOrReadOnly)
+    -- Backward-compatible signature handling:
+    -- Old: (id, startPos, endPos, color, lineType, readOnly, message)
+    -- New (DCS): (coalition, id, startPos, endPos, color, lineType, readOnly, message)
+    local coalitionArg, idArg, startPos, endPos, color, lineType, readOnly, message
+    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+        -- Old signature without coalition
+        coalitionArg = -1
+        idArg = coalitionOrId
+        startPos = startOrIdOrStart
+        endPos = endOrStartOrEnd
+        color = colorOrEnd
+        lineType = lineTypeOrColor
+        readOnly = readOnlyOrLineType
+        message = messageOrReadOnly
+    else
+        -- New signature
+        coalitionArg = coalitionOrId
+        idArg = startOrIdOrStart
+        startPos = endOrStartOrEnd
+        endPos = colorOrEnd
+        color = lineTypeOrColor
+        lineType = readOnlyOrLineType
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("LineToAll requires valid unique ID", "Trigger.LineToAll")
         return nil
     end
 
@@ -9801,9 +9836,8 @@ function LineToAll(markId, startPos, endPos, color, lineType, readOnly, message)
     end
 
     color = _normalizeColor(color)
-    -- DCS expects color then fillColor then lineType
-    local fillColor = _defaultFill(color)
-    local success, result = pcall(trigger.action.lineToAll, markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color)
+    local success, result = pcall(trigger.action.lineToAll, coalitionArg, idArg, startPos, endPos, colorArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create line for all: " .. tostring(result), "Trigger.LineToAll")
         return nil
@@ -9823,9 +9857,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage CircleToAll(1001, {x=1000, y=0, z=2000}, 500, {r=1, g=0, b=0, a=1}, {r=1, g=0, b=0, a=0.3})
-function CircleToAll(markId, center, radius, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("CircleToAll requires valid mark ID", "Trigger.CircleToAll")
+function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, colorOrRadiusOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, center, radius, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, center, radius, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, center, radius, color, fillColor, lineType, readOnly, message
+    if type(centerOrIdOrCenter) == "table" and centerOrIdOrCenter.x and centerOrIdOrCenter.y and centerOrIdOrCenter.z and type(radiusOrCenterOrRadius) == "number" then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        center = centerOrIdOrCenter
+        radius = radiusOrCenterOrRadius
+        color = colorOrRadiusOrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = centerOrIdOrCenter
+        center = radiusOrCenterOrRadius
+        radius = colorOrRadiusOrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("CircleToAll requires valid unique ID", "Trigger.CircleToAll")
         return nil
     end
 
@@ -9841,7 +9900,9 @@ function CircleToAll(markId, center, radius, color, fillColor, lineType, readOnl
 
     color = _normalizeColor(color)
     fillColor = _defaultFill(color, fillColor)
-    local success, result = pcall(trigger.action.circleToAll, markId, center, radius, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color)
+    local fillArr = _toArrayColor(fillColor)
+    local success, result = pcall(trigger.action.circleToAll, coalitionArg, idArg, center, radius, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create circle for all: " .. tostring(result), "Trigger.CircleToAll")
         return nil
@@ -9861,9 +9922,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage RectToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=0, g=1, b=0, a=1})
-function RectToAll(markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("RectToAll requires valid mark ID", "Trigger.RectToAll")
+function RectToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
+    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        startPos = startOrIdOrStart
+        endPos = endOrStartOrEnd
+        color = colorOrEndOrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = startOrIdOrStart
+        startPos = endOrStartOrEnd
+        endPos = colorOrEndOrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("RectToAll requires valid unique ID", "Trigger.RectToAll")
         return nil
     end
 
@@ -9877,7 +9963,9 @@ function RectToAll(markId, startPos, endPos, color, fillColor, lineType, readOnl
         return nil
     end
 
-    local success, result = pcall(trigger.action.rectToAll, markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or {1,1,1,1})
+    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
+    local success, result = pcall(trigger.action.rectToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create rectangle for all: " .. tostring(result), "Trigger.RectToAll")
         return nil
@@ -9899,33 +9987,47 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage QuadToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=2000}, {x=2000, y=0, z=3000}, {x=1000, y=0, z=3000})
-function QuadToAll(markId, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("QuadToAll requires valid mark ID", "Trigger.QuadToAll")
+function QuadToAll(coalitionOrId, p1OrIdOrP1, p2OrP1OrP2, p3OrP2OrP3, p4OrP3OrP4, colorOrP4OrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message
+    if type(p1OrIdOrP1) == "table" and p1OrIdOrP1.x and p1OrIdOrP1.y and p1OrIdOrP1.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        p1 = p1OrIdOrP1; p2 = p2OrP1OrP2; p3 = p3OrP2OrP3; p4 = p4OrP3OrP4
+        color = colorOrP4OrColor; fillColor = fillColorOrColorOrFill; lineType = lineTypeOrFillOrLine; readOnly = readOnlyOrLineOrReadOnly; message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = p1OrIdOrP1
+        p1 = p2OrP1OrP2; p2 = p3OrP2OrP3; p3 = p4OrP3OrP4; p4 = colorOrP4OrColor
+        color = fillColorOrColorOrFill; fillColor = lineTypeOrFillOrLine; lineType = readOnlyOrLineOrReadOnly; readOnly = messageOrReadOnly; message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("QuadToAll requires valid unique ID", "Trigger.QuadToAll")
         return nil
     end
 
-    if not point1 or type(point1) ~= "table" or not point1.x or not point1.y or not point1.z then
+    if not p1 or type(p1) ~= "table" or not p1.x or not p1.y or not p1.z then
         _HarnessInternal.log.error("QuadToAll requires valid point1 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
-
-    if not point2 or type(point2) ~= "table" or not point2.x or not point2.y or not point2.z then
+    if not p2 or type(p2) ~= "table" or not p2.x or not p2.y or not p2.z then
         _HarnessInternal.log.error("QuadToAll requires valid point2 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
-
-    if not point3 or type(point3) ~= "table" or not point3.x or not point3.y or not point3.z then
+    if not p3 or type(p3) ~= "table" or not p3.x or not p3.y or not p3.z then
         _HarnessInternal.log.error("QuadToAll requires valid point3 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
-
-    if not point4 or type(point4) ~= "table" or not point4.x or not point4.y or not point4.z then
+    if not p4 or type(p4) ~= "table" or not p4.x or not p4.y or not p4.z then
         _HarnessInternal.log.error("QuadToAll requires valid point4 with x, y, z", "Trigger.QuadToAll")
         return nil
     end
 
-    local success, result = pcall(trigger.action.quadToAll, markId, point1, point2, point3, point4, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or {1,1,1,1})
+    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
+    local success, result = pcall(trigger.action.quadToAll, coalitionArg, idArg, p1, p2, p3, p4, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create quad for all: " .. tostring(result), "Trigger.QuadToAll")
         return nil
@@ -9945,9 +10047,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage TextToAll(1001, "Objective", {x=1000, y=0, z=2000}, {r=1, g=1, b=1, a=1}, nil, 14)
-function TextToAll(markId, text, pos, color, fillColor, fontSize, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("TextToAll requires valid mark ID", "Trigger.TextToAll")
+function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrColor, fillColorOrColorOrFill, fontSizeOrFillOrFont, readOnlyOrFontOrReadOnly, messageOrReadOnly)
+    -- Old: (id, text, pos, color, fillColor, fontSize, readOnly, message)
+    -- New: (coalition, id, text, pos, color, fillColor, fontSize, readOnly, message)
+    local coalitionArg, idArg, text, pos, color, fillColor, fontSize, readOnly, message
+    if type(textOrIdOrText) == "string" and type(posOrTextOrPos) == "table" and posOrTextOrPos.x and posOrTextOrPos.y and posOrTextOrPos.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        text = textOrIdOrText
+        pos = posOrTextOrPos
+        color = colorOrPosOrColor
+        fillColor = fillColorOrColorOrFill
+        fontSize = fontSizeOrFillOrFont
+        readOnly = readOnlyOrFontOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = textOrIdOrText
+        text = posOrTextOrPos
+        pos = colorOrPosOrColor
+        color = fillColorOrColorOrFill
+        fillColor = fontSizeOrFillOrFont
+        fontSize = readOnlyOrFontOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("TextToAll requires valid unique ID", "Trigger.TextToAll")
         return nil
     end
 
@@ -9963,7 +10090,10 @@ function TextToAll(markId, text, pos, color, fillColor, fontSize, readOnly, mess
 
     color = _normalizeColor(color)
     fillColor = _defaultFill(color, fillColor)
-    local success, result = pcall(trigger.action.textToAll, markId, text, pos, color, fillColor, fontSize, readOnly, message)
+    local colorArr = _toArrayColor(color)
+    local fillArr = _toArrayColor(fillColor)
+    -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
+    local success, result = pcall(trigger.action.textToAll, coalitionArg, idArg, pos, colorArr, fillArr, fontSize, readOnly, text)
     if not success then
         _HarnessInternal.log.error("Failed to create text for all: " .. tostring(result), "Trigger.TextToAll")
         return nil
@@ -9983,9 +10113,34 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage ArrowToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function ArrowToAll(markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
-    if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("ArrowToAll requires valid mark ID", "Trigger.ArrowToAll")
+function ArrowToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+    -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
+    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+        coalitionArg = -1
+        idArg = coalitionOrId
+        startPos = startOrIdOrStart
+        endPos = endOrStartOrEnd
+        color = colorOrEndOrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
+    else
+        coalitionArg = coalitionOrId
+        idArg = startOrIdOrStart
+        startPos = endOrStartOrEnd
+        endPos = colorOrEndOrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
+    end
+
+    if not idArg or type(idArg) ~= "number" then
+        _HarnessInternal.log.error("ArrowToAll requires valid unique ID", "Trigger.ArrowToAll")
         return nil
     end
 
@@ -9999,7 +10154,9 @@ function ArrowToAll(markId, startPos, endPos, color, fillColor, lineType, readOn
         return nil
     end
 
-    local success, result = pcall(trigger.action.arrowToAll, markId, startPos, endPos, color, fillColor, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or {1,1,1,1})
+    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
+    local success, result = pcall(trigger.action.arrowToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error("Failed to create arrow for all: " .. tostring(result), "Trigger.ArrowToAll")
         return nil
@@ -10241,8 +10398,6 @@ end
 ---@return table? unit The unit object if found, nil otherwise
 ---@usage local unit = GetUnit("Player")
 function GetUnit(unitName)
-    -- Ensure cache is ready in case environment was reset by tests
-    if type(EnsureCacheInitialized) == "function" then EnsureCacheInitialized() end
     if not unitName or type(unitName) ~= "string" then
         _HarnessInternal.log.error("GetUnit requires string unit name", "GetUnit")
         return nil

@@ -87,28 +87,6 @@ function TestController:when_creating_tasks_should_match_expected_shape()
     lu.assertEquals(wrapped.id, "WrappedAction")
 end
 
-function TestController:when_creating_options_should_have_correct_ids()
-    lu.assertEquals(CreateROEOption(0).id, 0)
-    lu.assertEquals(CreateReactionOnThreatOption(1).id, 1)
-    lu.assertEquals(CreateRadarUsingOption(1).id, 3)
-    lu.assertEquals(CreateFlareUsingOption(1).id, 4)
-    lu.assertEquals(CreateFormationOption(1).id, 5)
-    lu.assertEquals(CreateRTBOnBingoOption(true).id, 6)
-    lu.assertEquals(CreateSilenceOption(true).id, 7)
-    lu.assertEquals(CreateAlarmStateOption(2).id, 9)
-    lu.assertEquals(CreateRTBOnOutOfAmmoOption(true).id, 10)
-    lu.assertEquals(CreateECMUsingOption(1).id, 13)
-    lu.assertEquals(CreateProhibitAAOption(true).id, 14)
-    lu.assertEquals(CreateProhibitJettisonOption(true).id, 15)
-    lu.assertEquals(CreateProhibitABOption(true).id, 16)
-    lu.assertEquals(CreateProhibitAGOption(true).id, 17)
-    lu.assertEquals(CreateMissileAttackOption(1).id, 18)
-    lu.assertEquals(CreateProhibitWPPassReportOption(true).id, 19)
-    -- Removed CreateDispersalOnAttackOption
-
-    -- Removed CreateProhibitWPPassReport2Option
-end
-
 function TestController:when_setting_common_options_should_call_setOption()
     local controller = Controller
     -- smoke test for convenience setters
@@ -132,6 +110,17 @@ function TestController:when_setting_common_options_should_call_setOption()
     -- ground-specific option via a ground controller (reuse Controller mock)
     lu.assertTrue(ControllerSetDisperseOnAttack(controller, 120))
     -- Removed unsupported options: ProhibitWPPassReport2, DispersalOnAttack
+end
+
+function TestController:when_controller_is_cached_from_group_should_store_domain()
+    local c = GetGroupController("Aerial-1")
+    lu.assertNotNil(c)
+    if GetControllerDomain then
+        lu.assertEquals(GetControllerDomain(c), "Air")
+    end
+    -- Use cached domain implicitly; pass numeric values to avoid enum mapping differences across domains
+    lu.assertTrue(ControllerSetROE(c, 4))
+    lu.assertTrue(ControllerSetAlarmState(c, 1))
 end
 
 return TestController

@@ -609,9 +609,77 @@ function GetUnitController(unit)
         return nil
     end
 
-    -- Add to cache if we have a name
+    -- Add to cache if we have a name, with optional metadata
     if controller and unitName then
-        _HarnessInternal.cache.addController("unit:" .. unitName, controller)
+        local info = { unitNames = { unitName } }
+
+        -- Attempt to capture owning group name
+        local okGrp, grpName = pcall(function()
+            local grp = unit:getGroup()
+            return grp and grp.getName and grp:getName() or nil
+        end)
+        if okGrp and grpName then
+            info.groupName = grpName
+        end
+
+        -- For air units, try to include all unit names from the group
+        local okCat, cat = pcall(function()
+            return unit.getCategory and unit:getCategory() or nil
+        end)
+        -- Infer domain from unit category
+        if okCat then
+            if cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER then
+                info.domain = "Air"
+            elseif cat == Unit.Category.GROUND_UNIT then
+                info.domain = "Ground"
+            elseif cat == Unit.Category.SHIP then
+                info.domain = "Naval"
+            end
+        end
+        if
+            okCat
+            and (cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER)
+            and info.groupName
+        then
+            local okUnits, names = pcall(function()
+                local grp = unit:getGroup()
+                if grp and grp.getUnits then
+                    local list = grp:getUnits()
+                    if type(list) == "table" then
+                        local acc = {}
+                        for i = 1, #list do
+                            local u = list[i]
+                            local okN, nm = pcall(function()
+                                return u:getName()
+                            end)
+                            if okN and nm then
+                                acc[#acc + 1] = nm
+                            end
+                        end
+                        return acc
+                    end
+                end
+                return nil
+            end)
+            if okUnits and names and #names > 0 then
+                info.unitNames = names
+            end
+        end
+
+        _HarnessInternal.cache.addController("unit:" .. unitName, controller, info)
+        -- Fallback: ensure metadata is stored even if addController ignores info
+        local entry = _HarnessInternal.cache.controllers["unit:" .. unitName]
+        if entry then
+            if info.groupName and entry.groupName == nil then
+                entry.groupName = info.groupName
+            end
+            if info.unitNames and entry.unitNames == nil then
+                entry.unitNames = info.unitNames
+            end
+            if info.domain and entry.domain == nil then
+                entry.domain = info.domain
+            end
+        end
     end
 
     return controller

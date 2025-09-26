@@ -498,6 +498,30 @@ function TestUnit:testGetUnitGroup_ValidGroup()
     lu.assertEquals(group:getName(), "Aerial-1")
 end
 
+function TestUnit:testGetUnitController_should_store_group_and_unitnames()
+    -- Ensure mock unit supports getController for this test
+    self.mockUnits["Player"].getController = function(self)
+        return {}
+    end
+
+    local unit = GetUnit("Player")
+    lu.assertNotNil(unit)
+    local _ = GetUnitController(unit)
+
+    local entry = GetCacheTables().controllers["unit:Player"]
+    lu.assertNotNil(entry)
+    lu.assertEquals(entry.groupName, "Aerial-1")
+    lu.assertNotNil(entry.unitNames)
+    local found = false
+    for i = 1, #entry.unitNames do
+        if entry.unitNames[i] == "Player" then
+            found = true
+            break
+        end
+    end
+    lu.assertTrue(found)
+end
+
 function TestUnit:testGetUnitGroup_NonExistentUnit()
     local group = GetUnitGroup("NonExistent")
     lu.assertNil(group)

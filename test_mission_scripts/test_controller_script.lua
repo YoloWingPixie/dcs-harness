@@ -56,7 +56,7 @@ local function sectionAirController()
         )
         return
     end
-    local ctrl = getController(grp)
+    local ctrl = GetGroupController("HARNESS_TEST_AIR_GROUP")
     if not ctrl then
         info("Could not get controller for HARNESS_TEST_AIR_GROUP", 10)
         return
@@ -108,15 +108,15 @@ local function sectionGroundController()
         )
         return
     end
-    local ctrl = getController(grp)
+    local ctrl = GetGroupController("HARNESS_TEST_GROUP")
     if not ctrl then
         info("Could not get controller for HARNESS_TEST_GROUP", 10)
         return
     end
 
     -- Ground domain examples
-    ControllerSetAlarmState(ctrl, "RED", "Ground")
-    ControllerSetROE(ctrl, "OPEN_FIRE", "Ground")
+    ControllerSetAlarmState(ctrl, "RED")
+    ControllerSetROE(ctrl, "OPEN_FIRE")
     ControllerSetDisperseOnAttack(ctrl, 120)
 
     -- Demonstrate task queue on ground as well

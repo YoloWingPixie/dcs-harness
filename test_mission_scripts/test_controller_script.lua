@@ -119,6 +119,17 @@ local function sectionGroundController()
     ControllerSetROE(ctrl, "OPEN_FIRE")
     ControllerSetDisperseOnAttack(ctrl, 120)
 
+    -- After 10 seconds, set HARNESS_ALARM_STATE_TEST alarm state to RED (auto domain)
+    ScheduleOnce(function()
+        local ctrlTest = GetGroupController("HARNESS_ALARM_STATE_TEST")
+        if ctrlTest then
+            ControllerSetAlarmState(ctrlTest, "RED")
+            info("[ALARM] Set HARNESS_ALARM_STATE_TEST alarm to RED", 6)
+        else
+            info("[ALARM] Group HARNESS_ALARM_STATE_TEST not found", 6)
+        end
+    end, nil, 10)
+
     -- Demonstrate task queue on ground as well
     PushControllerTask(ctrl, CreateHoldTask())
     ScheduleOnce(function()

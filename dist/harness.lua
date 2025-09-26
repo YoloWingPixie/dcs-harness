@@ -2,7 +2,8 @@ if log and log.info then log.info("harness: 0.2.0 loading...", "Build") end
 
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.2.0"
+HARNESS_VERSION = "1.0.0"
+
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -3052,10 +3053,9 @@ end
 --- Convenience setters for common controller options
 ---@param controller table Controller object
 ---@param value integer|ROEAir|ROEGround|ROENaval ROE value or name
----@param domain string? Domain: "Air" (default), "Ground", or "Naval"
 ---@return boolean? success Returns true on success, nil on error
-function ControllerSetROE(controller, value, domain)
-    local d = _resolveControllerDomain(controller, domain, "Air")
+function ControllerSetROE(controller, value)
+    local d = _resolveControllerDomain(controller, nil, "Air")
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ROE then
         _HarnessInternal.log.error(
@@ -3220,10 +3220,9 @@ end
 --- Set alarm state
 ---@param controller table Controller object
 ---@param value integer|AlarmState Alarm state value or name (e.g. "RED")
----@param domain string? Domain: "Air" (default) or "Ground"
 ---@return boolean? success Returns true on success, nil on error
-function ControllerSetAlarmState(controller, value, domain)
-    local d = _resolveControllerDomain(controller, domain, "Ground")
+function ControllerSetAlarmState(controller, value)
+    local d = _resolveControllerDomain(controller, nil, "Ground")
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ALARM_STATE then
         _HarnessInternal.log.error(

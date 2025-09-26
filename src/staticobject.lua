@@ -133,8 +133,8 @@ end
 --- Destroys a static object
 ---@param staticObject table The static object to destroy
 ---@return boolean? success Returns true if successful, nil on error
----@usage DestroyStatic(staticObj)
-function DestroyStatic(staticObject)
+---@usage DestroyStaticObject(staticObj)
+function DestroyStaticObject(staticObject)
     if not staticObject then
         _HarnessInternal.log.error(
             "DestroyStatic requires valid static object",
@@ -142,6 +142,9 @@ function DestroyStatic(staticObject)
         )
         return nil
     end
+
+    -- Log that delete API was triggered
+    _HarnessInternal.log.info("DestroyStaticObject triggered", "StaticObject.Destroy")
 
     local success, result = pcall(staticObject.destroy, staticObject)
     if not success then
@@ -152,6 +155,7 @@ function DestroyStatic(staticObject)
         return nil
     end
 
+    _HarnessInternal.log.info("Static object destroyed", "StaticObject.Destroy")
     return true
 end
 
@@ -380,11 +384,20 @@ function GetStaticVelocity(staticObject)
     return result
 end
 
---- Creates a new static object
----@param staticData table Static object data table with type, x, y, country, etc.
+--- Creates a new static object (DCS-native signature)
+---@param countryId number The country ID that will own the static object
+---@param staticData table Static object data table with required fields: name, type, x, y
 ---@return table? staticObject The created static object or nil on error
----@usage local static = CreateStaticObject({type="Warehouse", x=1000, y=2000, country=2})
-function CreateStaticObject(staticData)
+---@usage local static = CreateStaticObject(country.id.USA, { name = "dyn", type = "Cafe", x = 1000, y = 2000 })
+function CreateStaticObject(countryId, staticData)
+    if not countryId or type(countryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid numeric country ID",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+
     if not staticData or type(staticData) ~= "table" then
         _HarnessInternal.log.error(
             "CreateStaticObject requires valid static data table",
@@ -393,6 +406,7 @@ function CreateStaticObject(staticData)
         return nil
     end
 
+    -- Validate required DCS fields
     if not staticData.type or type(staticData.type) ~= "string" then
         _HarnessInternal.log.error(
             "CreateStaticObject requires valid type in static data",
@@ -401,7 +415,7 @@ function CreateStaticObject(staticData)
         return nil
     end
 
-    if not staticData.x or not staticData.y then
+    if type(staticData.x) ~= "number" or type(staticData.y) ~= "number" then
         _HarnessInternal.log.error(
             "CreateStaticObject requires valid x and y coordinates",
             "StaticObject.Create"
@@ -409,13 +423,32 @@ function CreateStaticObject(staticData)
         return nil
     end
 
-    if not staticData.country or type(staticData.country) ~= "number" then
+    -- Heading is radians per schema; default to 0 if missing or invalid
+    if staticData.heading ~= nil and type(staticData.heading) ~= "number" then
         _HarnessInternal.log.error(
-            "CreateStaticObject requires valid country ID",
+            "CreateStaticObject heading must be a number (radians) if provided",
             "StaticObject.Create"
         )
         return nil
     end
+    if staticData.heading == nil then
+        staticData.heading = 0
+    end
 
-    return AddCoalitionStaticObject(staticData.country, staticData)
+    -- Log that create API was triggered
+    _HarnessInternal.log.info(
+        "CreateStaticObject triggered: type="
+            .. tostring(staticData.type)
+            .. " country="
+            .. tostring(countryId)
+            .. " name="
+            .. tostring(staticData.name),
+        "StaticObject.Create"
+    )
+
+    local created = AddCoalitionStaticObject(countryId, staticData)
+    if created then
+        _HarnessInternal.log.info("Static object created", "StaticObject.Create")
+    end
+    return created
 end

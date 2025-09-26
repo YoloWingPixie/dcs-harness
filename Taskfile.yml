@@ -38,7 +38,21 @@ tasks:
       - task: test
 
   build:
-    desc: Build dist/harness.lua (single-file release)
+    desc: Format then build dist/harness.lua (developer build)
+    cmds:
+      - task: format
+      - python build/scripts/build_single_lua_release.py
+      - python build/scripts/stamp_harness_version.py
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - 'build/scripts/build_single_lua_release.py'
+      - 'build/scripts/stamp_harness_version.py'
+      - '.buildrc'
+    generates:
+      - 'dist/harness.lua'
+
+  build:cd:
+    desc: Build dist/harness.lua without formatting (CI/CD build)
     cmds:
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
@@ -58,7 +72,7 @@ tasks:
   lint:
     desc: Run linter on source files
     cmds:
-      - luacheck {{.SRC_DIR}} {{.TEST_DIR}} --exclude-files {{.TEST_DIR}}/luaunit.lua
+      - luacheck {{.SRC_DIR}} {{.TEST_DIR}} luaunit --exclude-files {{.TEST_DIR}}/luaunit.lua --exclude-files {{.TEST_DIR}}/luaunit_LICENSE.txt
 
   format:
     desc: Format Lua sources with Stylua (vendored)
@@ -81,12 +95,12 @@ tasks:
       - '{{.TEST_DIR}}/**/*.lua'
 
   ci:
-    desc: Run CI pipeline (format check, lint, test, build)
+    desc: Run CI pipeline (format check, lint, test, build without format)
     cmds:
       - task: format:check
       - task: lint
       - task: test
-      - task: build
+      - task: build:cd
 
   help:
     desc: Show available tasks

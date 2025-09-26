@@ -56,7 +56,10 @@ end
 --- local range = NauticalMilesToMeters(50) -- Returns 92600 (50 nautical miles)
 function NauticalMilesToMeters(nm)
     if not nm or type(nm) ~= "number" then
-        _HarnessInternal.log.error("NauticalMilesToMeters requires valid nautical miles", "GeoMath.NauticalMilesToMeters")
+        _HarnessInternal.log.error(
+            "NauticalMilesToMeters requires valid nautical miles",
+            "GeoMath.NauticalMilesToMeters"
+        )
         return nil
     end
     return nm * NM_TO_METERS
@@ -70,7 +73,10 @@ end
 --- local nm2 = MetersToNauticalMiles(92600) -- Returns 50 (50 nautical miles)
 function MetersToNauticalMiles(meters)
     if not meters or type(meters) ~= "number" then
-        _HarnessInternal.log.error("MetersToNauticalMiles requires valid meters", "GeoMath.MetersToNauticalMiles")
+        _HarnessInternal.log.error(
+            "MetersToNauticalMiles requires valid meters",
+            "GeoMath.MetersToNauticalMiles"
+        )
         return nil
     end
     return meters * METERS_TO_NM
@@ -116,12 +122,15 @@ function Distance2D(point1, point2)
         _HarnessInternal.log.error("Distance2D requires two valid points", "GeoMath.Distance2D")
         return nil
     end
-    
+
     if not point1.x or not point1.z or not point2.x or not point2.z then
-        _HarnessInternal.log.error("Distance2D points must have x and z coordinates", "GeoMath.Distance2D")
+        _HarnessInternal.log.error(
+            "Distance2D points must have x and z coordinates",
+            "GeoMath.Distance2D"
+        )
         return nil
     end
-    
+
     local dx = point2.x - point1.x
     local dz = point2.z - point1.z
     return math.sqrt(dx * dx + dz * dz)
@@ -139,12 +148,22 @@ function Distance3D(point1, point2)
         _HarnessInternal.log.error("Distance3D requires two valid points", "GeoMath.Distance3D")
         return nil
     end
-    
-    if not point1.x or not point1.y or not point1.z or not point2.x or not point2.y or not point2.z then
-        _HarnessInternal.log.error("Distance3D points must have x, y, and z coordinates", "GeoMath.Distance3D")
+
+    if
+        not point1.x
+        or not point1.y
+        or not point1.z
+        or not point2.x
+        or not point2.y
+        or not point2.z
+    then
+        _HarnessInternal.log.error(
+            "Distance3D points must have x, y, and z coordinates",
+            "GeoMath.Distance3D"
+        )
         return nil
     end
-    
+
     local dx = point2.x - point1.x
     local dy = point2.y - point1.y
     local dz = point2.z - point1.z
@@ -161,25 +180,31 @@ end
 --- local intercept = BearingBetween(fighter:getPoint(), bandit:getPoint()) -- Intercept heading
 function BearingBetween(from, to)
     if not from or not to then
-        _HarnessInternal.log.error("BearingBetween requires two valid points", "GeoMath.BearingBetween")
+        _HarnessInternal.log.error(
+            "BearingBetween requires two valid points",
+            "GeoMath.BearingBetween"
+        )
         return nil
     end
-    
+
     if not from.x or not from.z or not to.x or not to.z then
-        _HarnessInternal.log.error("BearingBetween points must have x and z coordinates", "GeoMath.BearingBetween")
+        _HarnessInternal.log.error(
+            "BearingBetween points must have x and z coordinates",
+            "GeoMath.BearingBetween"
+        )
         return nil
     end
-    
+
     local dx = to.x - from.x
     local dz = to.z - from.z
-    
+
     -- Calculate mathematical angle (0 = East, counterclockwise)
     local mathAngleRad = math.atan2(dz, dx)
-    
+
     -- Convert to aviation bearing (0 = North, clockwise)
     local aviationBearingRad = math.pi / 2 - mathAngleRad
     local aviationBearingDeg = RadToDeg(aviationBearingRad)
-    
+
     -- Normalize to 0-360
     return (aviationBearingDeg + 360) % 360
 end
@@ -195,30 +220,40 @@ end
 --- local orbit = DisplacePoint2D(tanker:getPoint(), hdg, 40 * 1852) -- 40nm ahead
 function DisplacePoint2D(point, bearingDeg, distance)
     if not point or not bearingDeg or not distance then
-        _HarnessInternal.log.error("DisplacePoint2D requires point, bearing, and distance", "GeoMath.DisplacePoint2D")
+        _HarnessInternal.log.error(
+            "DisplacePoint2D requires point, bearing, and distance",
+            "GeoMath.DisplacePoint2D"
+        )
         return nil
     end
-    
+
     if not point.x or not point.z then
-        _HarnessInternal.log.error("DisplacePoint2D point must have x and z coordinates", "GeoMath.DisplacePoint2D")
+        _HarnessInternal.log.error(
+            "DisplacePoint2D point must have x and z coordinates",
+            "GeoMath.DisplacePoint2D"
+        )
         return nil
     end
-    
+
     -- Convert aviation bearing to mathematical angle
     local mathAngleDeg = (90 - bearingDeg + 360) % 360
     local angleRad = DegToRad(mathAngleDeg)
-    
+
     local dx = math.cos(angleRad) * distance
     local dz = math.sin(angleRad) * distance
-    
+
     -- Mitigate floating point errors
-    if math.abs(dx) < 1e-6 then dx = 0 end
-    if math.abs(dz) < 1e-6 then dz = 0 end
-    
+    if math.abs(dx) < 1e-6 then
+        dx = 0
+    end
+    if math.abs(dz) < 1e-6 then
+        dz = 0
+    end
+
     return {
         x = point.x + dx,
         y = point.y or 0,
-        z = point.z + dz
+        z = point.z + dz,
     }
 end
 
@@ -234,11 +269,11 @@ function MidPoint(point1, point2)
         _HarnessInternal.log.error("MidPoint requires two valid points", "GeoMath.MidPoint")
         return nil
     end
-    
+
     return {
         x = (point1.x + point2.x) / 2,
         y = ((point1.y or 0) + (point2.y or 0)) / 2,
-        z = (point1.z + point2.z) / 2
+        z = (point1.z + point2.z) / 2,
     }
 end
 
@@ -252,27 +287,30 @@ end
 --- local formation = RotatePoint2D(wingman, lead, 45) -- Rotate wingman 45° around lead
 function RotatePoint2D(point, center, angleDeg)
     if not point or not center or not angleDeg then
-        _HarnessInternal.log.error("RotatePoint2D requires point, center, and angle", "GeoMath.RotatePoint2D")
+        _HarnessInternal.log.error(
+            "RotatePoint2D requires point, center, and angle",
+            "GeoMath.RotatePoint2D"
+        )
         return nil
     end
-    
+
     local angleRad = DegToRad(angleDeg)
     local cos_a = math.cos(angleRad)
     local sin_a = math.sin(angleRad)
-    
+
     -- Translate to origin
     local dx = point.x - center.x
     local dz = point.z - center.z
-    
+
     -- Rotate
     local new_dx = dx * cos_a - dz * sin_a
     local new_dz = dx * sin_a + dz * cos_a
-    
+
     -- Translate back
     return {
         x = center.x + new_dx,
         y = point.y or 0,
-        z = center.z + new_dz
+        z = center.z + new_dz,
     }
 end
 
@@ -284,20 +322,23 @@ end
 --- local dir = NormalizeVector2D(velocity) -- Get direction from velocity
 function NormalizeVector2D(vector)
     if not vector or not vector.x or not vector.z then
-        _HarnessInternal.log.error("NormalizeVector2D requires valid vector with x and z", "GeoMath.NormalizeVector2D")
+        _HarnessInternal.log.error(
+            "NormalizeVector2D requires valid vector with x and z",
+            "GeoMath.NormalizeVector2D"
+        )
         return nil
     end
-    
+
     local magnitude = math.sqrt(vector.x * vector.x + vector.z * vector.z)
-    
+
     if magnitude < 1e-6 then
-        return {x = 0, y = 0, z = 0}
+        return { x = 0, y = 0, z = 0 }
     end
-    
+
     return {
         x = vector.x / magnitude,
         y = vector.y or 0,
-        z = vector.z / magnitude
+        z = vector.z / magnitude,
     }
 end
 
@@ -309,20 +350,23 @@ end
 --- local dir = NormalizeVector3D(velocity) -- Get 3D direction from velocity
 function NormalizeVector3D(vector)
     if not vector or not vector.x or not vector.y or not vector.z then
-        _HarnessInternal.log.error("NormalizeVector3D requires valid vector with x, y, and z", "GeoMath.NormalizeVector3D")
+        _HarnessInternal.log.error(
+            "NormalizeVector3D requires valid vector with x, y, and z",
+            "GeoMath.NormalizeVector3D"
+        )
         return nil
     end
-    
+
     local magnitude = math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
-    
+
     if magnitude < 1e-6 then
-        return {x = 0, y = 0, z = 0}
+        return { x = 0, y = 0, z = 0 }
     end
-    
+
     return {
         x = vector.x / magnitude,
         y = vector.y / magnitude,
-        z = vector.z / magnitude
+        z = vector.z / magnitude,
     }
 end
 
@@ -335,10 +379,13 @@ end
 --- local dot2 = DotProduct2D({x=1, z=0}, {x=1, z=0}) -- Returns 1 (parallel)
 function DotProduct2D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("DotProduct2D requires two valid vectors", "GeoMath.DotProduct2D")
+        _HarnessInternal.log.error(
+            "DotProduct2D requires two valid vectors",
+            "GeoMath.DotProduct2D"
+        )
         return nil
     end
-    
+
     return (v1.x or 0) * (v2.x or 0) + (v1.z or 0) * (v2.z or 0)
 end
 
@@ -351,10 +398,13 @@ end
 --- local align = DotProduct3D(forward, target) -- Check alignment with target
 function DotProduct3D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("DotProduct3D requires two valid vectors", "GeoMath.DotProduct3D")
+        _HarnessInternal.log.error(
+            "DotProduct3D requires two valid vectors",
+            "GeoMath.DotProduct3D"
+        )
         return nil
     end
-    
+
     return (v1.x or 0) * (v2.x or 0) + (v1.y or 0) * (v2.y or 0) + (v1.z or 0) * (v2.z or 0)
 end
 
@@ -367,14 +417,17 @@ end
 --- local normal = CrossProduct3D(edge1, edge2) -- Surface normal from two edges
 function CrossProduct3D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("CrossProduct3D requires two valid vectors", "GeoMath.CrossProduct3D")
+        _HarnessInternal.log.error(
+            "CrossProduct3D requires two valid vectors",
+            "GeoMath.CrossProduct3D"
+        )
         return nil
     end
-    
+
     return {
         x = (v1.y or 0) * (v2.z or 0) - (v1.z or 0) * (v2.y or 0),
         y = (v1.z or 0) * (v2.x or 0) - (v1.x or 0) * (v2.z or 0),
-        z = (v1.x or 0) * (v2.y or 0) - (v1.y or 0) * (v2.x or 0)
+        z = (v1.x or 0) * (v2.y or 0) - (v1.y or 0) * (v2.x or 0),
     }
 end
 
@@ -387,38 +440,44 @@ end
 --- local angle2 = AngleBetweenVectors2D({x=1, z=0}, {x=-1, z=0}) -- Returns 180
 function AngleBetweenVectors2D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("AngleBetweenVectors2D requires two valid vectors", "GeoMath.AngleBetweenVectors2D")
+        _HarnessInternal.log.error(
+            "AngleBetweenVectors2D requires two valid vectors",
+            "GeoMath.AngleBetweenVectors2D"
+        )
         return nil
     end
-    
+
     local dot = DotProduct2D(v1, v2)
-    local mag1 = math.sqrt((v1.x or 0)^2 + (v1.z or 0)^2)
-    local mag2 = math.sqrt((v2.x or 0)^2 + (v2.z or 0)^2)
-    
+    local mag1 = math.sqrt((v1.x or 0) ^ 2 + (v1.z or 0) ^ 2)
+    local mag2 = math.sqrt((v2.x or 0) ^ 2 + (v2.z or 0) ^ 2)
+
     if mag1 < 1e-6 or mag2 < 1e-6 then
         return 0
     end
-    
+
     local cosAngle = dot / (mag1 * mag2)
     cosAngle = math.max(-1, math.min(1, cosAngle)) -- Clamp to [-1, 1]
-    
+
     return RadToDeg(math.acos(cosAngle))
 end
 
 function PointInPolygon2D(point, polygon)
     if not point or not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("PointInPolygon2D requires valid point and polygon with at least 3 vertices", "GeoMath.PointInPolygon2D")
+        _HarnessInternal.log.error(
+            "PointInPolygon2D requires valid point and polygon with at least 3 vertices",
+            "GeoMath.PointInPolygon2D"
+        )
         return nil
     end
-    
+
     local x, z = point.x, point.z
     local inside = false
-    
+
     local p1x, p1z = polygon[1].x, polygon[1].z
-    
+
     for i = 1, #polygon do
         local p2x, p2z = polygon[i % #polygon + 1].x, polygon[i % #polygon + 1].z
-        
+
         if z > math.min(p1z, p2z) and z <= math.max(p1z, p2z) and x <= math.max(p1x, p2x) then
             if p1z ~= p2z then
                 local xinters = (z - p1z) * (p2x - p1x) / (p2z - p1z) + p1x
@@ -427,86 +486,95 @@ function PointInPolygon2D(point, polygon)
                 end
             end
         end
-        
+
         p1x, p1z = p2x, p2z
     end
-    
+
     return inside
 end
 
 function CircleLineIntersection2D(circleCenter, radius, lineStart, lineEnd)
     if not circleCenter or not radius or not lineStart or not lineEnd then
-        _HarnessInternal.log.error("CircleLineIntersection2D requires all parameters", "GeoMath.CircleLineIntersection2D")
+        _HarnessInternal.log.error(
+            "CircleLineIntersection2D requires all parameters",
+            "GeoMath.CircleLineIntersection2D"
+        )
         return nil
     end
-    
+
     local dx = lineEnd.x - lineStart.x
     local dz = lineEnd.z - lineStart.z
     local fx = lineStart.x - circleCenter.x
     local fz = lineStart.z - circleCenter.z
-    
+
     local a = dx * dx + dz * dz
     local b = 2 * (fx * dx + fz * dz)
     local c = (fx * fx + fz * fz) - radius * radius
-    
+
     local discriminant = b * b - 4 * a * c
-    
+
     if discriminant < 0 then
         return {} -- No intersection
     end
-    
+
     local discriminantSqrt = math.sqrt(discriminant)
     local t1 = (-b - discriminantSqrt) / (2 * a)
     local t2 = (-b + discriminantSqrt) / (2 * a)
-    
+
     local intersections = {}
-    
+
     if t1 >= 0 and t1 <= 1 then
         table.insert(intersections, {
             x = lineStart.x + t1 * dx,
             y = lineStart.y or 0,
-            z = lineStart.z + t1 * dz
+            z = lineStart.z + t1 * dz,
         })
     end
-    
+
     if t2 >= 0 and t2 <= 1 and math.abs(t2 - t1) > 1e-6 then
         table.insert(intersections, {
             x = lineStart.x + t2 * dx,
             y = lineStart.y or 0,
-            z = lineStart.z + t2 * dz
+            z = lineStart.z + t2 * dz,
         })
     end
-    
+
     return intersections
 end
 
 function PolygonArea2D(polygon)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("PolygonArea2D requires polygon with at least 3 vertices", "GeoMath.PolygonArea2D")
+        _HarnessInternal.log.error(
+            "PolygonArea2D requires polygon with at least 3 vertices",
+            "GeoMath.PolygonArea2D"
+        )
         return nil
     end
-    
+
     local area = 0
     local n = #polygon
-    
+
     for i = 1, n do
         local j = (i % n) + 1
         area = area + polygon[i].x * polygon[j].z
         area = area - polygon[j].x * polygon[i].z
     end
-    
+
     return math.abs(area) / 2
 end
 
 function PolygonCentroid2D(polygon)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("PolygonCentroid2D requires polygon with at least 3 vertices", "GeoMath.PolygonCentroid2D")
+        _HarnessInternal.log.error(
+            "PolygonCentroid2D requires polygon with at least 3 vertices",
+            "GeoMath.PolygonCentroid2D"
+        )
         return nil
     end
-    
+
     local cx, cz = 0, 0
     local area = 0
-    
+
     for i = 1, #polygon do
         local j = (i % #polygon) + 1
         local a = polygon[i].x * polygon[j].z - polygon[j].x * polygon[i].z
@@ -514,61 +582,74 @@ function PolygonCentroid2D(polygon)
         cx = cx + (polygon[i].x + polygon[j].x) * a
         cz = cz + (polygon[i].z + polygon[j].z) * a
     end
-    
+
     area = area / 2
-    
+
     if math.abs(area) < 1e-6 then
         -- Degenerate polygon, return average of points
         for _, p in ipairs(polygon) do
             cx = cx + p.x
             cz = cz + p.z
         end
-        return {x = cx / #polygon, y = 0, z = cz / #polygon}
+        return { x = cx / #polygon, y = 0, z = cz / #polygon }
     end
-    
-    return {x = cx / (6 * area), y = 0, z = cz / (6 * area)}
+
+    return { x = cx / (6 * area), y = 0, z = cz / (6 * area) }
 end
 
 function ConvexHull2D(points)
     if not points or type(points) ~= "table" or #points < 3 then
-        _HarnessInternal.log.error("ConvexHull2D requires at least 3 points", "GeoMath.ConvexHull2D")
+        _HarnessInternal.log.error(
+            "ConvexHull2D requires at least 3 points",
+            "GeoMath.ConvexHull2D"
+        )
         return points or {}
     end
-    
+
     -- Find the leftmost point
     local start = 1
     for i = 2, #points do
-        if points[i].x < points[start].x or 
-           (points[i].x == points[start].x and points[i].z < points[start].z) then
+        if
+            points[i].x < points[start].x
+            or (points[i].x == points[start].x and points[i].z < points[start].z)
+        then
             start = i
         end
     end
-    
+
     local hull = {}
     local current = start
-    
+
     repeat
         table.insert(hull, points[current])
         local next = 1
-        
+
         for i = 1, #points do
             if i ~= current then
                 if next == current then
                     next = i
                 else
-                    local cross = (points[i].x - points[current].x) * (points[next].z - points[current].z) -
-                                  (points[i].z - points[current].z) * (points[next].x - points[current].x)
-                    
-                    if cross > 0 or (cross == 0 and 
-                       Distance2D(points[current], points[i]) > Distance2D(points[current], points[next])) then
+                    local cross = (points[i].x - points[current].x)
+                            * (points[next].z - points[current].z)
+                        - (points[i].z - points[current].z)
+                            * (points[next].x - points[current].x)
+
+                    if
+                        cross > 0
+                        or (
+                            cross == 0
+                            and Distance2D(points[current], points[i])
+                                > Distance2D(points[current], points[next])
+                        )
+                    then
                         next = i
                     end
                 end
             end
         end
-        
+
         current = next
     until current == start
-    
+
     return hull
 end

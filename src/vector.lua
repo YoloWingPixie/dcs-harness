@@ -20,12 +20,12 @@ function Vec2(x, z)
         z = x.z or x.y or x[2] or 0
         x = x.x or x[1] or 0
     end
-    
+
     local self = {
         x = x or 0,
-        z = z or 0
+        z = z or 0,
     }
-    
+
     setmetatable(self, Vec2_mt)
     return self
 end
@@ -47,13 +47,13 @@ function Vec3(x, y, z)
         y = x.y or x[2] or 0
         x = x.x or x[1] or 0
     end
-    
+
     local self = {
         x = x or 0,
         y = y or 0,
-        z = z or 0
+        z = z or 0,
     }
-    
+
     setmetatable(self, Vec3_mt)
     return self
 end
@@ -67,9 +67,7 @@ function IsVec3(vec)
     if not vec or type(vec) ~= "table" then
         return false
     end
-    return type(vec.x) == "number" and 
-           type(vec.y) == "number" and 
-           type(vec.z) == "number"
+    return type(vec.x) == "number" and type(vec.y) == "number" and type(vec.z) == "number"
 end
 
 --- Check if valid 2D vector (works with plain tables or Vec2 instances)
@@ -81,8 +79,7 @@ function IsVec2(vec)
         return false
     end
     -- Support both x,z and x,y formats
-    return type(vec.x) == "number" and 
-           (type(vec.z) == "number" or type(vec.y) == "number")
+    return type(vec.x) == "number" and (type(vec.z) == "number" or type(vec.y) == "number")
 end
 
 -- Conversion functions
@@ -91,8 +88,10 @@ end
 ---@return table? vec2 Converted Vec2 or nil on error
 ---@usage local v2 = ToVec2({x=100, z=200})
 function ToVec2(t)
-    if not t then return nil end
-    
+    if not t then
+        return nil
+    end
+
     if getmetatable(t) == Vec2_mt then
         return t
     elseif getmetatable(t) == Vec3_mt then
@@ -113,8 +112,10 @@ end
 ---@return table? vec3 Converted Vec3 or nil on error
 ---@usage local v3 = ToVec3({x=100, y=50, z=200})
 function ToVec3(t, altitude)
-    if not t then return nil end
-    
+    if not t then
+        return nil
+    end
+
     if getmetatable(t) == Vec3_mt then
         return t
     elseif getmetatable(t) == Vec2_mt then
@@ -145,7 +146,10 @@ function VecAdd(a, b)
     elseif IsVec2(a) and IsVec2(b) then
         return Vec2(a.x + b.x, (a.z or a.y) + (b.z or b.y))
     else
-        _HarnessInternal.log.error("VecAdd requires two valid vectors of same type", "Vector.VecAdd")
+        _HarnessInternal.log.error(
+            "VecAdd requires two valid vectors of same type",
+            "Vector.VecAdd"
+        )
         return Vec3()
     end
 end
@@ -161,7 +165,10 @@ function VecSub(a, b)
     elseif IsVec2(a) and IsVec2(b) then
         return Vec2(a.x - b.x, (a.z or a.y) - (b.z or b.y))
     else
-        _HarnessInternal.log.error("VecSub requires two valid vectors of same type", "Vector.VecSub")
+        _HarnessInternal.log.error(
+            "VecSub requires two valid vectors of same type",
+            "Vector.VecSub"
+        )
         return Vec3()
     end
 end
@@ -176,7 +183,7 @@ function VecScale(vec, scalar)
         _HarnessInternal.log.error("VecScale requires valid vector and number", "Vector.VecScale")
         return Vec3()
     end
-    
+
     if IsVec3(vec) then
         return Vec3(vec.x * scalar, vec.y * scalar, vec.z * scalar)
     elseif IsVec2(vec) then
@@ -194,10 +201,13 @@ end
 ---@usage local divided = VecDiv(v, 2)
 function VecDiv(vec, scalar)
     if type(scalar) ~= "number" or scalar == 0 then
-        _HarnessInternal.log.error("VecDiv requires valid vector and non-zero number", "Vector.VecDiv")
+        _HarnessInternal.log.error(
+            "VecDiv requires valid vector and non-zero number",
+            "Vector.VecDiv"
+        )
         return IsVec3(vec) and Vec3() or Vec2()
     end
-    
+
     return VecScale(vec, 1 / scalar)
 end
 
@@ -226,7 +236,7 @@ function VecLength2D(vec)
         _HarnessInternal.log.error("VecLength2D requires valid vector", "Vector.VecLength2D")
         return 0
     end
-    
+
     local z = vec.z or vec.y or 0
     return math.sqrt(vec.x * vec.x + z * z)
 end
@@ -240,7 +250,7 @@ function VecNormalize(vec)
     if length == 0 then
         return IsVec3(vec) and Vec3() or Vec2()
     end
-    
+
     return VecScale(vec, 1 / length)
 end
 
@@ -253,12 +263,12 @@ function VecNormalize2D(vec)
         _HarnessInternal.log.error("VecNormalize2D requires valid Vec3", "Vector.VecNormalize2D")
         return Vec3()
     end
-    
+
     local length = VecLength2D(vec)
     if length == 0 then
         return Vec3(0, vec.y, 0)
     end
-    
+
     return Vec3(vec.x / length, vec.y, vec.z / length)
 end
 
@@ -273,7 +283,10 @@ function VecDot(a, b)
     elseif IsVec2(a) and IsVec2(b) then
         return a.x * b.x + (a.z or a.y) * (b.z or b.y)
     else
-        _HarnessInternal.log.error("VecDot requires two valid vectors of same type", "Vector.VecDot")
+        _HarnessInternal.log.error(
+            "VecDot requires two valid vectors of same type",
+            "Vector.VecDot"
+        )
         return 0
     end
 end
@@ -288,12 +301,8 @@ function VecCross(a, b)
         _HarnessInternal.log.error("VecCross requires two valid Vec3", "Vector.VecCross")
         return Vec3()
     end
-    
-    return Vec3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x
-    )
+
+    return Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
 end
 
 --- Get distance between two points
@@ -322,7 +331,7 @@ function Distance2D(a, b)
         _HarnessInternal.log.error("Distance2D requires two valid positions", "Vector.Distance2D")
         return 0
     end
-    
+
     local dx = b.x - a.x
     local az = a.z or a.y or 0
     local bz = b.z or b.y or 0
@@ -337,10 +346,13 @@ end
 ---@usage local distSq = DistanceSquared(pos1, pos2)
 function DistanceSquared(a, b)
     if not IsVec3(a) or not IsVec3(b) then
-        _HarnessInternal.log.error("DistanceSquared requires two valid Vec3", "Vector.DistanceSquared")
+        _HarnessInternal.log.error(
+            "DistanceSquared requires two valid Vec3",
+            "Vector.DistanceSquared"
+        )
         return 0
     end
-    
+
     local dx = b.x - a.x
     local dy = b.y - a.y
     local dz = b.z - a.z
@@ -354,10 +366,13 @@ end
 ---@usage local dist2dSq = Distance2DSquared(pos1, pos2)
 function Distance2DSquared(a, b)
     if not a or not b or type(a) ~= "table" or type(b) ~= "table" then
-        _HarnessInternal.log.error("Distance2DSquared requires two valid positions", "Vector.Distance2DSquared")
+        _HarnessInternal.log.error(
+            "Distance2DSquared requires two valid positions",
+            "Vector.Distance2DSquared"
+        )
         return 0
     end
-    
+
     local dx = b.x - a.x
     local az = a.z or a.y or 0
     local bz = b.z or b.y or 0
@@ -375,17 +390,17 @@ function Bearing(from, to)
         _HarnessInternal.log.error("Bearing requires two valid positions", "Vector.Bearing")
         return 0
     end
-    
+
     local dx = to.x - from.x
     local fz = from.z or from.y or 0
     local tz = to.z or to.y or 0
     local dz = tz - fz
     local bearing = math.atan2(dx, dz) * 180 / math.pi
-    
+
     if bearing < 0 then
         bearing = bearing + 360
     end
-    
+
     return bearing
 end
 
@@ -396,15 +411,23 @@ end
 ---@return table position New position
 ---@usage local newPos = FromBearingDistance(pos, 45, 1000)
 function FromBearingDistance(origin, bearing, distance)
-    if not origin or type(origin) ~= "table" or type(bearing) ~= "number" or type(distance) ~= "number" then
-        _HarnessInternal.log.error("FromBearingDistance requires origin, bearing, and distance", "Vector.FromBearingDistance")
+    if
+        not origin
+        or type(origin) ~= "table"
+        or type(bearing) ~= "number"
+        or type(distance) ~= "number"
+    then
+        _HarnessInternal.log.error(
+            "FromBearingDistance requires origin, bearing, and distance",
+            "Vector.FromBearingDistance"
+        )
         return Vec3()
     end
-    
+
     local angle = bearing * math.pi / 180
     local dx = distance * math.sin(angle)
     local dz = distance * math.cos(angle)
-    
+
     if IsVec3(origin) then
         return Vec3(origin.x + dx, origin.y, origin.z + dz)
     else
@@ -422,10 +445,10 @@ function AngleBetween(a, b)
     local normA = VecNormalize(a)
     local normB = VecNormalize(b)
     local dot = VecDot(normA, normB)
-    
+
     -- Clamp to avoid floating point errors with acos
     dot = math.max(-1, math.min(1, dot))
-    
+
     return math.acos(dot) * 180 / math.pi
 end
 
@@ -436,18 +459,14 @@ end
 ---@usage local mid = Midpoint(pos1, pos2)
 function Midpoint(a, b)
     if IsVec3(a) and IsVec3(b) then
-        return Vec3(
-            (a.x + b.x) / 2,
-            (a.y + b.y) / 2,
-            (a.z + b.z) / 2
-        )
+        return Vec3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(
-            (a.x + b.x) / 2,
-            ((a.z or a.y) + (b.z or b.y)) / 2
-        )
+        return Vec2((a.x + b.x) / 2, ((a.z or a.y) + (b.z or b.y)) / 2)
     else
-        _HarnessInternal.log.error("Midpoint requires two valid vectors of same type", "Vector.Midpoint")
+        _HarnessInternal.log.error(
+            "Midpoint requires two valid vectors of same type",
+            "Vector.Midpoint"
+        )
         return Vec3()
     end
 end
@@ -463,20 +482,16 @@ function VecLerp(a, b, t)
         _HarnessInternal.log.error("VecLerp requires number for t", "Vector.VecLerp")
         return a
     end
-    
+
     if IsVec3(a) and IsVec3(b) then
-        return Vec3(
-            a.x + (b.x - a.x) * t,
-            a.y + (b.y - a.y) * t,
-            a.z + (b.z - a.z) * t
-        )
+        return Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(
-            a.x + (b.x - a.x) * t,
-            (a.z or a.y) + ((b.z or b.y) - (a.z or a.y)) * t
-        )
+        return Vec2(a.x + (b.x - a.x) * t, (a.z or a.y) + ((b.z or b.y) - (a.z or a.y)) * t)
     else
-        _HarnessInternal.log.error("VecLerp requires two valid vectors of same type", "Vector.VecLerp")
+        _HarnessInternal.log.error(
+            "VecLerp requires two valid vectors of same type",
+            "Vector.VecLerp"
+        )
         return Vec3()
     end
 end
@@ -490,12 +505,16 @@ function Vec3ToString(vec, precision)
     if not IsVec3(vec) then
         return "(invalid)"
     end
-    
+
     precision = precision or 2
     local format = "%." .. precision .. "f"
-    
-    return string.format("(" .. format .. ", " .. format .. ", " .. format .. ")", 
-                        vec.x, vec.y, vec.z)
+
+    return string.format(
+        "(" .. format .. ", " .. format .. ", " .. format .. ")",
+        vec.x,
+        vec.y,
+        vec.z
+    )
 end
 
 --- Convert Vec2 to string for debugging
@@ -507,11 +526,11 @@ function Vec2ToString(vec, precision)
     if not IsVec2(vec) then
         return "(invalid)"
     end
-    
+
     precision = precision or 2
     local format = "%." .. precision .. "f"
     local z = vec.z or vec.y
-    
+
     return string.format("(" .. format .. ", " .. format .. ")", vec.x, z)
 end
 
@@ -747,9 +766,7 @@ function Vec3_mt.__unm(a)
 end
 
 function Vec3_mt.__eq(a, b)
-    return math.abs(a.x - b.x) < 1e-6 and 
-           math.abs(a.y - b.y) < 1e-6 and 
-           math.abs(a.z - b.z) < 1e-6
+    return math.abs(a.x - b.x) < 1e-6 and math.abs(a.y - b.y) < 1e-6 and math.abs(a.z - b.z) < 1e-6
 end
 
 function Vec3_mt.__tostring(a)

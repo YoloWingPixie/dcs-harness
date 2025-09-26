@@ -1,4 +1,4 @@
-local lu = require('luaunit')
+local lu = require("luaunit")
 
 TestController = {}
 
@@ -135,5 +135,3 @@ function TestController:when_setting_common_options_should_call_setOption()
 end
 
 return TestController
-
-

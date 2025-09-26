@@ -17,20 +17,23 @@ function GetTerrainHeight(position)
         _HarnessInternal.log.error("GetTerrainHeight requires position", "GetTerrainHeight")
         return 0
     end
-    
+
     local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-    
+
     if not IsVec2(vec2) then
         _HarnessInternal.log.error("GetTerrainHeight requires Vec2 or Vec3", "GetTerrainHeight")
         return 0
     end
-    
+
     local success, height = pcall(land.getHeight, vec2)
     if not success then
-        _HarnessInternal.log.error("Failed to get terrain height: " .. tostring(height), "GetTerrainHeight")
+        _HarnessInternal.log.error(
+            "Failed to get terrain height: " .. tostring(height),
+            "GetTerrainHeight"
+        )
         return 0
     end
-    
+
     return height or 0
 end
 
@@ -43,7 +46,7 @@ function GetAGL(position)
         _HarnessInternal.log.error("GetAGL requires Vec3 position", "GetAGL")
         return 0
     end
-    
+
     local groundHeight = GetTerrainHeight(position)
     return position.y - groundHeight
 end
@@ -58,7 +61,7 @@ function SetAGL(position, agl)
         _HarnessInternal.log.error("SetAGL requires Vec3 and number", "SetAGL")
         return Vec3()
     end
-    
+
     local groundHeight = GetTerrainHeight(position)
     return Vec3(position.x, groundHeight + agl, position.z)
 end
@@ -73,13 +76,13 @@ function HasLOS(from, to)
         _HarnessInternal.log.error("HasLOS requires two valid Vec3", "HasLOS")
         return false
     end
-    
+
     local success, visible = pcall(land.isVisible, from, to)
     if not success then
         _HarnessInternal.log.error("Failed to check LOS: " .. tostring(visible), "HasLOS")
         return false
     end
-    
+
     return visible
 end
 
@@ -92,20 +95,23 @@ function GetSurfaceType(position)
         _HarnessInternal.log.error("GetSurfaceType requires position", "GetSurfaceType")
         return nil
     end
-    
+
     local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-    
+
     if not IsVec2(vec2) then
         _HarnessInternal.log.error("GetSurfaceType requires Vec2 or Vec3", "GetSurfaceType")
         return nil
     end
-    
+
     local success, surfaceType = pcall(land.getSurfaceType, vec2)
     if not success then
-        _HarnessInternal.log.error("Failed to get surface type: " .. tostring(surfaceType), "GetSurfaceType")
+        _HarnessInternal.log.error(
+            "Failed to get surface type: " .. tostring(surfaceType),
+            "GetSurfaceType"
+        )
         return nil
     end
-    
+
     return surfaceType
 end
 
@@ -118,7 +124,7 @@ function IsOverWater(position)
     if not surfaceType then
         return false
     end
-    
+
     -- land.SurfaceType.WATER = 3, SHALLOW_WATER = 2
     return surfaceType == 2 or surfaceType == 3
 end
@@ -132,7 +138,7 @@ function IsOverLand(position)
     if not surfaceType then
         return false
     end
-    
+
     -- land.SurfaceType.LAND = 1, ROAD = 4, RUNWAY = 5
     return surfaceType == 1 or surfaceType == 4 or surfaceType == 5
 end
@@ -145,16 +151,22 @@ end
 ---@usage local hit = GetTerrainIntersection(origin, direction, 10000)
 function GetTerrainIntersection(origin, direction, maxDistance)
     if not IsVec3(origin) or not IsVec3(direction) or type(maxDistance) ~= "number" then
-        _HarnessInternal.log.error("GetTerrainIntersection requires origin Vec3, direction Vec3, and maxDistance", "GetTerrainIntersection")
+        _HarnessInternal.log.error(
+            "GetTerrainIntersection requires origin Vec3, direction Vec3, and maxDistance",
+            "GetTerrainIntersection"
+        )
         return nil
     end
-    
+
     local success, intersection = pcall(land.getIP, origin, direction, maxDistance)
     if not success then
-        _HarnessInternal.log.error("Failed to get terrain intersection: " .. tostring(intersection), "GetTerrainIntersection")
+        _HarnessInternal.log.error(
+            "Failed to get terrain intersection: " .. tostring(intersection),
+            "GetTerrainIntersection"
+        )
         return nil
     end
-    
+
     return intersection
 end
 
@@ -168,13 +180,16 @@ function GetTerrainProfile(from, to)
         _HarnessInternal.log.error("GetTerrainProfile requires two valid Vec3", "GetTerrainProfile")
         return {}
     end
-    
+
     local success, profile = pcall(land.profile, from, to)
     if not success then
-        _HarnessInternal.log.error("Failed to get terrain profile: " .. tostring(profile), "GetTerrainProfile")
+        _HarnessInternal.log.error(
+            "Failed to get terrain profile: " .. tostring(profile),
+            "GetTerrainProfile"
+        )
         return {}
     end
-    
+
     return profile or {}
 end
 
@@ -188,22 +203,28 @@ function GetClosestRoadPoint(position, roadType)
         _HarnessInternal.log.error("GetClosestRoadPoint requires position", "GetClosestRoadPoint")
         return nil
     end
-    
+
     local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-    
+
     if not IsVec2(vec2) then
-        _HarnessInternal.log.error("GetClosestRoadPoint requires Vec2 or Vec3", "GetClosestRoadPoint")
+        _HarnessInternal.log.error(
+            "GetClosestRoadPoint requires Vec2 or Vec3",
+            "GetClosestRoadPoint"
+        )
         return nil
     end
-    
+
     roadType = roadType or "roads"
-    
+
     local success, point = pcall(land.getClosestPointOnRoads, roadType, vec2.x, vec2.z)
     if not success then
-        _HarnessInternal.log.error("Failed to get closest road point: " .. tostring(point), "GetClosestRoadPoint")
+        _HarnessInternal.log.error(
+            "Failed to get closest road point: " .. tostring(point),
+            "GetClosestRoadPoint"
+        )
         return nil
     end
-    
+
     return point
 end
 
@@ -218,26 +239,27 @@ function FindRoadPath(from, to, roadType)
         _HarnessInternal.log.error("FindRoadPath requires from and to positions", "FindRoadPath")
         return {}
     end
-    
+
     local fromVec2 = IsVec3(from) and Vec2(from.x, from.z) or from
     local toVec2 = IsVec3(to) and Vec2(to.x, to.z) or to
-    
+
     if not IsVec2(fromVec2) or not IsVec2(toVec2) then
         _HarnessInternal.log.error("FindRoadPath requires Vec2 or Vec3 positions", "FindRoadPath")
         return {}
     end
-    
+
     -- Note: For rails, the parameter should be "rails" not "railroads"
     roadType = roadType or "roads"
     if roadType == "railroads" then
         roadType = "rails"
     end
-    
-    local success, path = pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.z, toVec2.x, toVec2.z)
+
+    local success, path =
+        pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.z, toVec2.x, toVec2.z)
     if not success then
         _HarnessInternal.log.error("Failed to find road path: " .. tostring(path), "FindRoadPath")
         return {}
     end
-    
+
     return path or {}
 end

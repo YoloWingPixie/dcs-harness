@@ -12,7 +12,7 @@ require("zone")
 function InitializeShapeCache()
     local drawingSuccess = InitializeDrawingCache()
     local zoneSuccess = InitializeZoneCache()
-    
+
     _HarnessInternal.log.info("Shape cache initialization complete", "ShapeCache.Initialize")
     return drawingSuccess and zoneSuccess
 end
@@ -22,7 +22,7 @@ end
 function GetAllShapes()
     return {
         drawings = GetAllDrawings(),
-        triggerZones = GetAllZones()
+        triggerZones = GetAllZones(),
     }
 end
 
@@ -31,13 +31,16 @@ end
 ---@return table results Table with matching drawings and triggerZones
 function FindShapesByName(pattern)
     if not pattern or type(pattern) ~= "string" then
-        _HarnessInternal.log.error("FindShapesByName requires valid pattern", "ShapeCache.FindByName")
-        return {drawings = {}, triggerZones = {}}
+        _HarnessInternal.log.error(
+            "FindShapesByName requires valid pattern",
+            "ShapeCache.FindByName"
+        )
+        return { drawings = {}, triggerZones = {} }
     end
-    
+
     return {
         drawings = FindDrawingsByName(pattern),
-        triggerZones = FindZonesByName(pattern)
+        triggerZones = FindZonesByName(pattern),
     }
 end
 
@@ -49,21 +52,21 @@ function GetShapeByName(name)
         _HarnessInternal.log.error("GetShapeByName requires valid name", "ShapeCache.GetByName")
         return nil
     end
-    
+
     -- Check drawings first
     local drawing = GetDrawingByName(name)
     if drawing then
         drawing.shapeType = "drawing"
         return drawing
     end
-    
+
     -- Check trigger zones
     local zone = GetCachedZoneByName(name)
     if zone then
         zone.shapeType = "triggerZone"
         return zone
     end
-    
+
     return nil
 end
 
@@ -73,12 +76,15 @@ end
 ---@return table results Array of shapes containing the point
 function GetShapesAtPoint(point, shapeName)
     if not point or type(point) ~= "table" or not point.x or not point.z then
-        _HarnessInternal.log.error("GetShapesAtPoint requires valid point with x, z", "ShapeCache.GetShapesAtPoint")
+        _HarnessInternal.log.error(
+            "GetShapesAtPoint requires valid point with x, z",
+            "ShapeCache.GetShapesAtPoint"
+        )
         return {}
     end
-    
+
     local results = {}
-    
+
     if shapeName then
         -- Check specific shape
         local shape = GetShapeByName(shapeName)
@@ -89,7 +95,7 @@ function GetShapesAtPoint(point, shapeName)
             elseif shape.shapeType == "triggerZone" then
                 isInside = IsPointInZoneGeometry(shape, point)
             end
-            
+
             if isInside then
                 table.insert(results, shape)
             end
@@ -97,7 +103,7 @@ function GetShapesAtPoint(point, shapeName)
     else
         -- Check all shapes
         local allShapes = GetAllShapes()
-        
+
         -- Check drawings
         for _, drawing in ipairs(allShapes.drawings) do
             if IsPointInDrawing(drawing, point) then
@@ -105,7 +111,7 @@ function GetShapesAtPoint(point, shapeName)
                 table.insert(results, drawing)
             end
         end
-        
+
         -- Check trigger zones
         for _, zone in ipairs(allShapes.triggerZones) do
             if IsPointInZoneGeometry(zone, point) then
@@ -114,7 +120,7 @@ function GetShapesAtPoint(point, shapeName)
             end
         end
     end
-    
+
     return results
 end
 
@@ -122,7 +128,7 @@ end
 ---@return table circles Array of circular shapes
 function GetAllCircularShapes()
     local circles = {}
-    
+
     -- Get circular drawings
     local polygons = GetDrawingsByType("Polygon")
     for _, drawing in ipairs(polygons) do
@@ -131,14 +137,14 @@ function GetAllCircularShapes()
             table.insert(circles, drawing)
         end
     end
-    
+
     -- Get circular trigger zones
     local zones = GetZonesByType("circle")
     for _, zone in ipairs(zones) do
         zone.shapeType = "triggerZone"
         table.insert(circles, zone)
     end
-    
+
     return circles
 end
 
@@ -146,7 +152,7 @@ end
 ---@return table polygons Array of polygon shapes
 function GetAllPolygonShapes()
     local polygons = {}
-    
+
     -- Get polygon drawings
     local drawings = GetDrawingsByType("Polygon")
     for _, drawing in ipairs(drawings) do
@@ -155,7 +161,7 @@ function GetAllPolygonShapes()
             table.insert(polygons, drawing)
         end
     end
-    
+
     -- Get all lines that are closed (forming polygons)
     local lines = GetDrawingsByType("Line")
     for _, line in ipairs(lines) do
@@ -164,14 +170,14 @@ function GetAllPolygonShapes()
             table.insert(polygons, line)
         end
     end
-    
+
     -- Get polygon trigger zones
     local zones = GetZonesByType("polygon")
     for _, zone in ipairs(zones) do
         zone.shapeType = "triggerZone"
         table.insert(polygons, zone)
     end
-    
+
     return polygons
 end
 
@@ -180,26 +186,29 @@ end
 ---@return table Array of units inside the shape
 function GetUnitsInShape(shapeName)
     if not shapeName or type(shapeName) ~= "string" then
-        _HarnessInternal.log.error("GetUnitsInShape requires valid shape name", "ShapeCache.GetUnitsInShape")
+        _HarnessInternal.log.error(
+            "GetUnitsInShape requires valid shape name",
+            "ShapeCache.GetUnitsInShape"
+        )
         return {}
     end
-    
+
     local shape = GetShapeByName(shapeName)
     if not shape then
         _HarnessInternal.log.warning("Shape not found: " .. shapeName, "ShapeCache.GetUnitsInShape")
         return {}
     end
-    
+
     -- If it's a trigger zone, use GetUnitsInZone with the name
     if shape.shapeType == "triggerZone" then
         return GetUnitsInZone(shapeName)
     end
-    
+
     -- If it's a drawing, use GetUnitsInDrawing
     if shape.shapeType == "drawing" then
         return GetUnitsInDrawing(shapeName)
     end
-    
+
     -- Fallback - shouldn't reach here
     return {}
 end
@@ -211,26 +220,26 @@ function GetShapeStatistics()
     local stats = {
         drawings = {
             total = #allShapes.drawings,
-            byType = {}
+            byType = {},
         },
         triggerZones = {
             total = #allShapes.triggerZones,
-            byType = {}
-        }
+            byType = {},
+        },
     }
-    
+
     -- Count drawings by type
     for _, drawing in ipairs(allShapes.drawings) do
         local dtype = drawing.type or "unknown"
         stats.drawings.byType[dtype] = (stats.drawings.byType[dtype] or 0) + 1
     end
-    
+
     -- Count zones by type
     for _, zone in ipairs(allShapes.triggerZones) do
         local ztype = zone.type or "unknown"
         stats.triggerZones.byType[ztype] = (stats.triggerZones.byType[ztype] or 0) + 1
     end
-    
+
     return stats
 end
 
@@ -247,10 +256,10 @@ function AutoInitializeShapeCache()
     local success, hasMission = pcall(function()
         return env and env.mission ~= nil
     end)
-    
+
     if success and hasMission then
         return InitializeShapeCache()
     end
-    
+
     return false
 end

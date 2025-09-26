@@ -14,7 +14,7 @@ function GetTime()
         _HarnessInternal.log.error("Failed to get mission time: " .. tostring(time), "GetTime")
         return 0
     end
-    
+
     return time
 end
 
@@ -27,7 +27,7 @@ function GetAbsTime()
         _HarnessInternal.log.error("Failed to get absolute time: " .. tostring(time), "GetAbsTime")
         return 0
     end
-    
+
     return time
 end
 
@@ -37,10 +37,13 @@ end
 function GetTime0()
     local success, time = pcall(timer.getTime0)
     if not success then
-        _HarnessInternal.log.error("Failed to get mission start time: " .. tostring(time), "GetTime0")
+        _HarnessInternal.log.error(
+            "Failed to get mission start time: " .. tostring(time),
+            "GetTime0"
+        )
         return 0
     end
-    
+
     return time
 end
 
@@ -53,11 +56,11 @@ function FormatTime(seconds)
         _HarnessInternal.log.error("FormatTime requires number", "FormatTime")
         return "00:00:00"
     end
-    
+
     local hours = math.floor(seconds / 3600)
     local minutes = math.floor((seconds % 3600) / 60)
     local secs = math.floor(seconds % 60)
-    
+
     return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
@@ -70,10 +73,10 @@ function FormatTimeShort(seconds)
         _HarnessInternal.log.error("FormatTimeShort requires number", "FormatTimeShort")
         return "00:00"
     end
-    
+
     local minutes = math.floor(seconds / 60)
     local secs = math.floor(seconds % 60)
-    
+
     return string.format("%02d:%02d", minutes, secs)
 end
 
@@ -82,15 +85,15 @@ end
 ---@usage local t = GetMissionTime() -- {hours=14, minutes=30, seconds=45}
 function GetMissionTime()
     local currentTime = GetAbsTime()
-    
+
     local hours = math.floor(currentTime / 3600)
     local minutes = math.floor((currentTime % 3600) / 60)
     local seconds = math.floor(currentTime % 60)
-    
+
     return {
         hours = hours,
         minutes = minutes,
-        seconds = seconds
+        seconds = seconds,
     }
 end
 
@@ -101,7 +104,7 @@ function IsNightTime()
     local absTime = GetAbsTime()
     local secondsInDay = absTime % 86400
     local hour = math.floor(secondsInDay / 3600)
-    
+
     return hour >= 19 or hour < 7
 end
 
@@ -116,16 +119,19 @@ function ScheduleOnce(func, args, delay)
         _HarnessInternal.log.error("ScheduleOnce requires function", "ScheduleOnce")
         return nil
     end
-    
+
     delay = delay or 0
     local time = GetTime() + delay
-    
+
     local success, timerId = pcall(timer.scheduleFunction, func, args, time)
     if not success then
-        _HarnessInternal.log.error("Failed to schedule function: " .. tostring(timerId), "ScheduleOnce")
+        _HarnessInternal.log.error(
+            "Failed to schedule function: " .. tostring(timerId),
+            "ScheduleOnce"
+        )
         return nil
     end
-    
+
     return timerId
 end
 
@@ -137,13 +143,16 @@ function CancelSchedule(timerId)
     if not timerId then
         return false
     end
-    
+
     local success, result = pcall(timer.removeFunction, timerId)
     if not success then
-        _HarnessInternal.log.warn("Failed to cancel scheduled function: " .. tostring(result), "CancelSchedule")
+        _HarnessInternal.log.warn(
+            "Failed to cancel scheduled function: " .. tostring(result),
+            "CancelSchedule"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -154,16 +163,22 @@ end
 ---@usage RescheduleFunction(timerId, GetTime() + 30)
 function RescheduleFunction(timerId, newTime)
     if not timerId or type(newTime) ~= "number" then
-        _HarnessInternal.log.error("RescheduleFunction requires timerId and new time", "RescheduleFunction")
+        _HarnessInternal.log.error(
+            "RescheduleFunction requires timerId and new time",
+            "RescheduleFunction"
+        )
         return false
     end
-    
+
     local success, result = pcall(timer.setFunctionTime, timerId, newTime)
     if not success then
-        _HarnessInternal.log.error("Failed to reschedule function: " .. tostring(result), "RescheduleFunction")
+        _HarnessInternal.log.error(
+            "Failed to reschedule function: " .. tostring(result),
+            "RescheduleFunction"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -174,13 +189,13 @@ end
 function SecondsToTime(seconds)
     if type(seconds) ~= "number" then
         _HarnessInternal.log.error("SecondsToTime requires number", "SecondsToTime")
-        return {hours = 0, minutes = 0, seconds = 0}
+        return { hours = 0, minutes = 0, seconds = 0 }
     end
-    
+
     return {
         hours = math.floor(seconds / 3600),
         minutes = math.floor((seconds % 3600) / 60),
-        seconds = math.floor(seconds % 60)
+        seconds = math.floor(seconds % 60),
     }
 end
 
@@ -194,12 +209,12 @@ function TimeToSeconds(hours, minutes, seconds)
     hours = hours or 0
     minutes = minutes or 0
     seconds = seconds or 0
-    
+
     if type(hours) ~= "number" or type(minutes) ~= "number" or type(seconds) ~= "number" then
         _HarnessInternal.log.error("TimeToSeconds requires numeric values", "TimeToSeconds")
         return 0
     end
-    
+
     return hours * 3600 + minutes * 60 + seconds
 end
 

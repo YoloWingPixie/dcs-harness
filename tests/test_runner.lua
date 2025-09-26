@@ -2,26 +2,26 @@
 -- This loads all test files and runs them with LuaUnit
 
 -- Add test directory to path (platform-independent)
-local separator = package.config:sub(1,1)  -- Gets the directory separator
+local separator = package.config:sub(1, 1) -- Gets the directory separator
 package.path = package.path .. ";" .. "." .. separator .. "tests" .. separator .. "?.lua"
 
 -- Add src directory to path so module requires from src/ resolve during preloads
 package.path = package.path .. ";" .. ".." .. separator .. "src" .. separator .. "?.lua"
 
 -- Load LuaUnit
-local lu = require('luaunit')
+local lu = require("luaunit")
 
 -- Load test utilities for isolation
-require('test_utils')
+require("test_utils")
 
 -- Load mock DCS environment
-require('mock_dcs')
+require("mock_dcs")
 
 -- Initialize Harness internal structure (mimicking _header.lua)
 HARNESS_VERSION = "1.0.0-test"
 _HarnessInternal = {
     loggers = {},
-    defaultNamespace = "Harness"
+    defaultNamespace = "Harness",
 }
 
 -- Ensure cache structure exists (mimic _header.lua)
@@ -31,7 +31,7 @@ if not _HarnessInternal.cache then
         groups = {},
         controllers = {},
         airbases = {},
-        stats = { hits = 0, misses = 0, evictions = 0 }
+        stats = { hits = 0, misses = 0, evictions = 0 },
     }
 end
 
@@ -69,21 +69,25 @@ dofile("../src/shapecache.lua")
 -- Dynamically load all test_*.lua files in the tests directory (excluding this runner)
 local function listTestModules()
     local modules = {}
-    local sep = package.config:sub(1,1)
+    local sep = package.config:sub(1, 1)
     local testsDir = "." -- this script runs from tests/ as CWD
 
     -- Prefer LuaFileSystem if available
-    local ok, lfs = pcall(require, 'lfs')
+    local ok, lfs = pcall(require, "lfs")
     if ok and lfs and lfs.dir then
         for file in lfs.dir(testsDir) do
-            if type(file) == 'string' and file:match('^test_.*%.lua$') and file ~= 'test_runner.lua' then
-                table.insert(modules, (file:gsub('%.lua$', '')))
+            if
+                type(file) == "string"
+                and file:match("^test_.*%.lua$")
+                and file ~= "test_runner.lua"
+            then
+                table.insert(modules, (file:gsub("%.lua$", "")))
             end
         end
     else
         -- Fallback: use OS directory listing
         local cmd
-        if sep == '\\' then
+        if sep == "\\" then
             cmd = 'cmd /c dir /b "' .. testsDir .. '\\test_*.lua"'
         else
             cmd = 'sh -c "ls ' .. testsDir .. '/test_*.lua 2>/dev/null"'
@@ -93,13 +97,13 @@ local function listTestModules()
             for line in p:lines() do
                 local name = line
                 -- Normalize to filename only
-                if sep == '\\' then
-                    name = name:match('([^\\/]+)$') or name
+                if sep == "\\" then
+                    name = name:match("([^\\/]+)$") or name
                 else
-                    name = name:match('([^/]+)$') or name
+                    name = name:match("([^/]+)$") or name
                 end
-                if name ~= 'test_runner.lua' and name:match('^test_.*%.lua$') then
-                    table.insert(modules, (name:gsub('%.lua$', '')))
+                if name ~= "test_runner.lua" and name:match("^test_.*%.lua$") then
+                    table.insert(modules, (name:gsub("%.lua$", "")))
                 end
             end
             p:close()

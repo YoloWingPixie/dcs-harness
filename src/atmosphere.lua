@@ -14,7 +14,10 @@ require("vector")
 ---@usage local wind = GetWind(position)
 function GetWind(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("GetWind requires valid point with x, y, z", "Atmosphere.GetWind")
+        _HarnessInternal.log.error(
+            "GetWind requires valid point with x, y, z",
+            "Atmosphere.GetWind"
+        )
         return nil
     end
 
@@ -33,13 +36,19 @@ end
 ---@usage local wind = GetWindWithTurbulence(position)
 function GetWindWithTurbulence(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("GetWindWithTurbulence requires valid point with x, y, z", "Atmosphere.GetWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "GetWindWithTurbulence requires valid point with x, y, z",
+            "Atmosphere.GetWindWithTurbulence"
+        )
         return nil
     end
 
     local success, result = pcall(atmosphere.getWindWithTurbulence, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get wind with turbulence: " .. tostring(result), "Atmosphere.GetWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "Failed to get wind with turbulence: " .. tostring(result),
+            "Atmosphere.GetWindWithTurbulence"
+        )
         return nil
     end
 
@@ -57,14 +66,20 @@ end
 ---@usage local data = GetTemperatureAndPressure(position)
 function GetTemperatureAndPressure(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("GetTemperatureAndPressure requires valid point with x, y, z", "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error(
+            "GetTemperatureAndPressure requires valid point with x, y, z",
+            "Atmosphere.GetTemperatureAndPressure"
+        )
         return nil
     end
 
     -- DCS returns two numbers (temperature in Kelvin, pressure in Pascals)
     local success, temperatureK, pressurePa = pcall(atmosphere.getTemperatureAndPressure, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get temperature and pressure: " .. tostring(temperatureK), "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error(
+            "Failed to get temperature and pressure: " .. tostring(temperatureK),
+            "Atmosphere.GetTemperatureAndPressure"
+        )
         return nil
     end
 
@@ -82,7 +97,10 @@ function GetTemperatureAndPressure(point)
     end
 
     if not tK and not pPa then
-        _HarnessInternal.log.error("Temperature/pressure response could not be interpreted", "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error(
+            "Temperature/pressure response could not be interpreted",
+            "Atmosphere.GetTemperatureAndPressure"
+        )
         return nil
     end
 

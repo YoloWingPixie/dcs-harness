@@ -11,13 +11,19 @@ require("logger")
 --- @usage local coalition = getCoalitionByCountry(country.id.USA)
 function GetCoalitionByCountry(countryId)
     if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionByCountry requires valid country ID", "Coalition.GetCoalitionByCountry")
+        _HarnessInternal.log.error(
+            "GetCoalitionByCountry requires valid country ID",
+            "Coalition.GetCoalitionByCountry"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getCountryCoalition, countryId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition for country: " .. tostring(result), "Coalition.GetCoalitionByCountry")
+        _HarnessInternal.log.error(
+            "Failed to get coalition for country: " .. tostring(result),
+            "Coalition.GetCoalitionByCountry"
+        )
         return nil
     end
 
@@ -30,13 +36,19 @@ end
 --- @usage local bluePlayers = getCoalitionPlayers(coalition.side.BLUE)
 function GetCoalitionPlayers(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionPlayers requires valid coalition ID", "Coalition.GetCoalitionPlayers")
+        _HarnessInternal.log.error(
+            "GetCoalitionPlayers requires valid coalition ID",
+            "Coalition.GetCoalitionPlayers"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getPlayers, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition players: " .. tostring(result), "Coalition.GetCoalitionPlayers")
+        _HarnessInternal.log.error(
+            "Failed to get coalition players: " .. tostring(result),
+            "Coalition.GetCoalitionPlayers"
+        )
         return nil
     end
 
@@ -50,18 +62,27 @@ end
 --- @usage local redGroundGroups = getCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
 function GetCoalitionGroups(coalitionId, categoryId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionGroups requires valid coalition ID", "Coalition.GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "GetCoalitionGroups requires valid coalition ID",
+            "Coalition.GetCoalitionGroups"
+        )
         return nil
     end
 
     if categoryId and type(categoryId) ~= "number" then
-        _HarnessInternal.log.error("categoryId must be a number if provided", "Coalition.GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "categoryId must be a number if provided",
+            "Coalition.GetCoalitionGroups"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getGroups, coalitionId, categoryId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition groups: " .. tostring(result), "Coalition.GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "Failed to get coalition groups: " .. tostring(result),
+            "Coalition.GetCoalitionGroups"
+        )
         return {}
     end
 
@@ -74,13 +95,19 @@ end
 --- @usage local blueAirbases = getCoalitionAirbases(coalition.side.BLUE)
 function GetCoalitionAirbases(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionAirbases requires valid coalition ID", "Coalition.GetCoalitionAirbases")
+        _HarnessInternal.log.error(
+            "GetCoalitionAirbases requires valid coalition ID",
+            "Coalition.GetCoalitionAirbases"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getAirbases, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition airbases: " .. tostring(result), "Coalition.GetCoalitionAirbases")
+        _HarnessInternal.log.error(
+            "Failed to get coalition airbases: " .. tostring(result),
+            "Coalition.GetCoalitionAirbases"
+        )
         return nil
     end
 
@@ -93,13 +120,19 @@ end
 --- @usage local redCountries = getCoalitionCountries(coalition.side.RED)
 function GetCoalitionCountries(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionCountries requires valid coalition ID", "Coalition.GetCoalitionCountries")
+        _HarnessInternal.log.error(
+            "GetCoalitionCountries requires valid coalition ID",
+            "Coalition.GetCoalitionCountries"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getCountries, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition countries: " .. tostring(result), "Coalition.GetCoalitionCountries")
+        _HarnessInternal.log.error(
+            "Failed to get coalition countries: " .. tostring(result),
+            "Coalition.GetCoalitionCountries"
+        )
         return nil
     end
 
@@ -112,13 +145,19 @@ end
 --- @usage local blueStatics = getCoalitionStaticObjects(coalition.side.BLUE)
 function GetCoalitionStaticObjects(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionStaticObjects requires valid coalition ID", "Coalition.GetCoalitionStaticObjects")
+        _HarnessInternal.log.error(
+            "GetCoalitionStaticObjects requires valid coalition ID",
+            "Coalition.GetCoalitionStaticObjects"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getStaticObjects, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition static objects: " .. tostring(result), "Coalition.GetCoalitionStaticObjects")
+        _HarnessInternal.log.error(
+            "Failed to get coalition static objects: " .. tostring(result),
+            "Coalition.GetCoalitionStaticObjects"
+        )
         return nil
     end
 
@@ -133,23 +172,35 @@ end
 --- @usage local newGroup = addCoalitionGroup(country.id.USA, Group.Category.AIRPLANE, groupDefinition)
 function AddCoalitionGroup(countryId, categoryId, groupData)
     if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionGroup requires valid country ID", "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid country ID",
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
     if not categoryId or type(categoryId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionGroup requires valid category ID", "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid category ID",
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
     if not groupData or type(groupData) ~= "table" then
-        _HarnessInternal.log.error("AddCoalitionGroup requires valid group data table", "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid group data table",
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.addGroup, countryId, categoryId, groupData)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition group: " .. tostring(result), "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "Failed to add coalition group: " .. tostring(result),
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
@@ -163,18 +214,27 @@ end
 --- @usage local newStatic = addCoalitionStaticObject(country.id.USA, staticDefinition)
 function AddCoalitionStaticObject(countryId, staticData)
     if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionStaticObject requires valid country ID", "Coalition.AddStaticObject")
+        _HarnessInternal.log.error(
+            "AddCoalitionStaticObject requires valid country ID",
+            "Coalition.AddStaticObject"
+        )
         return nil
     end
 
     if not staticData or type(staticData) ~= "table" then
-        _HarnessInternal.log.error("AddCoalitionStaticObject requires valid static object data", "Coalition.AddStaticObject")
+        _HarnessInternal.log.error(
+            "AddCoalitionStaticObject requires valid static object data",
+            "Coalition.AddStaticObject"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.addStaticObject, countryId, staticData)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition static object: " .. tostring(result), "Coalition.AddStaticObject")
+        _HarnessInternal.log.error(
+            "Failed to add coalition static object: " .. tostring(result),
+            "Coalition.AddStaticObject"
+        )
         return nil
     end
 
@@ -187,13 +247,19 @@ end
 --- @usage local blueRefPoints = getCoalitionRefPoints(coalition.side.BLUE)
 function GetCoalitionRefPoints(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionRefPoints requires valid coalition ID", "Coalition.GetRefPoints")
+        _HarnessInternal.log.error(
+            "GetCoalitionRefPoints requires valid coalition ID",
+            "Coalition.GetRefPoints"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getRefPoints, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition reference points: " .. tostring(result), "Coalition.GetRefPoints")
+        _HarnessInternal.log.error(
+            "Failed to get coalition reference points: " .. tostring(result),
+            "Coalition.GetRefPoints"
+        )
         return nil
     end
 
@@ -206,13 +272,19 @@ end
 --- @usage local blueBullseye = getCoalitionMainRefPoint(coalition.side.BLUE)
 function GetCoalitionMainRefPoint(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionMainRefPoint requires valid coalition ID", "Coalition.GetMainRefPoint")
+        _HarnessInternal.log.error(
+            "GetCoalitionMainRefPoint requires valid coalition ID",
+            "Coalition.GetMainRefPoint"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getMainRefPoint, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition main reference point: " .. tostring(result), "Coalition.GetMainRefPoint")
+        _HarnessInternal.log.error(
+            "Failed to get coalition main reference point: " .. tostring(result),
+            "Coalition.GetMainRefPoint"
+        )
         return nil
     end
 
@@ -225,13 +297,19 @@ end
 --- @usage local redBullseye = getCoalitionBullseye(coalition.side.RED)
 function GetCoalitionBullseye(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionBullseye requires valid coalition ID", "Coalition.GetBullseye")
+        _HarnessInternal.log.error(
+            "GetCoalitionBullseye requires valid coalition ID",
+            "Coalition.GetBullseye"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getBullseye, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition bullseye: " .. tostring(result), "Coalition.GetBullseye")
+        _HarnessInternal.log.error(
+            "Failed to get coalition bullseye: " .. tostring(result),
+            "Coalition.GetBullseye"
+        )
         return nil
     end
 
@@ -245,18 +323,27 @@ end
 --- @usage local newRefPoint = addCoalitionRefPoint(coalition.side.BLUE, {callsign = "ALPHA", x = 100000, y = 0, z = 200000})
 function AddCoalitionRefPoint(coalitionId, refPointData)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionRefPoint requires valid coalition ID", "Coalition.AddRefPoint")
+        _HarnessInternal.log.error(
+            "AddCoalitionRefPoint requires valid coalition ID",
+            "Coalition.AddRefPoint"
+        )
         return nil
     end
 
     if not refPointData or type(refPointData) ~= "table" then
-        _HarnessInternal.log.error("AddCoalitionRefPoint requires valid reference point data", "Coalition.AddRefPoint")
+        _HarnessInternal.log.error(
+            "AddCoalitionRefPoint requires valid reference point data",
+            "Coalition.AddRefPoint"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.addRefPoint, coalitionId, refPointData)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition reference point: " .. tostring(result), "Coalition.AddRefPoint")
+        _HarnessInternal.log.error(
+            "Failed to add coalition reference point: " .. tostring(result),
+            "Coalition.AddRefPoint"
+        )
         return nil
     end
 
@@ -270,18 +357,27 @@ end
 --- @usage RemoveCoalitionRefPoint(coalition.side.BLUE, "ALPHA")
 function RemoveCoalitionRefPoint(coalitionId, refPointId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("RemoveCoalitionRefPoint requires valid coalition ID", "Coalition.RemoveRefPoint")
+        _HarnessInternal.log.error(
+            "RemoveCoalitionRefPoint requires valid coalition ID",
+            "Coalition.RemoveRefPoint"
+        )
         return nil
     end
 
     if not refPointId then
-        _HarnessInternal.log.error("RemoveCoalitionRefPoint requires valid reference point ID", "Coalition.RemoveRefPoint")
+        _HarnessInternal.log.error(
+            "RemoveCoalitionRefPoint requires valid reference point ID",
+            "Coalition.RemoveRefPoint"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.removeRefPoint, coalitionId, refPointId)
     if not success then
-        _HarnessInternal.log.error("Failed to remove coalition reference point: " .. tostring(result), "Coalition.RemoveRefPoint")
+        _HarnessInternal.log.error(
+            "Failed to remove coalition reference point: " .. tostring(result),
+            "Coalition.RemoveRefPoint"
+        )
         return nil
     end
 
@@ -295,18 +391,27 @@ end
 --- @usage local blueTankers = getCoalitionServiceProviders(coalition.side.BLUE, coalition.service.TANKER)
 function GetCoalitionServiceProviders(coalitionId, serviceType)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionServiceProviders requires valid coalition ID", "Coalition.GetServiceProviders")
+        _HarnessInternal.log.error(
+            "GetCoalitionServiceProviders requires valid coalition ID",
+            "Coalition.GetServiceProviders"
+        )
         return nil
     end
 
     if not serviceType or type(serviceType) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionServiceProviders requires valid service type", "Coalition.GetServiceProviders")
+        _HarnessInternal.log.error(
+            "GetCoalitionServiceProviders requires valid service type",
+            "Coalition.GetServiceProviders"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getServiceProviders, coalitionId, serviceType)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition service providers: " .. tostring(result), "Coalition.GetServiceProviders")
+        _HarnessInternal.log.error(
+            "Failed to get coalition service providers: " .. tostring(result),
+            "Coalition.GetServiceProviders"
+        )
         return nil
     end
 

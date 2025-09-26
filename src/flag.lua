@@ -14,13 +14,13 @@ function GetFlag(flagName)
         _HarnessInternal.log.error("GetFlag requires flag name", "GetFlag")
         return 0
     end
-    
+
     local success, value = pcall(trigger.misc.getUserFlag, flagName)
     if not success then
         _HarnessInternal.log.error("Failed to get flag: " .. tostring(value), "GetFlag")
         return 0
     end
-    
+
     return value
 end
 
@@ -34,15 +34,15 @@ function SetFlag(flagName, value)
         _HarnessInternal.log.error("SetFlag requires flag name", "SetFlag")
         return false
     end
-    
+
     value = value or 1
-    
+
     local success, result = pcall(trigger.action.setUserFlag, flagName, value)
     if not success then
         _HarnessInternal.log.error("Failed to set flag: " .. tostring(result), "SetFlag")
         return false
     end
-    
+
     return true
 end
 
@@ -53,7 +53,7 @@ end
 ---@usage IncFlag("counter", 5)
 function IncFlag(flagName, amount)
     amount = amount or 1
-    
+
     local currentValue = GetFlag(flagName)
     return SetFlag(flagName, currentValue + amount)
 end
@@ -65,7 +65,7 @@ end
 ---@usage DecFlag("counter", 2)
 function DecFlag(flagName, amount)
     amount = amount or 1
-    
+
     local currentValue = GetFlag(flagName)
     return SetFlag(flagName, currentValue - amount)
 end
@@ -142,15 +142,15 @@ function SetFlags(flagTable)
         _HarnessInternal.log.error("SetFlags requires table of flag name/value pairs", "SetFlags")
         return false
     end
-    
+
     local allSuccess = true
-    
+
     for flagName, value in pairs(flagTable) do
         if not SetFlag(flagName, value) then
             allSuccess = false
         end
     end
-    
+
     return allSuccess
 end
 
@@ -163,13 +163,13 @@ function GetFlags(flagNames)
         _HarnessInternal.log.error("GetFlags requires table of flag names", "GetFlags")
         return {}
     end
-    
+
     local values = {}
-    
+
     for _, flagName in ipairs(flagNames) do
         values[flagName] = GetFlag(flagName)
     end
-    
+
     return values
 end
 
@@ -190,14 +190,14 @@ function ClearFlags(flagNames)
         _HarnessInternal.log.error("ClearFlags requires table of flag names", "ClearFlags")
         return false
     end
-    
+
     local allSuccess = true
-    
+
     for _, flagName in ipairs(flagNames) do
         if not ClearFlag(flagName) then
             allSuccess = false
         end
     end
-    
+
     return allSuccess
 end

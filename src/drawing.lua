@@ -21,12 +21,15 @@ function GetDrawings()
         end
         return nil
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to get drawings: " .. tostring(result), "Drawing.GetDrawings")
+        _HarnessInternal.log.error(
+            "Failed to get drawings: " .. tostring(result),
+            "Drawing.GetDrawings"
+        )
         return nil
     end
-    
+
     return result
 end
 
@@ -37,91 +40,85 @@ function ProcessDrawingGeometry(drawing)
     if not drawing or type(drawing) ~= "table" then
         return nil
     end
-    
+
     local geometry = {
         name = drawing.name,
         type = drawing.primitiveType,
         visible = drawing.visible,
         layerName = drawing.layerName,
         mapX = drawing.mapX,
-        mapY = drawing.mapY
+        mapY = drawing.mapY,
     }
-    
+
     -- Convert mapX, mapY to DCS coordinate system (x, z)
     if geometry.mapX and geometry.mapY then
         geometry.x = geometry.mapX
         geometry.z = geometry.mapY
         geometry.y = 0 -- Default ground level
     end
-    
+
     -- Process based on primitive type
     if drawing.primitiveType == "Line" then
         geometry.lineMode = drawing.lineMode
         geometry.closed = drawing.closed
         geometry.points = {}
-        
+
         if drawing.points then
             for i, point in ipairs(drawing.points) do
                 table.insert(geometry.points, {
                     x = (drawing.mapX or 0) + (point.x or 0),
                     y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0)
+                    z = (drawing.mapY or 0) + (point.y or 0),
                 })
             end
         end
-        
     elseif drawing.primitiveType == "Polygon" then
         geometry.polygonMode = drawing.polygonMode
-        
+
         if drawing.polygonMode == "circle" then
             geometry.radius = drawing.radius
-            geometry.center = {x = geometry.x, y = 0, z = geometry.z}
-            
+            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
         elseif drawing.polygonMode == "rect" then
             geometry.width = drawing.width
             geometry.height = drawing.height
             geometry.angle = drawing.angle or 0
-            geometry.center = {x = geometry.x, y = 0, z = geometry.z}
-            
+            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
         elseif drawing.polygonMode == "oval" then
             geometry.r1 = drawing.r1
             geometry.r2 = drawing.r2
             geometry.angle = drawing.angle or 0
-            geometry.center = {x = geometry.x, y = 0, z = geometry.z}
-            
+            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
         elseif drawing.polygonMode == "arrow" then
             geometry.length = drawing.length
             geometry.angle = drawing.angle or 0
             geometry.points = {}
-            
+
             if drawing.points then
                 for i, point in ipairs(drawing.points) do
                     table.insert(geometry.points, {
                         x = (drawing.mapX or 0) + (point.x or 0),
                         y = 0,
-                        z = (drawing.mapY or 0) + (point.y or 0)
+                        z = (drawing.mapY or 0) + (point.y or 0),
                     })
                 end
             end
-            
         elseif drawing.polygonMode == "free" and drawing.points then
             geometry.points = {}
             for i, point in ipairs(drawing.points) do
                 table.insert(geometry.points, {
                     x = (drawing.mapX or 0) + (point.x or 0),
                     y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0)
+                    z = (drawing.mapY or 0) + (point.y or 0),
                 })
             end
         end
-        
     elseif drawing.primitiveType == "Icon" then
         geometry.file = drawing.file
         geometry.scale = drawing.scale or 1
         geometry.angle = drawing.angle or 0
-        geometry.position = {x = geometry.x, y = 0, z = geometry.z}
+        geometry.position = { x = geometry.x, y = 0, z = geometry.z }
     end
-    
+
     -- Store color information if available
     if drawing.colorString then
         geometry.color = drawing.colorString
@@ -129,7 +126,7 @@ function ProcessDrawingGeometry(drawing)
     if drawing.fillColorString then
         geometry.fillColor = drawing.fillColorString
     end
-    
+
     return geometry
 end
 
@@ -139,21 +136,21 @@ function InitializeDrawingCache()
     if not _HarnessInternal.cache then
         _HarnessInternal.cache = {}
     end
-    
+
     _HarnessInternal.cache.drawings = {
         all = {},
         byName = {},
         byType = {},
-        byLayer = {}
+        byLayer = {},
     }
-    
+
     -- Get mission drawings
     local missionDrawings = GetDrawings()
     if not missionDrawings then
         _HarnessInternal.log.warning("No drawings found in mission", "Drawing.InitializeCache")
         return true
     end
-    
+
     -- Process each layer
     if missionDrawings.layers then
         for _, layer in pairs(missionDrawings.layers) do
@@ -163,34 +160,43 @@ function InitializeDrawingCache()
                     if geometry then
                         -- Store in all
                         table.insert(_HarnessInternal.cache.drawings.all, geometry)
-                        
+
                         -- Index by name
                         if geometry.name then
                             _HarnessInternal.cache.drawings.byName[geometry.name] = geometry
                         end
-                        
+
                         -- Index by type
                         if geometry.type then
                             if not _HarnessInternal.cache.drawings.byType[geometry.type] then
                                 _HarnessInternal.cache.drawings.byType[geometry.type] = {}
                             end
-                            table.insert(_HarnessInternal.cache.drawings.byType[geometry.type], geometry)
+                            table.insert(
+                                _HarnessInternal.cache.drawings.byType[geometry.type],
+                                geometry
+                            )
                         end
-                        
+
                         -- Index by layer
                         if geometry.layerName then
                             if not _HarnessInternal.cache.drawings.byLayer[geometry.layerName] then
                                 _HarnessInternal.cache.drawings.byLayer[geometry.layerName] = {}
                             end
-                            table.insert(_HarnessInternal.cache.drawings.byLayer[geometry.layerName], geometry)
+                            table.insert(
+                                _HarnessInternal.cache.drawings.byLayer[geometry.layerName],
+                                geometry
+                            )
                         end
                     end
                 end
             end
         end
     end
-    
-    _HarnessInternal.log.info("Drawing cache initialized with " .. #_HarnessInternal.cache.drawings.all .. " drawings", "Drawing.InitializeCache")
+
+    _HarnessInternal.log.info(
+        "Drawing cache initialized with " .. #_HarnessInternal.cache.drawings.all .. " drawings",
+        "Drawing.InitializeCache"
+    )
     return true
 end
 
@@ -200,7 +206,7 @@ function GetAllDrawings()
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.all or {}
 end
 
@@ -212,11 +218,11 @@ function GetDrawingByName(name)
         _HarnessInternal.log.error("GetDrawingByName requires valid name", "Drawing.GetByName")
         return nil
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.byName[name]
 end
 
@@ -225,23 +231,26 @@ end
 ---@return table Array of matching drawing geometries
 function FindDrawingsByName(pattern)
     if not pattern or type(pattern) ~= "string" then
-        _HarnessInternal.log.error("FindDrawingsByName requires valid pattern", "Drawing.FindByName")
+        _HarnessInternal.log.error(
+            "FindDrawingsByName requires valid pattern",
+            "Drawing.FindByName"
+        )
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     local results = {}
     local lowerPattern = string.lower(pattern)
-    
+
     for _, drawing in ipairs(_HarnessInternal.cache.drawings.all) do
         if drawing.name and string.find(string.lower(drawing.name), lowerPattern, 1, true) then
             table.insert(results, drawing)
         end
     end
-    
+
     return results
 end
 
@@ -253,11 +262,11 @@ function GetDrawingsByType(drawingType)
         _HarnessInternal.log.error("GetDrawingsByType requires valid type", "Drawing.GetByType")
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.byType[drawingType] or {}
 end
 
@@ -266,14 +275,17 @@ end
 ---@return table Array of drawing geometries in the specified layer
 function GetDrawingsByLayer(layerName)
     if not layerName or type(layerName) ~= "string" then
-        _HarnessInternal.log.error("GetDrawingsByLayer requires valid layer name", "Drawing.GetByLayer")
+        _HarnessInternal.log.error(
+            "GetDrawingsByLayer requires valid layer name",
+            "Drawing.GetByLayer"
+        )
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.byLayer[layerName] or {}
 end
 
@@ -285,58 +297,66 @@ function IsPointInDrawing(drawing, point)
     if not drawing or not point then
         return false
     end
-    
+
     if drawing.type == "Polygon" then
         if drawing.polygonMode == "circle" and drawing.center and drawing.radius then
             local dx = point.x - drawing.center.x
             local dz = point.z - drawing.center.z
             return (dx * dx + dz * dz) <= (drawing.radius * drawing.radius)
-            
-        elseif drawing.polygonMode == "rect" and drawing.center and drawing.width and drawing.height then
+        elseif
+            drawing.polygonMode == "rect"
+            and drawing.center
+            and drawing.width
+            and drawing.height
+        then
             -- Simple axis-aligned check (ignoring rotation for now)
             local halfWidth = drawing.width / 2
             local halfHeight = drawing.height / 2
             local dx = math.abs(point.x - drawing.center.x)
             local dz = math.abs(point.z - drawing.center.z)
             return dx <= halfWidth and dz <= halfHeight
-            
         elseif drawing.points and #drawing.points >= 3 then
             -- Point-in-polygon test using ray casting algorithm
             local x, z = point.x, point.z
             local inside = false
             local j = #drawing.points
-            
+
             for i = 1, #drawing.points do
                 local xi, zi = drawing.points[i].x, drawing.points[i].z
                 local xj, zj = drawing.points[j].x, drawing.points[j].z
-                
+
                 if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
                     inside = not inside
                 end
                 j = i
             end
-            
+
             return inside
         end
-    elseif drawing.type == "Line" and drawing.closed and drawing.points and #drawing.points >= 3 then
+    elseif
+        drawing.type == "Line"
+        and drawing.closed
+        and drawing.points
+        and #drawing.points >= 3
+    then
         -- Closed lines form polygons, use same algorithm
         local x, z = point.x, point.z
         local inside = false
         local j = #drawing.points
-        
+
         for i = 1, #drawing.points do
             local xi, zi = drawing.points[i].x, drawing.points[i].z
             local xj, zj = drawing.points[j].x, drawing.points[j].z
-            
+
             if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
                 inside = not inside
             end
             j = i
         end
-        
+
         return inside
     end
-    
+
     return false
 end
 
@@ -346,22 +366,22 @@ end
 ---@return number radius Radius of bounding sphere
 local function CalculateBoundingSphere(points)
     if not points or #points == 0 then
-        return {x = 0, y = 0, z = 0}, 0
+        return { x = 0, y = 0, z = 0 }, 0
     end
-    
+
     -- Find centroid
     local sumX, sumZ = 0, 0
     for _, point in ipairs(points) do
         sumX = sumX + (point.x or 0)
         sumZ = sumZ + (point.z or 0)
     end
-    
+
     local center = {
         x = sumX / #points,
         y = 0,
-        z = sumZ / #points
+        z = sumZ / #points,
     }
-    
+
     -- Find maximum distance from center
     local maxDist = 0
     for _, point in ipairs(points) do
@@ -372,7 +392,7 @@ local function CalculateBoundingSphere(points)
             maxDist = dist
         end
     end
-    
+
     return center, maxDist
 end
 
@@ -383,27 +403,30 @@ end
 ---@usage local units = GetUnitsInDrawing("Target Area", coalition.side.RED)
 function GetUnitsInDrawing(drawingName, coalitionId)
     local unitsInDrawing = {}
-    
+
     -- Get drawing geometry
     local drawing = GetDrawingByName(drawingName)
     if not drawing then
         return {}
     end
-    
+
     -- Create search volume based on drawing type
     local searchVolume
     if drawing.type == "Polygon" then
         if drawing.polygonMode == "circle" and drawing.center and drawing.radius then
             -- For circular drawings, use sphere volume with 1.5x radius for search
             searchVolume = CreateSphereVolume(drawing.center, drawing.radius * 1.5)
-            
-        elseif drawing.polygonMode == "rect" and drawing.center and drawing.width and drawing.height then
+        elseif
+            drawing.polygonMode == "rect"
+            and drawing.center
+            and drawing.width
+            and drawing.height
+        then
             -- For rectangles, calculate bounding sphere with 1.5x radius
             local halfWidth = drawing.width / 2
             local halfHeight = drawing.height / 2
             local radius = math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight) * 1.5
             searchVolume = CreateSphereVolume(drawing.center, radius)
-            
         elseif drawing.points and #drawing.points >= 3 then
             -- For polygon drawings, calculate bounding sphere with 1.5x radius
             local center, radius = CalculateBoundingSphere(drawing.points)
@@ -411,24 +434,29 @@ function GetUnitsInDrawing(drawingName, coalitionId)
         else
             return {}
         end
-    elseif drawing.type == "Line" and drawing.closed and drawing.points and #drawing.points >= 3 then
+    elseif
+        drawing.type == "Line"
+        and drawing.closed
+        and drawing.points
+        and #drawing.points >= 3
+    then
         -- Closed lines form polygons
         local center, radius = CalculateBoundingSphere(drawing.points)
         searchVolume = CreateSphereVolume(center, radius * 1.5)
     else
         return {}
     end
-    
+
     if not searchVolume then
         return {}
     end
-    
+
     -- Handler function for found objects
     local function handleUnit(unit, data)
         if not unit then
             return true
         end
-        
+
         -- Check coalition filter
         if coalitionId then
             local unitCoalition = GetUnitCoalition(unit)
@@ -436,25 +464,25 @@ function GetUnitsInDrawing(drawingName, coalitionId)
                 return true
             end
         end
-        
+
         -- Get unit position for precise drawing check
         local pos = GetUnitPosition(unit)
         if pos then
-            local point = {x = pos.x, z = pos.z}
-            
+            local point = { x = pos.x, z = pos.z }
+
             -- Check if unit is actually in the drawing (not just the bounding sphere)
             if IsPointInDrawing(drawing, point) then
                 table.insert(unitsInDrawing, unit)
             end
         end
-        
+
         return true
     end
-    
+
     -- Search for units in the volume
     -- Object.Category.UNIT = 1 in DCS
     SearchWorldObjects(1, searchVolume, handleUnit)
-    
+
     return unitsInDrawing
 end
 
@@ -465,23 +493,26 @@ end
 ---@usage local drawings = GetDrawingsAtPoint({x=1000, z=2000})
 function GetDrawingsAtPoint(point, drawingType)
     if not point or type(point) ~= "table" or not point.x or not point.z then
-        _HarnessInternal.log.error("GetDrawingsAtPoint requires valid point with x, z", "Drawing.GetDrawingsAtPoint")
+        _HarnessInternal.log.error(
+            "GetDrawingsAtPoint requires valid point with x, z",
+            "Drawing.GetDrawingsAtPoint"
+        )
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     local results = {}
     local drawings = drawingType and GetDrawingsByType(drawingType) or GetAllDrawings()
-    
+
     for _, drawing in ipairs(drawings) do
         if IsPointInDrawing(drawing, point) then
             table.insert(results, drawing)
         end
     end
-    
+
     return results
 end
 
@@ -492,7 +523,7 @@ function ClearDrawingCache()
             all = {},
             byName = {},
             byType = {},
-            byLayer = {}
+            byLayer = {},
         }
     end
 end

@@ -60,6 +60,16 @@ tasks:
     cmds:
       - luacheck {{.SRC_DIR}} {{.TEST_DIR}} --exclude-files {{.TEST_DIR}}/luaunit.lua
 
+  format:
+    desc: Format Lua sources with Stylua (vendored)
+    cmds:
+      - ./stylua/stylua.exe src tests test_mission_scripts
+
+  format:check:
+    desc: Check formatting with Stylua (vendored)
+    cmds:
+      - ./stylua/stylua.exe --check src tests test_mission_scripts
+
   coverage:
     desc: Run tests with coverage reporting
     dir: '{{.TEST_DIR}}'
@@ -71,8 +81,9 @@ tasks:
       - '{{.TEST_DIR}}/**/*.lua'
 
   ci:
-    desc: Run CI pipeline (lint, test, build)
+    desc: Run CI pipeline (format check, lint, test, build)
     cmds:
+      - task: format:check
       - task: lint
       - task: test
       - task: build

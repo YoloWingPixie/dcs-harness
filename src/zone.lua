@@ -28,7 +28,7 @@ function GetZone(zoneName)
         _HarnessInternal.log.error("GetZone requires string zone name", "GetZone")
         return nil
     end
-    
+
     -- Check cache first
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         local cachedZone = _HarnessInternal.cache.triggerZones.byName[zoneName]
@@ -36,28 +36,28 @@ function GetZone(zoneName)
             -- Convert cached format to DCS API format
             if cachedZone.type == "circle" then
                 return {
-                    point = cachedZone.center or {x = 0, y = 0, z = 0},
-                    radius = cachedZone.radius or 0
+                    point = cachedZone.center or { x = 0, y = 0, z = 0 },
+                    radius = cachedZone.radius or 0,
                 }
             elseif cachedZone.type == "polygon" and cachedZone.points then
                 -- For polygon zones, return the first point as center with radius 0
                 -- This matches DCS behavior for polygon zones
                 return {
-                    point = cachedZone.points[1] or {x = 0, y = 0, z = 0},
+                    point = cachedZone.points[1] or { x = 0, y = 0, z = 0 },
                     radius = 0,
-                    vertices = cachedZone.points
+                    vertices = cachedZone.points,
                 }
             end
         end
     end
-    
+
     -- Fall back to API call
     local success, zone = pcall(trigger.misc.getZone, zoneName)
     if not success then
         _HarnessInternal.log.error("Failed to get zone: " .. tostring(zone), "GetZone")
         return nil
     end
-    
+
     return zone
 end
 
@@ -70,7 +70,7 @@ function GetZonePosition(zoneName)
     if not zone then
         return nil
     end
-    
+
     return Vec3(zone.point.x, zone.point.y, zone.point.z)
 end
 
@@ -83,7 +83,7 @@ function GetZoneRadius(zoneName)
     if not zone then
         return nil
     end
-    
+
     return zone.radius
 end
 
@@ -97,30 +97,30 @@ function IsInZone(position, zoneName)
         _HarnessInternal.log.error("IsInZone requires Vec3 position", "IsInZone")
         return false
     end
-    
+
     -- Try to use cached zone geometry first for polygon support
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         local cachedZone = _HarnessInternal.cache.triggerZones.byName[zoneName]
         if cachedZone then
-            return IsPointInZoneGeometry(cachedZone, {x = position.x, z = position.z})
+            return IsPointInZoneGeometry(cachedZone, { x = position.x, z = position.z })
         end
     end
-    
+
     -- Fall back to API zone (only works for circular zones)
     local zone = GetZone(zoneName)
     if not zone then
         return false
     end
-    
+
     -- Check if zone has vertices (polygon)
     if zone.vertices and #zone.vertices >= 3 then
         return IsInPolygonZone(position, zone.vertices)
     end
-    
+
     -- Standard circular zone check
     local zonePos = Vec3(zone.point.x, zone.point.y, zone.point.z)
     local distance = Distance2D(position, zonePos)
-    
+
     return distance <= zone.radius
 end
 
@@ -134,7 +134,7 @@ function IsUnitInZone(unitName, zoneName)
     if not position then
         return false
     end
-    
+
     return IsInZone(position, zoneName)
 end
 
@@ -148,7 +148,7 @@ function IsGroupInZone(groupName, zoneName)
     if not units then
         return false
     end
-    
+
     for _, unit in ipairs(units) do
         local success, unitName = pcall(unit.getName, unit)
         if success and unitName then
@@ -157,7 +157,7 @@ function IsGroupInZone(groupName, zoneName)
             end
         end
     end
-    
+
     return false
 end
 
@@ -171,7 +171,7 @@ function IsGroupCompletelyInZone(groupName, zoneName)
     if not units or #units == 0 then
         return false
     end
-    
+
     for _, unit in ipairs(units) do
         local success, unitName = pcall(unit.getName, unit)
         if success and unitName then
@@ -180,7 +180,7 @@ function IsGroupCompletelyInZone(groupName, zoneName)
             end
         end
     end
-    
+
     return true
 end
 
@@ -190,22 +190,22 @@ end
 ---@return number radius Radius of bounding sphere
 local function CalculateBoundingSphere(points)
     if not points or #points == 0 then
-        return {x = 0, y = 0, z = 0}, 0
+        return { x = 0, y = 0, z = 0 }, 0
     end
-    
+
     -- Find centroid
     local sumX, sumZ = 0, 0
     for _, point in ipairs(points) do
         sumX = sumX + (point.x or 0)
         sumZ = sumZ + (point.z or 0)
     end
-    
+
     local center = {
         x = sumX / #points,
         y = 0,
-        z = sumZ / #points
+        z = sumZ / #points,
     }
-    
+
     -- Find maximum distance from center
     local maxDist = 0
     for _, point in ipairs(points) do
@@ -216,7 +216,7 @@ local function CalculateBoundingSphere(points)
             maxDist = dist
         end
     end
-    
+
     return center, maxDist
 end
 
@@ -227,30 +227,30 @@ end
 ---@usage local units = GetUnitsInZone("LZ Alpha", coalition.side.BLUE)
 function GetUnitsInZone(zoneName, coalitionId)
     local unitsInZone = {}
-    
+
     -- Get zone geometry
     local zone = nil
-    
+
     -- Try to use cached zone geometry first for better performance
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         zone = _HarnessInternal.cache.triggerZones.byName[zoneName]
     end
-    
+
     -- Fall back to API zone
     if not zone then
         local apiZone = GetZone(zoneName)
         if not apiZone then
             return {}
         end
-        
+
         -- Convert API zone to our geometry format
         zone = {
             type = "circle",
             center = apiZone.point,
-            radius = apiZone.radius or 0
+            radius = apiZone.radius or 0,
         }
     end
-    
+
     -- Create search volume based on zone type
     local searchVolume
     if zone.type == "circle" and zone.center and zone.radius then
@@ -263,17 +263,17 @@ function GetUnitsInZone(zoneName, coalitionId)
     else
         return {}
     end
-    
+
     if not searchVolume then
         return {}
     end
-    
+
     -- Handler function for found objects
     local function handleUnit(unit, data)
         if not unit then
             return true
         end
-        
+
         -- Check coalition filter
         if coalitionId then
             local unitCoalition = GetUnitCoalition(unit)
@@ -281,25 +281,25 @@ function GetUnitsInZone(zoneName, coalitionId)
                 return true
             end
         end
-        
+
         -- Get unit position for precise zone check
         local pos = GetUnitPosition(unit)
         if pos then
-            local point = {x = pos.x, z = pos.z}
-            
+            local point = { x = pos.x, z = pos.z }
+
             -- Check if unit is actually in the zone (not just the bounding sphere)
             if IsPointInZoneGeometry(zone, point) then
                 table.insert(unitsInZone, unit)
             end
         end
-        
+
         return true
     end
-    
+
     -- Search for units in the volume
     -- Object.Category.UNIT = 1 in DCS
     SearchWorldObjects(1, searchVolume, handleUnit)
-    
+
     return unitsInZone
 end
 
@@ -313,18 +313,23 @@ function GetGroupsInZone(zoneName, coalitionId)
     if not zone then
         return {}
     end
-    
+
     local groupsInZone = {}
     local groupsAdded = {}
-    
+
     -- Get all groups for the coalition (or all coalitions if not specified)
-    local coalitions = coalitionId and {coalitionId} or {0, 1, 2}
-    
+    local coalitions = coalitionId and { coalitionId } or { 0, 1, 2 }
+
     for _, coal in ipairs(coalitions) do
         -- Check all categories
-        for _, category in ipairs({Group.Category.AIRPLANE, Group.Category.HELICOPTER, Group.Category.GROUND, Group.Category.SHIP}) do
+        for _, category in ipairs({
+            Group.Category.AIRPLANE,
+            Group.Category.HELICOPTER,
+            Group.Category.GROUND,
+            Group.Category.SHIP,
+        }) do
             local groups = GetCoalitionGroups(coal, category)
-            
+
             for _, group in ipairs(groups) do
                 local success, groupName = pcall(group.getName, group)
                 if success and groupName and not groupsAdded[groupName] then
@@ -336,7 +341,7 @@ function GetGroupsInZone(zoneName, coalitionId)
             end
         end
     end
-    
+
     return groupsInZone
 end
 
@@ -351,20 +356,20 @@ function RandomPointInZone(zoneName, inner, outer)
     if not zone then
         return nil
     end
-    
+
     inner = inner or 0
     outer = outer or zone.radius
-    
+
     -- Random angle
     local angle = math.random() * 2 * math.pi
-    
+
     -- Random distance between inner and outer radius
     local distance = inner + math.random() * (outer - inner)
-    
+
     -- Calculate position
     local x = zone.point.x + distance * math.cos(angle)
     local z = zone.point.z + distance * math.sin(angle)
-    
+
     return Vec3(x, zone.point.y, z)
 end
 
@@ -375,25 +380,28 @@ end
 ---@usage if IsInPolygonZone(pos, {v1, v2, v3, v4}) then ... end
 function IsInPolygonZone(point, vertices)
     if not IsVec3(point) or not vertices or type(vertices) ~= "table" then
-        _HarnessInternal.log.error("IsInPolygonZone requires Vec3 point and vertices table", "IsInPolygonZone")
+        _HarnessInternal.log.error(
+            "IsInPolygonZone requires Vec3 point and vertices table",
+            "IsInPolygonZone"
+        )
         return false
     end
-    
+
     -- Ray casting algorithm for point-in-polygon test
     local x, z = point.x, point.z
     local inside = false
     local j = #vertices
-    
+
     for i = 1, #vertices do
         local xi, zi = vertices[i].x, vertices[i].z
         local xj, zj = vertices[j].x, vertices[j].z
-        
+
         if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
             inside = not inside
         end
         j = i
     end
-    
+
     return inside
 end
 
@@ -411,12 +419,15 @@ function GetMissionZones()
         end
         return nil
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to get mission zones: " .. tostring(result), "Zone.GetMissionZones")
+        _HarnessInternal.log.error(
+            "Failed to get mission zones: " .. tostring(result),
+            "Zone.GetMissionZones"
+        )
         return nil
     end
-    
+
     return result
 end
 
@@ -427,20 +438,20 @@ function ProcessZoneGeometry(zone)
     if not zone or type(zone) ~= "table" then
         return nil
     end
-    
+
     -- Skip zones attached to units (they move)
     if zone.linkUnit then
         return nil
     end
-    
+
     local geometry = {
         name = zone.name,
         zoneId = zone.zoneId,
         hidden = zone.hidden,
         color = zone.color,
-        properties = zone.properties or {}
+        properties = zone.properties or {},
     }
-    
+
     -- Zone type: 0 = circular, 2 = quadpoint
     if zone.type == 0 then
         -- Circular zone
@@ -448,15 +459,14 @@ function ProcessZoneGeometry(zone)
         geometry.center = {
             x = zone.x or 0,
             y = 0,
-            z = zone.y or 0  -- Note: mission y is DCS z
+            z = zone.y or 0, -- Note: mission y is DCS z
         }
         geometry.radius = zone.radius or 0
-        
     elseif zone.type == 2 and zone.verticies then
         -- Quadpoint/polygon zone
         geometry.type = "polygon"
         geometry.points = {}
-        
+
         -- Check if vertices appear to be absolute or relative coordinates
         -- If any vertex coordinate is very large (>10000), assume absolute coordinates
         local useAbsolute = false
@@ -466,25 +476,25 @@ function ProcessZoneGeometry(zone)
                 break
             end
         end
-        
+
         -- Zone center position
         local centerX = zone.x or 0
-        local centerZ = zone.y or 0  -- Mission y is DCS z
-        
+        local centerZ = zone.y or 0 -- Mission y is DCS z
+
         for i, vertex in ipairs(zone.verticies) do
             if useAbsolute then
                 -- Vertices are absolute coordinates
                 table.insert(geometry.points, {
                     x = vertex.x or 0,
                     y = 0,
-                    z = vertex.y or 0  -- Note: mission y is DCS z
+                    z = vertex.y or 0, -- Note: mission y is DCS z
                 })
             else
                 -- Vertices are relative to center
                 table.insert(geometry.points, {
                     x = centerX + (vertex.x or 0),
                     y = 0,
-                    z = centerZ + (vertex.y or 0)  -- Note: mission y is DCS z
+                    z = centerZ + (vertex.y or 0), -- Note: mission y is DCS z
                 })
             end
         end
@@ -492,7 +502,7 @@ function ProcessZoneGeometry(zone)
         -- Unknown zone type
         return nil
     end
-    
+
     return geometry
 end
 
@@ -502,38 +512,38 @@ function InitializeZoneCache()
     if not _HarnessInternal.cache then
         _HarnessInternal.cache = {}
     end
-    
+
     _HarnessInternal.cache.triggerZones = {
         all = {},
         byName = {},
         byId = {},
-        byType = {}
+        byType = {},
     }
-    
+
     -- Get mission trigger zones
     local zones = GetMissionZones()
     if not zones then
         _HarnessInternal.log.warning("No zones found in mission", "Zone.InitializeCache")
         return true
     end
-    
+
     -- Process each zone
     for _, zone in pairs(zones) do
         local geometry = ProcessZoneGeometry(zone)
         if geometry then
             -- Store in all
             table.insert(_HarnessInternal.cache.triggerZones.all, geometry)
-            
+
             -- Index by name
             if geometry.name then
                 _HarnessInternal.cache.triggerZones.byName[geometry.name] = geometry
             end
-            
+
             -- Index by ID
             if geometry.zoneId then
                 _HarnessInternal.cache.triggerZones.byId[geometry.zoneId] = geometry
             end
-            
+
             -- Index by type
             if geometry.type then
                 if not _HarnessInternal.cache.triggerZones.byType[geometry.type] then
@@ -543,8 +553,11 @@ function InitializeZoneCache()
             end
         end
     end
-    
-    _HarnessInternal.log.info("Zone cache initialized with " .. #_HarnessInternal.cache.triggerZones.all .. " zones", "Zone.InitializeCache")
+
+    _HarnessInternal.log.info(
+        "Zone cache initialized with " .. #_HarnessInternal.cache.triggerZones.all .. " zones",
+        "Zone.InitializeCache"
+    )
     return true
 end
 
@@ -554,7 +567,7 @@ function GetAllZones()
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.all or {}
 end
 
@@ -563,14 +576,17 @@ end
 ---@return table? zone Trigger zone geometry or nil if not found
 function GetCachedZoneByName(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("GetCachedZoneByName requires valid name", "Zone.GetCachedByName")
+        _HarnessInternal.log.error(
+            "GetCachedZoneByName requires valid name",
+            "Zone.GetCachedByName"
+        )
         return nil
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.byName[name]
 end
 
@@ -582,11 +598,11 @@ function GetCachedZoneById(zoneId)
         _HarnessInternal.log.error("GetCachedZoneById requires valid ID", "Zone.GetCachedById")
         return nil
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.byId[zoneId]
 end
 
@@ -598,20 +614,20 @@ function FindZonesByName(pattern)
         _HarnessInternal.log.error("FindZonesByName requires valid pattern", "Zone.FindByName")
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     local results = {}
     local lowerPattern = string.lower(pattern)
-    
+
     for _, zone in ipairs(_HarnessInternal.cache.triggerZones.all) do
         if zone.name and string.find(string.lower(zone.name), lowerPattern, 1, true) then
             table.insert(results, zone)
         end
     end
-    
+
     return results
 end
 
@@ -623,11 +639,11 @@ function GetZonesByType(zoneType)
         _HarnessInternal.log.error("GetZonesByType requires valid type", "Zone.GetByType")
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.byType[zoneType] or {}
 end
 
@@ -639,21 +655,19 @@ function IsPointInZoneGeometry(zone, point)
     if not zone or not point then
         return false
     end
-    
+
     if zone.type == "circle" and zone.center and zone.radius then
         local dx = point.x - zone.center.x
         local dz = point.z - zone.center.z
         return (dx * dx + dz * dz) <= (zone.radius * zone.radius)
-        
     elseif zone.type == "polygon" and zone.points and #zone.points >= 3 then
         -- Convert 2D point to 3D for IsInPolygonZone
-        local point3d = {x = point.x, y = 0, z = point.z}
+        local point3d = { x = point.x, y = 0, z = point.z }
         return IsInPolygonZone(point3d, zone.points)
     end
-    
+
     return false
 end
-
 
 --- Clear trigger zone cache
 function ClearZoneCache()
@@ -662,7 +676,7 @@ function ClearZoneCache()
             all = {},
             byName = {},
             byId = {},
-            byType = {}
+            byType = {},
         }
     end
 end

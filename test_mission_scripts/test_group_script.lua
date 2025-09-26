@@ -150,6 +150,7 @@ local function sectionLifecycle()
 
     local grp = getGroupByName("HARNESS_TEST_DESTROY_GROUP")
     if not grp then
+        info("(Optional) Place group 'HARNESS_TEST_DESTROY_GROUP' to demo destroy", 10)
         return
     end
 
@@ -158,8 +159,8 @@ local function sectionLifecycle()
     end, nil, 2)
 
     ScheduleOnce(function()
-        DestroyGroup(grp)
-        info("Group destroyed (if allowed)", 6)
+        local ok = DestroyGroup(grp)
+        info("DestroyGroup returned " .. tostring(ok), 6)
     end, nil, 5)
 end
 

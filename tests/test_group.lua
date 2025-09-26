@@ -211,15 +211,12 @@ function TestGroup:setUp()
     end
 
     trigger.action.outTextForCoalition = function(coalitionId, message, duration)
-        table.insert(
-            self.messagesSent,
-            {
-                type = "coalition",
-                coalitionId = coalitionId,
-                message = message,
-                duration = duration,
-            }
-        )
+        table.insert(self.messagesSent, {
+            type = "coalition",
+            coalitionId = coalitionId,
+            message = message,
+            duration = duration,
+        })
         return true
     end
 end

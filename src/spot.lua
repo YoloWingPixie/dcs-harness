@@ -8,34 +8,39 @@ require("logger")
 require("vector")
 --- Create a laser spot
 ---@param source table Unit or weapon that creates the spot
----@param target table? Target position (Vec3) or nil for unguided
----@param offset table? Offset from target position (Vec3)
+---@param target table Target position (Vec3)
+---@param localRef table? Optional local reference Vec3 on source (schema localRef)
 ---@param code number Laser code (1111-1788)
 ---@return table? spot Created spot object or nil on error
 ---@usage local spot = CreateLaserSpot(jtac, targetPos, nil, 1688)
-function CreateLaserSpot(source, target, offset, code)
+function CreateLaserSpot(source, target, localRef, code)
     if not source then
         _HarnessInternal.log.error("CreateLaserSpot requires source unit/weapon", "CreateLaserSpot")
         return nil
     end
 
-    if not code or type(code) ~= "number" then
-        _HarnessInternal.log.error("CreateLaserSpot requires numeric laser code", "CreateLaserSpot")
+    if not target or not IsVec3(target) then
+        _HarnessInternal.log.error(
+            "CreateLaserSpot requires Vec3 target position",
+            "CreateLaserSpot"
+        )
         return nil
     end
 
+    if code == nil then
+        _HarnessInternal.log.error("CreateLaserSpot requires numeric laser code", "CreateLaserSpot")
+        return nil
+    end
+    if type(code) ~= "number" then
+        _HarnessInternal.log.error("CreateLaserSpot code must be a number", "CreateLaserSpot")
+        return nil
+    end
     if code < 1111 or code > 1788 then
         _HarnessInternal.log.error("Laser code must be between 1111-1788", "CreateLaserSpot")
         return nil
     end
 
-    local spotType = {
-        type = Spot.LaserSpotType.LASER,
-        point = target,
-        offset = offset,
-    }
-
-    local success, spot = pcall(Spot.createLaser, source, spotType, code)
+    local success, spot = pcall(Spot.createLaser, source, localRef, target, code)
     if not success then
         _HarnessInternal.log.error(
             "Failed to create laser spot: " .. tostring(spot),
@@ -44,16 +49,20 @@ function CreateLaserSpot(source, target, offset, code)
         return nil
     end
 
-    _HarnessInternal.log.info("Created laser spot with code " .. code, "CreateLaserSpot")
+    _HarnessInternal.log.info(
+        "Created laser spot" .. (code and (" with code " .. code) or ""),
+        "CreateLaserSpot"
+    )
     return spot
 end
 
 --- Create an IR pointer spot
 ---@param source table Unit that creates the spot
 ---@param target table Target position (Vec3)
+---@param localRef table? Optional local reference Vec3 on source (schema localRef)
 ---@return table? spot Created spot object or nil on error
 ---@usage local spot = CreateIRSpot(aircraft, targetPos)
-function CreateIRSpot(source, target)
+function CreateIRSpot(source, target, localRef)
     if not source then
         _HarnessInternal.log.error("CreateIRSpot requires source unit", "CreateIRSpot")
         return nil
@@ -64,7 +73,7 @@ function CreateIRSpot(source, target)
         return nil
     end
 
-    local success, spot = pcall(Spot.createInfraRed, source, target)
+    local success, spot = pcall(Spot.createInfraRed, source, localRef, target)
     if not success then
         _HarnessInternal.log.error("Failed to create IR spot: " .. tostring(spot), "CreateIRSpot")
         return nil
@@ -114,6 +123,9 @@ function GetSpotPoint(spot)
         return nil
     end
 
+    if type(point) ~= "table" then
+        return nil
+    end
     return point
 end
 
@@ -162,6 +174,9 @@ function GetLaserCode(spot)
         return nil
     end
 
+    if type(code) ~= "number" then
+        return nil
+    end
     return code
 end
 
@@ -207,14 +222,12 @@ function SpotExists(spot)
         return false
     end
 
-    local success, exists = pcall(function()
-        return spot:isExist()
+    -- Schema does not expose isExist; probe a lightweight getter instead
+    local success = pcall(function()
+        -- getCategory is cheap and available per schema; any error implies invalid spot
+        return spot:getCategory()
     end)
-    if not success then
-        return false
-    end
-
-    return exists == true
+    return success == true
 end
 
 --- Get spot category
@@ -238,5 +251,8 @@ function GetSpotCategory(spot)
         return nil
     end
 
+    if type(category) ~= "number" then
+        return nil
+    end
     return category
 end

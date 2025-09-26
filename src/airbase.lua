@@ -43,11 +43,11 @@ function GetAirbaseDescriptor(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getDescriptor, airbase)
+    local success, result = pcall(airbase.getDesc, airbase)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get airbase descriptor: " .. tostring(result),
-            "Airbase.GetDescriptor"
+            "Airbase.GetDesc"
         )
         return nil
     end
@@ -84,13 +84,13 @@ end
 ---@param airbase table? Airbase object
 ---@return table? unit Airbase unit if found, nil otherwise
 ---@usage local unit = getAirbaseUnit(airbase)
-function GetAirbaseUnit(airbase)
+function GetAirbaseUnit(airbase, unitIndex)
     if not airbase then
         _HarnessInternal.log.error("GetAirbaseUnit requires valid airbase", "Airbase.GetUnit")
         return nil
     end
 
-    local success, result = pcall(airbase.getUnit, airbase)
+    local success, result = pcall(airbase.getUnit, airbase, unitIndex)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get airbase unit: " .. tostring(result),
@@ -115,16 +115,35 @@ function GetAirbaseCategoryName(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getCategoryName, airbase)
+    local success, categoryValue = pcall(airbase.getCategoryEx, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase category name: " .. tostring(result),
-            "Airbase.GetCategoryName"
+            "Failed to get airbase category: " .. tostring(categoryValue),
+            "Airbase.GetCategoryEx"
         )
         return nil
     end
 
-    return result
+    local names = {}
+    local cat = (Airbase and Airbase.Category) or nil
+    if cat then
+        names[cat.AIRDROME] = "AIRDROME"
+        names[cat.HELIPAD] = "HELIPAD"
+        local farp = rawget(cat, "FARP")
+        if farp ~= nil then
+            names[farp] = "FARP"
+        end
+        local ship = cat["SHIP"]
+        if ship ~= nil then
+            names[ship] = "SHIP"
+        end
+        local oil = rawget(cat, "OIL_PLATFORM")
+        if oil ~= nil then
+            names[oil] = "OIL_PLATFORM"
+        end
+    end
+
+    return names[categoryValue] or tostring(categoryValue)
 end
 
 --- Get airbase parking information

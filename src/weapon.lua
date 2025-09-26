@@ -332,14 +332,27 @@ function IsWeaponActive(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.isActive, weapon)
-    if not success then
+    -- Some DCS builds do not expose weapon.isActive; prefer it when present,
+    -- otherwise fall back to existence as a proxy for activity to avoid errors.
+    if type(weapon.isActive) == "function" then
+        local success, result = pcall(weapon.isActive, weapon)
+        if not success then
+            _HarnessInternal.log.error(
+                "Failed to check if weapon is active: " .. tostring(result),
+                "Weapon.IsActive"
+            )
+            return nil
+        end
+        return result
+    end
+
+    local okExist, exists = pcall(weapon.isExist, weapon)
+    if not okExist then
         _HarnessInternal.log.error(
-            "Failed to check if weapon is active: " .. tostring(result),
+            "Failed to check weapon existence as activity proxy: " .. tostring(exists),
             "Weapon.IsActive"
         )
         return nil
     end
-
-    return result
+    return exists == true
 end

@@ -48,7 +48,12 @@ end
 
 --- Get temperature and pressure at a specific point
 ---@param point table? Vec3 position {x, y, z}
----@return table? data Table with temperature and pressure if successful, nil otherwise
+---@return table? data Table with standardized fields if successful, nil otherwise
+---        data.temperatureK number   -- Temperature in Kelvin (raw from DCS)
+---        data.temperatureC number   -- Temperature in Celsius
+---        data.pressurePa number     -- Pressure in Pascals (raw from DCS)
+---        data.pressurehPa number    -- Pressure in hPa (millibars)
+---        data.pressureInHg number   -- Pressure in inches of mercury
 ---@usage local data = GetTemperatureAndPressure(position)
 function GetTemperatureAndPressure(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
@@ -56,11 +61,42 @@ function GetTemperatureAndPressure(point)
         return nil
     end
 
-    local success, result = pcall(atmosphere.getTemperatureAndPressure, point)
+    -- DCS returns two numbers (temperature in Kelvin, pressure in Pascals)
+    local success, temperatureK, pressurePa = pcall(atmosphere.getTemperatureAndPressure, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get temperature and pressure: " .. tostring(result), "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error("Failed to get temperature and pressure: " .. tostring(temperatureK), "Atmosphere.GetTemperatureAndPressure")
         return nil
     end
 
-    return result
+    -- Some environments may return a single number or a table; normalize
+    local tK = nil
+    local pPa = nil
+    if type(temperatureK) == "number" and type(pressurePa) == "number" then
+        tK = temperatureK
+        pPa = pressurePa
+    elseif type(temperatureK) == "table" then
+        tK = tonumber(temperatureK.temperature or temperatureK.temp or temperatureK.t)
+        pPa = tonumber(temperatureK.pressure or temperatureK.p or temperatureK.qnh)
+    elseif type(temperatureK) == "number" then
+        tK = temperatureK
+    end
+
+    if not tK and not pPa then
+        _HarnessInternal.log.error("Temperature/pressure response could not be interpreted", "Atmosphere.GetTemperatureAndPressure")
+        return nil
+    end
+
+    local data = {}
+    if tK then
+        data.temperatureK = tK
+        data.temperatureC = tK - 273.15
+    end
+    if pPa then
+        data.pressurePa = pPa
+        data.pressurehPa = pPa / 100.0
+        -- 1 inHg = 3386.389 Pa
+        data.pressureInHg = pPa / 3386.389
+    end
+
+    return data
 end

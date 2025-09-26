@@ -10317,7 +10317,7 @@ function HasLOS(from, to)
         return false
     end
 
-    return visible
+    return visible == true
 end
 
 --- Get surface type at position
@@ -10449,17 +10449,37 @@ function GetClosestRoadPoint(position, roadType)
     end
 
     roadType = roadType or "roads"
+    -- DCS API nuance: getClosestPointOnRoads expects 'railroads', while findPathOnRoads uses 'rails'
+    if roadType == "rails" then
+        roadType = "railroads"
+    end
 
-    local success, point = pcall(land.getClosestPointOnRoads, roadType, vec2.x, vec2.z)
-    if not success then
+    if type(vec2.x) ~= "number" or type(vec2.z) ~= "number" then
         _HarnessInternal.log.error(
-            "Failed to get closest road point: " .. tostring(point),
+            "GetClosestRoadPoint requires numeric x/z on position",
             "GetClosestRoadPoint"
         )
         return nil
     end
 
-    return point
+    local success, r1, r2 =
+        pcall(land.getClosestPointOnRoads, roadType, tonumber(vec2.x), tonumber(vec2.z))
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get closest road point: " .. tostring(r1),
+            "GetClosestRoadPoint"
+        )
+        return nil
+    end
+
+    -- Normalize return: API may return table or two numeric coordinates
+    if type(r1) == "table" then
+        return r1
+    end
+    if type(r1) == "number" and type(r2) == "number" then
+        return { x = r1, y = r2 }
+    end
+    return nil
 end
 
 --- Find path on roads between two points

@@ -79,17 +79,17 @@ local function showBasics()
     local redAirbases = GetCoalitionAirbases(RED) or {}
     say(string.format("Airbases BLUE=%d RED=%d", #blueAirbases, #redAirbases), 6)
 
-	-- Use main reference point (bullseye) APIs which are available
-	local blueMain = GetCoalitionMainRefPoint(BLUE)
-	if blueMain and blueMain.x and blueMain.z then
-		markAt({ x = blueMain.x, y = blueMain.y or 0, z = blueMain.z }, "BLUE BULLSEYE")
-		say("Marked BLUE bullseye", 6)
-	end
+    -- Use main reference point (bullseye) APIs which are available
+    local blueMain = GetCoalitionMainRefPoint(BLUE)
+    if blueMain and blueMain.x and blueMain.z then
+        markAt({ x = blueMain.x, y = blueMain.y or 0, z = blueMain.z }, "BLUE BULLSEYE")
+        say("Marked BLUE bullseye", 6)
+    end
 
-	local redMain = GetCoalitionMainRefPoint(RED)
-	if redMain and redMain.x and redMain.z then
-		markAt({ x = redMain.x, y = redMain.y or 0, z = redMain.z }, "RED BULLSEYE")
-	end
+    local redMain = GetCoalitionMainRefPoint(RED)
+    if redMain and redMain.x and redMain.z then
+        markAt({ x = redMain.x, y = redMain.y or 0, z = redMain.z }, "RED BULLSEYE")
+    end
 end
 
 local function refPointDemo()
@@ -97,17 +97,17 @@ local function refPointDemo()
     local BLUE = coalitions()
 
     -- Place near origin for visibility
-	local ref = { callsign = "HARNESS_REF", _type = 0, point = { x = 1000, y = 0, z = 0 } }
+    local ref = { callsign = "HARNESS_REF", _type = 0, point = { x = 1000, y = 0, z = 0 } }
     local ok, created = pcall(AddCoalitionRefPoint, BLUE, ref)
     if not ok or not created then
         log("AddCoalitionRefPoint failed")
         return
     end
 
-	-- Some API versions return a finalizer function; call it if so
-	if type(created) == "function" then
-		pcall(created)
-	end
+    -- Some API versions return a finalizer function; call it if so
+    if type(created) == "function" then
+        pcall(created)
+    end
 
     local main = GetCoalitionMainRefPoint(BLUE)
     if main and main.x and main.z then

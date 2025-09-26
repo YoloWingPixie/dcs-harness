@@ -66,28 +66,52 @@ dofile("../src/net.lua")
 dofile("../src/drawing.lua")
 dofile("../src/shapecache.lua")
 
--- Load all test files
-require('test_logger')
-require('test_datastructures')
-require('test_vector')
-require('test_misc')
-require('test_time')
-require('test_flag')
-require('test_coord')
-require('test_terrain')
-require('test_zone')
-require('test_unit')
-require('test_group')
-require('test_spot')
-require('test_net')
-require('test_trigger')
-require('test_unit_group_advanced_simple')
-require('test_cache')
-require('test_zone_cache')
-require('test_zone_search')
-require('test_drawing_search')
-require('test_shapecache')
-require('test_shapes')
+-- Dynamically load all test_*.lua files in the tests directory (excluding this runner)
+local function listTestModules()
+    local modules = {}
+    local sep = package.config:sub(1,1)
+    local testsDir = "." -- this script runs from tests/ as CWD
+
+    -- Prefer LuaFileSystem if available
+    local ok, lfs = pcall(require, 'lfs')
+    if ok and lfs and lfs.dir then
+        for file in lfs.dir(testsDir) do
+            if type(file) == 'string' and file:match('^test_.*%.lua$') and file ~= 'test_runner.lua' then
+                table.insert(modules, (file:gsub('%.lua$', '')))
+            end
+        end
+    else
+        -- Fallback: use OS directory listing
+        local cmd
+        if sep == '\\' then
+            cmd = 'cmd /c dir /b "' .. testsDir .. '\\test_*.lua"'
+        else
+            cmd = 'sh -c "ls ' .. testsDir .. '/test_*.lua 2>/dev/null"'
+        end
+        local p = io.popen(cmd)
+        if p then
+            for line in p:lines() do
+                local name = line
+                -- Normalize to filename only
+                if sep == '\\' then
+                    name = name:match('([^\\/]+)$') or name
+                else
+                    name = name:match('([^/]+)$') or name
+                end
+                if name ~= 'test_runner.lua' and name:match('^test_.*%.lua$') then
+                    table.insert(modules, (name:gsub('%.lua$', '')))
+                end
+            end
+            p:close()
+        end
+    end
+    table.sort(modules)
+    return modules
+end
+
+for _, mod in ipairs(listTestModules()) do
+    require(mod)
+end
 
 -- Run all tests
 os.exit(lu.LuaUnit.run())

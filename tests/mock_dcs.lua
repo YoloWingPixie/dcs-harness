@@ -524,14 +524,13 @@ AI = {
                 ALARM_STATE = 9,
                 RTB_ON_OUT_OF_AMMO = 10,
                 ECM_USING = 13,
-                PROHIBIT_WP_PASS_REPORT = 14,
-                PROHIBIT_AA = 15,
-                PROHIBIT_JETT = 16,
-                PROHIBIT_AB = 17,
-                PROHIBIT_AG = 18,
-                MISSILE_ATTACK = 19,
-                PROHIBIT_WP_PASS_REPORT2 = 20,
-                DISPERSAL_ON_ATTACK = 21
+                PROHIBIT_AA = 14,
+                PROHIBIT_JETT = 15,
+                PROHIBIT_AB = 16,
+                PROHIBIT_AG = 17,
+                MISSILE_ATTACK = 18,
+                PROHIBIT_WP_PASS_REPORT = 19,
+                -- Removed unsupported: PROHIBIT_WP_PASS_REPORT2, DISPERSAL_ON_ATTACK
             },
             val = {
                 ROE = {
@@ -547,13 +546,21 @@ AI = {
                     EVADE_FIRE = 2,
                     BYPASS_AND_ESCAPE = 3,
                     ALLOW_ABORT_MISSION = 4
+                },
+                MISSILE_ATTACK = {
+                    MAX_RANGE = 0,
+                    NEZ_RANGE = 1,
+                    HALF_WAY_RMAX_NEZ = 2,
+                    TARGET_THREAT_EST = 3,
+                    RANDOM_RANGE = 4
                 }
             }
         },
         Ground = {
             id = {
                 ALARM_STATE = 9,
-                ROE = 0
+                ROE = 0,
+                DISPERSE_ON_ATTACK = 8
             },
             val = {
                 ALARM_STATE = {

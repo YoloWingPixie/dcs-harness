@@ -53,7 +53,7 @@ function AddSubMenu(path, name)
         return nil
     end
 
-    local success, result = pcall(missionCommands.addSubMenu, path, name)
+    local success, result = pcall(missionCommands.addSubMenu, name, path)
     if not success then
         _HarnessInternal.log.error("Failed to add submenu: " .. tostring(result), "MissionCommands.AddSubMenu")
         return nil
@@ -141,7 +141,7 @@ function AddSubMenuForCoalition(coalitionId, path, name)
         return nil
     end
 
-    local success, result = pcall(missionCommands.addSubMenuForCoalition, coalitionId, path, name)
+    local success, result = pcall(missionCommands.addSubMenuForCoalition, coalitionId, name, path)
     if not success then
         _HarnessInternal.log.error("Failed to add coalition submenu: " .. tostring(result), "MissionCommands.AddSubMenuForCoalition")
         return nil

@@ -2,8 +2,7 @@ if log and log.info then log.info("harness: 0.2.0 loading...", "Build") end
 
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "1.0.0"
-
+HARNESS_VERSION = "0.2.0"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 

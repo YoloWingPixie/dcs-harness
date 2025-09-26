@@ -2692,6 +2692,42 @@ end
     This module provides validated wrapper functions for DCS controller operations,
     including AI tasking, commands, and behavior management.
 ]]
+-- Resolve a domain string for a controller.
+-- Prefers explicitDomain, then cached domain (if available), else falls back.
+local function _resolveControllerDomain(controller, explicitDomain, defaultDomain)
+    if explicitDomain == "Air" or explicitDomain == "Ground" or explicitDomain == "Naval" then
+        return explicitDomain
+    end
+    if type(GetControllerDomain) == "function" then
+        local cached = GetControllerDomain(controller)
+        if cached == "Air" or cached == "Ground" or cached == "Naval" then
+            return cached
+        end
+    end
+    return defaultDomain
+end
+
+--- Get controller domain from cache metadata if available
+---@param controller table Controller object
+---@return string? domain "Air"|"Ground"|"Naval" if known
+function GetControllerDomain(controller)
+    if not controller then
+        return nil
+    end
+    local controllers = _HarnessInternal
+        and _HarnessInternal.cache
+        and _HarnessInternal.cache.controllers
+    if type(controllers) ~= "table" then
+        return nil
+    end
+    for _, entry in pairs(controllers) do
+        if entry and entry.object == controller and entry.domain then
+            return entry.domain
+        end
+    end
+    return nil
+end
+
 --- Enum aliases for tooltip-friendly options
 ---@alias ROEAir "WEAPON_FREE"|"OPEN_FIRE_WEAPON_FREE"|"OPEN_FIRE"|"RETURN_FIRE"|"WEAPON_HOLD"
 ---@alias ROEGround "OPEN_FIRE"|"RETURN_FIRE"|"WEAPON_HOLD"
@@ -3019,7 +3055,7 @@ end
 ---@param domain string? Domain: "Air" (default), "Ground", or "Naval"
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetROE(controller, value, domain)
-    local d = (domain == "Ground" or domain == "Naval") and domain or "Air"
+    local d = _resolveControllerDomain(controller, domain, "Air")
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ROE then
         _HarnessInternal.log.error(
@@ -3187,7 +3223,7 @@ end
 ---@param domain string? Domain: "Air" (default) or "Ground"
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetAlarmState(controller, value, domain)
-    local d = (domain == "Air") and domain or "Ground"
+    local d = _resolveControllerDomain(controller, domain, "Ground")
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ALARM_STATE then
         _HarnessInternal.log.error(
@@ -3921,284 +3957,6 @@ function CreateWrappedAction(action, stopFlag)
     }
 
     return task
-end
-
---- Creates a Rules of Engagement (ROE) option
----@param value number The ROE value
----@return table option The ROE option table
----@usage local option = createROEOption(2) -- WEAPON_FREE
--- Deprecated: use ControllerSetROE
-function CreateROEOption(value)
-    return {
-        id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ROE)
-            or 0,
-        value = value,
-    }
-end
-
---- Creates a reaction on threat option
----@param value number The reaction value
----@return table option The reaction option table
----@usage local option = createReactionOnThreatOption(1)
--- Deprecated: use ControllerSetReactionOnThreat
-function CreateReactionOnThreatOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.REACTION_ON_THREAT
-        ) or 1,
-        value = value,
-    }
-end
-
---- Creates a radar using option
----@param value number The radar usage value
----@return table option The radar option table
----@usage local option = createRadarUsingOption(1)
--- Deprecated: use ControllerSetRadarUsing
-function CreateRadarUsingOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.RADAR_USING
-        ) or 3,
-        value = value,
-    }
-end
-
---- Creates a flare using option
----@param value number The flare usage value
----@return table option The flare option table
----@usage local option = createFlareUsingOption(1)
--- Deprecated: use ControllerSetFlareUsing
-function CreateFlareUsingOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.FLARE_USING
-        ) or 4,
-        value = value,
-    }
-end
-
---- Creates a formation option
----@param value number The formation value
----@return table option The formation option table
----@usage local option = createFormationOption(1)
--- Deprecated: use ControllerSetFormation
-function CreateFormationOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.FORMATION
-        ) or 5,
-        value = value,
-    }
-end
-
---- Creates a Return To Base on bingo fuel option
----@param value boolean The RTB on bingo value
----@return table option The RTB option table
----@usage local option = createRTBOnBingoOption(true)
--- Deprecated: use ControllerSetRTBOnBingo
-function CreateRTBOnBingoOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.RTB_ON_BINGO
-        ) or 6,
-        value = value,
-    }
-end
-
---- Creates a radio silence option
----@param value boolean The silence value
----@return table option The silence option table
----@usage local option = createSilenceOption(true)
--- Deprecated: use ControllerSetSilence
-function CreateSilenceOption(value)
-    return {
-        id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.SILENCE)
-            or 7,
-        value = value,
-    }
-end
-
---- Creates an alarm state option
----@param value number The alarm state value
----@return table option The alarm state option table
----@usage local option = createAlarmStateOption(2)
--- Deprecated: use ControllerSetAlarmState
-function CreateAlarmStateOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Ground
-            and AI.Option.Ground.id
-            and AI.Option.Ground.id.ALARM_STATE
-        ) or 9,
-        value = value,
-    }
-end
-
---- Creates a Return To Base on out of ammo option
----@param value boolean The RTB on out of ammo value
----@return table option The RTB option table
----@usage local option = createRTBOnOutOfAmmoOption(true)
--- Deprecated: use ControllerSetRTBOnOutOfAmmo
-function CreateRTBOnOutOfAmmoOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.RTB_ON_OUT_OF_AMMO
-        ) or 10,
-        value = value,
-    }
-end
-
---- Creates an ECM using option
----@param value number The ECM usage value
----@return table option The ECM option table
----@usage local option = createECMUsingOption(1)
--- Deprecated: use ControllerSetECMUsing
-function CreateECMUsingOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.ECM_USING
-        ) or 13,
-        value = value,
-    }
-end
-
---- Creates a prohibit waypoint pass report option (ID 19)
----@param value boolean The prohibit value
----@return table option The prohibit option table
----@usage local option = createProhibitWPPassReportOption(true)
--- Deprecated: use ControllerSetProhibitWPPassReport
-function CreateProhibitWPPassReportOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT
-        ) or 19,
-        value = value,
-    }
-end
-
---- Creates a prohibit air-to-air option
----@param value boolean The prohibit value
----@return table option The prohibit AA option table
----@usage local option = createProhibitAAOption(false)
--- Deprecated: use ControllerSetProhibitAA
-function CreateProhibitAAOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.PROHIBIT_AA
-        ) or 14,
-        value = value,
-    }
-end
-
---- Creates a prohibit jettison option
----@param value boolean The prohibit value
----@return table option The prohibit jettison option table
----@usage local option = createProhibitJettisonOption(true)
--- Deprecated: use ControllerSetProhibitJettison
-function CreateProhibitJettisonOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.PROHIBIT_JETT
-        ) or 15,
-        value = value,
-    }
-end
-
---- Creates a prohibit afterburner option
----@param value boolean The prohibit value
----@return table option The prohibit AB option table
----@usage local option = createProhibitABOption(true)
--- Deprecated: use ControllerSetProhibitAB
-function CreateProhibitABOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.PROHIBIT_AB
-        ) or 16,
-        value = value,
-    }
-end
-
---- Creates a prohibit air-to-ground option
----@param value boolean The prohibit value
----@return table option The prohibit AG option table
----@usage local option = createProhibitAGOption(false)
--- Deprecated: use ControllerSetProhibitAG
-function CreateProhibitAGOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.PROHIBIT_AG
-        ) or 17,
-        value = value,
-    }
-end
-
---- Creates a missile attack option
----@param value number The missile attack value
----@return table option The missile attack option table
----@usage local option = createMissileAttackOption(1)
--- Deprecated: use ControllerSetMissileAttack
-function CreateMissileAttackOption(value)
-    return {
-        id = (
-            AI
-            and AI.Option
-            and AI.Option.Air
-            and AI.Option.Air.id
-            and AI.Option.Air.id.MISSILE_ATTACK
-        ) or 18,
-        value = value,
-    }
 end
 -- ==== END: src\controller.lua ====
 
@@ -9261,9 +9019,56 @@ function GetGroupController(groupName)
         return nil
     end
 
-    -- Add to cache
+    -- Add to cache with optional metadata
     if controller then
-        _HarnessInternal.cache.addController(cacheKey, controller)
+        local info = { groupName = groupName }
+
+        -- If this is an air group, capture unit names for reference
+        local cat = GetGroupCategory(groupName)
+        if cat == Group.Category.AIRPLANE or cat == Group.Category.HELICOPTER then
+            local units = GetGroupUnits(groupName)
+            if units and type(units) == "table" then
+                local names = {}
+                for i = 1, #units do
+                    local u = units[i]
+                    local ok, nm = pcall(function()
+                        return u:getName()
+                    end)
+                    if ok and nm then
+                        names[#names + 1] = nm
+                    end
+                end
+                if #names > 0 then
+                    info.unitNames = names
+                end
+            end
+        end
+
+        -- Determine and store domain
+        local domain = nil
+        if cat == Group.Category.AIRPLANE or cat == Group.Category.HELICOPTER then
+            domain = "Air"
+        elseif cat == Group.Category.GROUND then
+            domain = "Ground"
+        elseif cat == Group.Category.SHIP then
+            domain = "Naval"
+        end
+        info.domain = domain
+
+        _HarnessInternal.cache.addController(cacheKey, controller, info)
+        -- Fallback: ensure metadata is stored even if addController ignores info
+        local entry = _HarnessInternal.cache.controllers[cacheKey]
+        if entry then
+            if info.groupName and entry.groupName == nil then
+                entry.groupName = info.groupName
+            end
+            if info.unitNames and entry.unitNames == nil then
+                entry.unitNames = info.unitNames
+            end
+            if info.domain and entry.domain == nil then
+                entry.domain = info.domain
+            end
+        end
     end
 
     return controller
@@ -13043,9 +12848,77 @@ function GetUnitController(unit)
         return nil
     end
 
-    -- Add to cache if we have a name
+    -- Add to cache if we have a name, with optional metadata
     if controller and unitName then
-        _HarnessInternal.cache.addController("unit:" .. unitName, controller)
+        local info = { unitNames = { unitName } }
+
+        -- Attempt to capture owning group name
+        local okGrp, grpName = pcall(function()
+            local grp = unit:getGroup()
+            return grp and grp.getName and grp:getName() or nil
+        end)
+        if okGrp and grpName then
+            info.groupName = grpName
+        end
+
+        -- For air units, try to include all unit names from the group
+        local okCat, cat = pcall(function()
+            return unit.getCategory and unit:getCategory() or nil
+        end)
+        -- Infer domain from unit category
+        if okCat then
+            if cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER then
+                info.domain = "Air"
+            elseif cat == Unit.Category.GROUND_UNIT then
+                info.domain = "Ground"
+            elseif cat == Unit.Category.SHIP then
+                info.domain = "Naval"
+            end
+        end
+        if
+            okCat
+            and (cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER)
+            and info.groupName
+        then
+            local okUnits, names = pcall(function()
+                local grp = unit:getGroup()
+                if grp and grp.getUnits then
+                    local list = grp:getUnits()
+                    if type(list) == "table" then
+                        local acc = {}
+                        for i = 1, #list do
+                            local u = list[i]
+                            local okN, nm = pcall(function()
+                                return u:getName()
+                            end)
+                            if okN and nm then
+                                acc[#acc + 1] = nm
+                            end
+                        end
+                        return acc
+                    end
+                end
+                return nil
+            end)
+            if okUnits and names and #names > 0 then
+                info.unitNames = names
+            end
+        end
+
+        _HarnessInternal.cache.addController("unit:" .. unitName, controller, info)
+        -- Fallback: ensure metadata is stored even if addController ignores info
+        local entry = _HarnessInternal.cache.controllers["unit:" .. unitName]
+        if entry then
+            if info.groupName and entry.groupName == nil then
+                entry.groupName = info.groupName
+            end
+            if info.unitNames and entry.unitNames == nil then
+                entry.unitNames = info.unitNames
+            end
+            if info.domain and entry.domain == nil then
+                entry.domain = info.domain
+            end
+        end
     end
 
     return controller
@@ -14597,16 +14470,29 @@ function IsWeaponActive(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.isActive, weapon)
-    if not success then
+    -- Some DCS builds do not expose weapon.isActive; prefer it when present,
+    -- otherwise fall back to existence as a proxy for activity to avoid errors.
+    if type(weapon.isActive) == "function" then
+        local success, result = pcall(weapon.isActive, weapon)
+        if not success then
+            _HarnessInternal.log.error(
+                "Failed to check if weapon is active: " .. tostring(result),
+                "Weapon.IsActive"
+            )
+            return nil
+        end
+        return result
+    end
+
+    local okExist, exists = pcall(weapon.isExist, weapon)
+    if not okExist then
         _HarnessInternal.log.error(
-            "Failed to check if weapon is active: " .. tostring(result),
+            "Failed to check weapon existence as activity proxy: " .. tostring(exists),
             "Weapon.IsActive"
         )
         return nil
     end
-
-    return result
+    return exists == true
 end
 -- ==== END: src\weapon.lua ====
 

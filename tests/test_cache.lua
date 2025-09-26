@@ -153,6 +153,20 @@ function TestCache:testControllerCache()
     lu.assertNil(cached)
 end
 
+function TestCache:testControllerCacheMetadata()
+    _HarnessInternal.cache.addController("group:TestGroup", self.mockController)
+
+    local entry = GetCacheTables().controllers["group:TestGroup"]
+    lu.assertNotNil(entry)
+    -- Simulate metadata attached by higher-level retrieval
+    entry.groupName = "TestGroup"
+    entry.unitNames = { "U1", "U2" }
+
+    lu.assertEquals(entry.groupName, "TestGroup")
+    lu.assertNotNil(entry.unitNames)
+    lu.assertEquals(#entry.unitNames, 2)
+end
+
 function TestCache:testCacheTTL()
     -- Set short TTL
     SetCacheConfig({ ttl = 10 })

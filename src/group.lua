@@ -225,9 +225,56 @@ function GetGroupController(groupName)
         return nil
     end
 
-    -- Add to cache
+    -- Add to cache with optional metadata
     if controller then
-        _HarnessInternal.cache.addController(cacheKey, controller)
+        local info = { groupName = groupName }
+
+        -- If this is an air group, capture unit names for reference
+        local cat = GetGroupCategory(groupName)
+        if cat == Group.Category.AIRPLANE or cat == Group.Category.HELICOPTER then
+            local units = GetGroupUnits(groupName)
+            if units and type(units) == "table" then
+                local names = {}
+                for i = 1, #units do
+                    local u = units[i]
+                    local ok, nm = pcall(function()
+                        return u:getName()
+                    end)
+                    if ok and nm then
+                        names[#names + 1] = nm
+                    end
+                end
+                if #names > 0 then
+                    info.unitNames = names
+                end
+            end
+        end
+
+        -- Determine and store domain
+        local domain = nil
+        if cat == Group.Category.AIRPLANE or cat == Group.Category.HELICOPTER then
+            domain = "Air"
+        elseif cat == Group.Category.GROUND then
+            domain = "Ground"
+        elseif cat == Group.Category.SHIP then
+            domain = "Naval"
+        end
+        info.domain = domain
+
+        _HarnessInternal.cache.addController(cacheKey, controller, info)
+        -- Fallback: ensure metadata is stored even if addController ignores info
+        local entry = _HarnessInternal.cache.controllers[cacheKey]
+        if entry then
+            if info.groupName and entry.groupName == nil then
+                entry.groupName = info.groupName
+            end
+            if info.unitNames and entry.unitNames == nil then
+                entry.unitNames = info.unitNames
+            end
+            if info.domain and entry.domain == nil then
+                entry.domain = info.domain
+            end
+        end
     end
 
     return controller

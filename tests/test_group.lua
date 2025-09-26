@@ -504,6 +504,17 @@ function TestGroup:testGetGroupController_ValidGroup()
     lu.assertEquals(controller.type, "AI")
 end
 
+function TestGroup:testGetGroupController_should_store_metadata_for_air_groups()
+    local _ = GetGroupController("Aerial-1")
+    local entry = GetCacheTables().controllers["group:Aerial-1"]
+    lu.assertNotNil(entry)
+    lu.assertEquals(entry.groupName, "Aerial-1")
+    lu.assertNotNil(entry.unitNames)
+    table.sort(entry.unitNames)
+    lu.assertEquals(entry.unitNames[1], "Unit-1")
+    lu.assertEquals(entry.unitNames[2], "Unit-2")
+end
+
 function TestGroup:testGetGroupController_NonExistentGroup()
     local controller = GetGroupController("NonExistent")
     lu.assertNil(controller)
@@ -523,6 +534,14 @@ function TestGroup:testGetGroupController_APIError()
     }
     local controller = GetGroupController("ControllerError")
     lu.assertNil(controller)
+end
+
+function TestGroup:testGetGroupController_should_skip_unitNames_for_ground_groups()
+    local _ = GetGroupController("Ground-1")
+    local entry = GetCacheTables().controllers["group:Ground-1"]
+    lu.assertNotNil(entry)
+    lu.assertEquals(entry.groupName, "Ground-1")
+    lu.assertNil(entry.unitNames)
 end
 
 -- MessageToGroup tests

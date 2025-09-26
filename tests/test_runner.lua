@@ -8,6 +8,9 @@ package.path = package.path .. ";" .. "." .. separator .. "tests" .. separator .
 -- Add src directory to path so module requires from src/ resolve during preloads
 package.path = package.path .. ";" .. ".." .. separator .. "src" .. separator .. "?.lua"
 
+-- Add luaunit directory to path so we can require the vendored luaunit
+package.path = package.path .. ";" .. ".." .. separator .. "luaunit" .. separator .. "?.lua"
+
 -- Load LuaUnit
 local lu = require("luaunit")
 

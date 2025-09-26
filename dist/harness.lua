@@ -5,6 +5,7 @@ if log and log.info then log.info("harness: 0.2.0 loading...", "Build") end
 HARNESS_VERSION = "0.2.0"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
+
 -- ==== END: src\_header.lua ====
 
 -- ==== BEGIN: src\datastructures.lua ====
@@ -31,9 +32,9 @@ function Queue()
     local queue = {
         _items = {},
         _first = 1,
-        _last = 0
+        _last = 0,
     }
-    
+
     --- Add item to back of queue
     ---@param item any Item to enqueue
     ---@usage queue:enqueue("item")
@@ -41,7 +42,7 @@ function Queue()
         self._last = self._last + 1
         self._items[self._last] = item
     end
-    
+
     --- Remove and return item from front of queue
     ---@return any? item Dequeued item or nil if empty
     ---@usage local item = queue:dequeue()
@@ -49,20 +50,20 @@ function Queue()
         if self:isEmpty() then
             return nil
         end
-        
+
         local item = self._items[self._first]
         self._items[self._first] = nil
         self._first = self._first + 1
-        
+
         -- Reset indices when queue is empty to prevent index growth
         if self._first > self._last then
             self._first = 1
             self._last = 0
         end
-        
+
         return item
     end
-    
+
     --- Peek at front item without removing
     ---@return any? item Front item or nil if empty
     ---@usage local front = queue:peek()
@@ -72,14 +73,14 @@ function Queue()
         end
         return self._items[self._first]
     end
-    
+
     --- Check if queue is empty
     ---@return boolean empty True if queue is empty
     ---@usage if queue:isEmpty() then ... end
     function queue:isEmpty()
         return self._first > self._last
     end
-    
+
     --- Get number of items in queue
     ---@return number size Number of items
     ---@usage local size = queue:size()
@@ -89,7 +90,7 @@ function Queue()
         end
         return self._last - self._first + 1
     end
-    
+
     --- Clear all items from queue
     ---@usage queue:clear()
     function queue:clear()
@@ -97,7 +98,7 @@ function Queue()
         self._first = 1
         self._last = 0
     end
-    
+
     return queue
 end
 
@@ -108,9 +109,9 @@ end
 function Stack()
     local stack = {
         _items = {},
-        _top = 0
+        _top = 0,
     }
-    
+
     --- Push item onto stack
     ---@param item any Item to push
     ---@usage stack:push("item")
@@ -118,7 +119,7 @@ function Stack()
         self._top = self._top + 1
         self._items[self._top] = item
     end
-    
+
     --- Pop and return top item from stack
     ---@return any? item Popped item or nil if empty
     ---@usage local item = stack:pop()
@@ -126,13 +127,13 @@ function Stack()
         if self:isEmpty() then
             return nil
         end
-        
+
         local item = self._items[self._top]
         self._items[self._top] = nil
         self._top = self._top - 1
         return item
     end
-    
+
     --- Peek at top item without removing
     ---@return any? item Top item or nil if empty
     ---@usage local top = stack:peek()
@@ -142,28 +143,28 @@ function Stack()
         end
         return self._items[self._top]
     end
-    
+
     --- Check if stack is empty
     ---@return boolean empty True if stack is empty
     ---@usage if stack:isEmpty() then ... end
     function stack:isEmpty()
         return self._top == 0
     end
-    
+
     --- Get number of items in stack
     ---@return number size Number of items
     ---@usage local size = stack:size()
     function stack:size()
         return self._top
     end
-    
+
     --- Clear all items from stack
     ---@usage stack:clear()
     function stack:clear()
         self._items = {}
         self._top = 0
     end
-    
+
     return stack
 end
 
@@ -182,16 +183,16 @@ function Cache(capacity)
         _HarnessInternal.log.error("Cache capacity must be positive", "DataStructures.Cache")
         capacity = nil
     end
-    
+
     local cache = {
         _capacity = capacity or math.huge,
         _items = {},
         _order = {},
         _size = 0,
-        _ttls = {},  -- TTL expiration times
-        _types = {}  -- Track data types
+        _ttls = {}, -- TTL expiration times
+        _types = {}, -- Track data types
     }
-    
+
     -- Internal: Check and remove expired items
     local function checkExpired(key)
         local ttl = cache._ttls[key]
@@ -201,7 +202,7 @@ function Cache(capacity)
         end
         return false
     end
-    
+
     -- Internal: Get current time (DCS compatible)
     local function getCurrentTime()
         if timer and timer.getTime then
@@ -209,7 +210,7 @@ function Cache(capacity)
         end
         return os.time()
     end
-    
+
     --- Get value from cache
     ---@param key string Cache key
     ---@return any? value Cached value or nil
@@ -218,20 +219,20 @@ function Cache(capacity)
         if checkExpired(key) then
             return nil
         end
-        
+
         local item = self._items[key]
         if not item then
             return nil
         end
-        
+
         -- Move to front (most recently used) if capacity is limited
         if self._capacity ~= math.huge then
             self:_moveToFront(key)
         end
-        
+
         return item.value
     end
-    
+
     --- Set key-value pair with optional TTL
     ---@param key string Cache key
     ---@param value any Value to cache
@@ -240,21 +241,21 @@ function Cache(capacity)
     ---@usage cache:set("key", "value", 60) -- expires in 60 seconds
     function cache:set(key, value, ttl)
         local isNew = self._items[key] == nil
-        
+
         if isNew and self._size >= self._capacity then
             -- Remove least recently used
             self:_removeLRU()
         end
-        
-        self._items[key] = {value = value}
+
+        self._items[key] = { value = value }
         self._types[key] = type(value)
-        
+
         if ttl and ttl > 0 then
             self._ttls[key] = getCurrentTime() + ttl
         else
             self._ttls[key] = nil
         end
-        
+
         if self._capacity ~= math.huge then
             if isNew then
                 table.insert(self._order, 1, key)
@@ -265,10 +266,10 @@ function Cache(capacity)
         elseif isNew then
             self._size = self._size + 1
         end
-        
+
         return true
     end
-    
+
     --- Set key only if it doesn't exist
     ---@param key string Cache key
     ---@param value any Value to cache
@@ -281,7 +282,7 @@ function Cache(capacity)
         end
         return self:set(key, value, ttl)
     end
-    
+
     --- Set with expiration time
     ---@param key string Cache key
     ---@param seconds number TTL in seconds
@@ -291,7 +292,7 @@ function Cache(capacity)
     function cache:setex(key, seconds, value)
         return self:set(key, value, seconds)
     end
-    
+
     --- Delete key(s)
     ---@param ... string Keys to delete
     ---@return number count Number of keys deleted
@@ -313,7 +314,7 @@ function Cache(capacity)
         end
         return count
     end
-    
+
     --- Check if key exists
     ---@param key string Cache key
     ---@return boolean exists True if key exists and not expired
@@ -324,7 +325,7 @@ function Cache(capacity)
         end
         return self._items[key] ~= nil
     end
-    
+
     --- Set expiration time
     ---@param key string Cache key
     ---@param seconds number TTL in seconds
@@ -337,7 +338,7 @@ function Cache(capacity)
         self._ttls[key] = getCurrentTime() + seconds
         return true
     end
-    
+
     --- Get remaining TTL
     ---@param key string Cache key
     ---@return number ttl Seconds until expiration, -1 if no TTL, -2 if not exists
@@ -346,21 +347,21 @@ function Cache(capacity)
         if not self._items[key] then
             return -2
         end
-        
+
         local ttl = self._ttls[key]
         if not ttl then
             return -1
         end
-        
+
         local remaining = ttl - getCurrentTime()
         if remaining <= 0 then
             self:del(key)
             return -2
         end
-        
+
         return math.floor(remaining)
     end
-    
+
     --- Remove expiration
     ---@param key string Cache key
     ---@return boolean success True if expiration was removed
@@ -372,7 +373,7 @@ function Cache(capacity)
         self._ttls[key] = nil
         return true
     end
-    
+
     --- Increment numeric value
     ---@param key string Cache key
     ---@param increment number? Amount to increment (default: 1)
@@ -381,17 +382,17 @@ function Cache(capacity)
     function cache:incr(key, increment)
         increment = increment or 1
         local value = self:get(key) or 0
-        
+
         if type(value) ~= "number" then
             _HarnessInternal.log.error("INCR requires numeric value", "DataStructures.Cache")
             return nil
         end
-        
+
         local newValue = value + increment
         self:set(key, newValue)
         return newValue
     end
-    
+
     --- Decrement numeric value
     ---@param key string Cache key
     ---@param decrement number? Amount to decrement (default: 1)
@@ -400,7 +401,7 @@ function Cache(capacity)
     function cache:decr(key, decrement)
         return self:incr(key, -(decrement or 1))
     end
-    
+
     --- Get all keys matching pattern
     ---@param pattern string? Lua pattern (default: ".*" for all)
     ---@return table keys Array of matching keys
@@ -408,16 +409,16 @@ function Cache(capacity)
     function cache:keys(pattern)
         pattern = pattern or ".*"
         local keys = {}
-        
+
         for key, _ in pairs(self._items) do
             if not checkExpired(key) and string.match(key, pattern) then
                 table.insert(keys, key)
             end
         end
-        
+
         return keys
     end
-    
+
     --- Get data type of key
     ---@param key string Cache key
     ---@return string type Type of value ("string", "number", "table", etc) or "none"
@@ -428,7 +429,7 @@ function Cache(capacity)
         end
         return self._types[key] or type(self._items[key].value)
     end
-    
+
     --- Clear all items (flush database)
     ---@usage cache:flushdb()
     function cache:flushdb()
@@ -438,7 +439,7 @@ function Cache(capacity)
         self._ttls = {}
         self._types = {}
     end
-    
+
     --- Get current cache size
     ---@return number size Number of cached items
     ---@usage local size = cache:dbsize()
@@ -449,13 +450,13 @@ function Cache(capacity)
         end
         return self._size
     end
-    
+
     -- Internal: Move key to front of order list (for LRU)
     function cache:_moveToFront(key)
         self:_removeFromOrder(key)
         table.insert(self._order, 1, key)
     end
-    
+
     -- Internal: Remove key from order list
     function cache:_removeFromOrder(key)
         for i, k in ipairs(self._order) do
@@ -465,7 +466,7 @@ function Cache(capacity)
             end
         end
     end
-    
+
     -- Internal: Remove least recently used item
     function cache:_removeLRU()
         local lru = table.remove(self._order)
@@ -473,7 +474,7 @@ function Cache(capacity)
             self:del(lru)
         end
     end
-    
+
     return cache
 end
 
@@ -489,40 +490,43 @@ function Memoize(func, capacity, keyGenerator)
         _HarnessInternal.log.error("Memoize requires a function", "DataStructures.Memoize")
         return func
     end
-    
+
     capacity = capacity or 128
-    
+
     -- Default key generator: convert args to string and concatenate
-    keyGenerator = keyGenerator or function(...)
-        local args = {...}
-        local key = ""
-        for i = 1, select("#", ...) do
-            if i > 1 then key = key .. "|" end
-            local arg = args[i]
-            local argType = type(arg)
-            if argType == "nil" then
-                key = key .. "nil"
-            elseif argType == "boolean" then
-                key = key .. tostring(arg)
-            elseif argType == "number" or argType == "string" then
-                key = key .. arg
-            elseif argType == "table" then
-                -- Simple table serialization (not recursive)
-                key = key .. "table:" .. tostring(arg)
-            else
-                key = key .. argType .. ":" .. tostring(arg)
+    keyGenerator = keyGenerator
+        or function(...)
+            local args = { ... }
+            local key = ""
+            for i = 1, select("#", ...) do
+                if i > 1 then
+                    key = key .. "|"
+                end
+                local arg = args[i]
+                local argType = type(arg)
+                if argType == "nil" then
+                    key = key .. "nil"
+                elseif argType == "boolean" then
+                    key = key .. tostring(arg)
+                elseif argType == "number" or argType == "string" then
+                    key = key .. arg
+                elseif argType == "table" then
+                    -- Simple table serialization (not recursive)
+                    key = key .. "table:" .. tostring(arg)
+                else
+                    key = key .. argType .. ":" .. tostring(arg)
+                end
             end
+            return key
         end
-        return key
-    end
-    
+
     local cache = {
         _capacity = capacity,
         _items = {},
         _order = {},
-        _size = 0
+        _size = 0,
     }
-    
+
     -- Internal: Move key to front of order list
     local function moveToFront(key)
         for i, k in ipairs(cache._order) do
@@ -533,7 +537,7 @@ function Memoize(func, capacity, keyGenerator)
         end
         table.insert(cache._order, 1, key)
     end
-    
+
     -- Internal: Remove least recently used item
     local function removeLRU()
         local lru = table.remove(cache._order)
@@ -542,34 +546,34 @@ function Memoize(func, capacity, keyGenerator)
             cache._size = cache._size - 1
         end
     end
-    
+
     -- Memoized function
     return function(...)
         local key = keyGenerator(...)
-        
+
         -- Check cache
         local cached = cache._items[key]
         if cached then
             moveToFront(key)
             return unpack(cached.results, 1, cached.n)
         end
-        
+
         -- Call original function and capture all returns
         local function captureReturns(...)
-            return select("#", ...), {...}
+            return select("#", ...), { ... }
         end
-        
+
         local n, results = captureReturns(func(...))
-        
+
         -- Store in cache
         if cache._size >= cache._capacity then
             removeLRU()
         end
-        
-        cache._items[key] = {results = results, n = n}
+
+        cache._items[key] = { results = results, n = n }
         table.insert(cache._order, 1, key)
         cache._size = cache._size + 1
-        
+
         return unpack(results, 1, n)
     end
 end
@@ -590,9 +594,9 @@ function Heap(isMinHeap, compareFunc)
         _HarnessInternal.log.error("Heap compareFunc must be a function", "DataStructures.Heap")
         compareFunc = nil
     end
-    
+
     isMinHeap = isMinHeap ~= false -- Default to min heap
-    
+
     local heap = {
         _items = {},
         _size = 0,
@@ -602,9 +606,9 @@ function Heap(isMinHeap, compareFunc)
             else
                 return a > b
             end
-        end
+        end,
     }
-    
+
     --- Insert item into heap
     ---@param item any Item to insert
     ---@usage heap:insert(5)
@@ -613,7 +617,7 @@ function Heap(isMinHeap, compareFunc)
         self._items[self._size] = item
         self:_bubbleUp(self._size)
     end
-    
+
     --- Remove and return top item (min or max)
     ---@return any? item Top item or nil if empty
     ---@usage local top = heap:extract()
@@ -621,47 +625,47 @@ function Heap(isMinHeap, compareFunc)
         if self:isEmpty() then
             return nil
         end
-        
+
         local top = self._items[1]
         self._items[1] = self._items[self._size]
         self._items[self._size] = nil
         self._size = self._size - 1
-        
+
         if self._size > 0 then
             self:_bubbleDown(1)
         end
-        
+
         return top
     end
-    
+
     --- Peek at top item without removing
     ---@return any? item Top item or nil if empty
     ---@usage local top = heap:peek()
     function heap:peek()
         return self._items[1]
     end
-    
+
     --- Check if heap is empty
     ---@return boolean empty True if heap is empty
     ---@usage if heap:isEmpty() then ... end
     function heap:isEmpty()
         return self._size == 0
     end
-    
+
     --- Get number of items in heap
     ---@return number size Number of items
     ---@usage local size = heap:size()
     function heap:size()
         return self._size
     end
-    
+
     --- Clear all items from heap
     ---@usage heap:clear()
     function heap:clear()
         self._items = {}
         self._size = 0
     end
-    
+
     -- Internal: Bubble up to maintain heap property
     function heap:_bubbleUp(index)
         while index > 1 do
@@ -674,31 +678,32 @@ function Heap(isMinHeap, compareFunc)
             end
         end
     end
-    
+
     -- Internal: Bubble down to maintain heap property
     function heap:_bubbleDown(index)
         while true do
             local smallest = index
             local left = 2 * index
             local right = 2 * index + 1
-            
+
             if left <= self._size and self._compare(self._items[left], self._items[smallest]) then
                 smallest = left
             end
-            
+
             if right <= self._size and self._compare(self._items[right], self._items[smallest]) then
                 smallest = right
             end
-            
+
             if smallest ~= index then
-                self._items[index], self._items[smallest] = self._items[smallest], self._items[index]
+                self._items[index], self._items[smallest] =
+                    self._items[smallest], self._items[index]
                 index = smallest
             else
                 break
             end
         end
     end
-    
+
     return heap
 end
 
@@ -709,9 +714,9 @@ end
 function Set()
     local set = {
         _items = {},
-        _size = 0
+        _size = 0,
     }
-    
+
     --- Add item to set
     ---@param item any Item to add
     ---@return boolean added True if item was added (not already present)
@@ -724,7 +729,7 @@ function Set()
         self._size = self._size + 1
         return true
     end
-    
+
     --- Remove item from set
     ---@param item any Item to remove
     ---@return boolean removed True if item was removed
@@ -737,7 +742,7 @@ function Set()
         self._size = self._size - 1
         return true
     end
-    
+
     --- Check if set contains item
     ---@param item any Item to check
     ---@return boolean contains True if set contains item
@@ -745,28 +750,28 @@ function Set()
     function set:contains(item)
         return self._items[item] ~= nil
     end
-    
+
     --- Get number of items in set
     ---@return number size Number of items
     ---@usage local size = set:size()
     function set:size()
         return self._size
     end
-    
+
     --- Check if set is empty
     ---@return boolean empty True if set is empty
     ---@usage if set:isEmpty() then ... end
     function set:isEmpty()
         return self._size == 0
     end
-    
+
     --- Clear all items from set
     ---@usage set:clear()
     function set:clear()
         self._items = {}
         self._size = 0
     end
-    
+
     --- Get array of all items
     ---@return table items Array of set items
     ---@usage local items = set:toArray()
@@ -777,7 +782,7 @@ function Set()
         end
         return array
     end
-    
+
     --- Create union with another set
     ---@param other table Another set
     ---@return table union New set containing items from both sets
@@ -792,7 +797,7 @@ function Set()
         end
         return result
     end
-    
+
     --- Create intersection with another set
     ---@param other table Another set
     ---@return table intersection New set containing common items
@@ -806,7 +811,7 @@ function Set()
         end
         return result
     end
-    
+
     --- Create difference with another set
     ---@param other table Another set
     ---@return table difference New set containing items in this but not other
@@ -820,7 +825,7 @@ function Set()
         end
         return result
     end
-    
+
     return set
 end
 
@@ -832,10 +837,13 @@ end
 function PriorityQueue(compareFunc)
     -- Validate compareFunc
     if compareFunc ~= nil and type(compareFunc) ~= "function" then
-        _HarnessInternal.log.error("PriorityQueue compareFunc must be a function", "DataStructures.PriorityQueue")
+        _HarnessInternal.log.error(
+            "PriorityQueue compareFunc must be a function",
+            "DataStructures.PriorityQueue"
+        )
         compareFunc = nil
     end
-    
+
     local heapCompareFunc = nil
     if not compareFunc then
         -- Default comparison for items with priority field
@@ -843,23 +851,23 @@ function PriorityQueue(compareFunc)
             return a.priority < b.priority
         end
     end
-    
+
     local pqueue = {
-        _heap = Heap(true, heapCompareFunc or compareFunc)
+        _heap = Heap(true, heapCompareFunc or compareFunc),
     }
-    
+
     --- Add item with priority
     ---@param item any Item to add
     ---@param priority number? Priority (used if no compareFunc provided)
     ---@usage pqueue:enqueue(task, 5)
     function pqueue:enqueue(item, priority)
         if not compareFunc and priority then
-            self._heap:insert({item = item, priority = priority})
+            self._heap:insert({ item = item, priority = priority })
         else
             self._heap:insert(item)
         end
     end
-    
+
     --- Remove and return highest priority item
     ---@return any? item Highest priority item or nil if empty
     ---@usage local task = pqueue:dequeue()
@@ -870,7 +878,7 @@ function PriorityQueue(compareFunc)
         end
         return result
     end
-    
+
     --- Peek at highest priority item
     ---@return any? item Highest priority item or nil if empty
     ---@usage local next = pqueue:peek()
@@ -881,27 +889,27 @@ function PriorityQueue(compareFunc)
         end
         return result
     end
-    
+
     --- Check if queue is empty
     ---@return boolean empty True if queue is empty
     ---@usage if pqueue:isEmpty() then ... end
     function pqueue:isEmpty()
         return self._heap:isEmpty()
     end
-    
+
     --- Get number of items
     ---@return number size Number of items
     ---@usage local size = pqueue:size()
     function pqueue:size()
         return self._heap:size()
     end
-    
+
     --- Clear all items
     ---@usage pqueue:clear()
     function pqueue:clear()
         self._heap:clear()
     end
-    
+
     return pqueue
 end
 -- ==== END: src\datastructures.lua ====
@@ -951,45 +959,45 @@ function HarnessLogger(namespace)
     if not namespace or type(namespace) ~= "string" then
         namespace = _HarnessInternal.defaultNamespace
     end
-    
+
     -- Return existing logger if already created
     if _HarnessInternal.loggers[namespace] then
         return _HarnessInternal.loggers[namespace]
     end
-    
+
     ---@type Logger
     local logger = {
-        namespace = namespace
+        namespace = namespace,
     }
-    
+
     --- Log an info message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.info(message, caller)
         env.info(formatMessage(namespace, message, caller))
     end
-    
+
     --- Log a warning message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.warn(message, caller)
         env.warning(formatMessage(namespace, message, caller))
     end
-    
+
     --- Log an error message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.error(message, caller)
         env.error(formatMessage(namespace, message, caller))
     end
-    
+
     --- Log a debug message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.debug(message, caller)
         env.info(formatMessage(namespace .. " : DEBUG", message, caller))
     end
-    
+
     _HarnessInternal.loggers[namespace] = logger
     return logger
 end
@@ -1018,13 +1026,19 @@ Log = HarnessLogger("Script")
 ---@usage local airbase = getAirbaseByName("Batumi")
 function GetAirbaseByName(airbaseName)
     if not airbaseName or type(airbaseName) ~= "string" then
-        _HarnessInternal.log.error("GetAirbaseByName requires valid airbase name", "Airbase.GetByName")
+        _HarnessInternal.log.error(
+            "GetAirbaseByName requires valid airbase name",
+            "Airbase.GetByName"
+        )
         return nil
     end
 
     local success, result = pcall(Airbase.getByName, airbaseName)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase by name: " .. tostring(result), "Airbase.GetByName")
+        _HarnessInternal.log.error(
+            "Failed to get airbase by name: " .. tostring(result),
+            "Airbase.GetByName"
+        )
         return nil
     end
 
@@ -1037,13 +1051,19 @@ end
 ---@usage local desc = getAirbaseDescriptor(airbase)
 function GetAirbaseDescriptor(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseDescriptor requires valid airbase", "Airbase.GetDescriptor")
+        _HarnessInternal.log.error(
+            "GetAirbaseDescriptor requires valid airbase",
+            "Airbase.GetDescriptor"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getDescriptor, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase descriptor: " .. tostring(result), "Airbase.GetDescriptor")
+        _HarnessInternal.log.error(
+            "Failed to get airbase descriptor: " .. tostring(result),
+            "Airbase.GetDescriptor"
+        )
         return nil
     end
 
@@ -1056,13 +1076,19 @@ end
 ---@usage local callsign = getAirbaseCallsign(airbase)
 function GetAirbaseCallsign(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseCallsign requires valid airbase", "Airbase.GetCallsign")
+        _HarnessInternal.log.error(
+            "GetAirbaseCallsign requires valid airbase",
+            "Airbase.GetCallsign"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getCallsign, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase callsign: " .. tostring(result), "Airbase.GetCallsign")
+        _HarnessInternal.log.error(
+            "Failed to get airbase callsign: " .. tostring(result),
+            "Airbase.GetCallsign"
+        )
         return nil
     end
 
@@ -1081,7 +1107,10 @@ function GetAirbaseUnit(airbase)
 
     local success, result = pcall(airbase.getUnit, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase unit: " .. tostring(result), "Airbase.GetUnit")
+        _HarnessInternal.log.error(
+            "Failed to get airbase unit: " .. tostring(result),
+            "Airbase.GetUnit"
+        )
         return nil
     end
 
@@ -1094,13 +1123,19 @@ end
 ---@usage local category = getAirbaseCategoryName(airbase)
 function GetAirbaseCategoryName(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseCategoryName requires valid airbase", "Airbase.GetCategoryName")
+        _HarnessInternal.log.error(
+            "GetAirbaseCategoryName requires valid airbase",
+            "Airbase.GetCategoryName"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getCategoryName, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase category name: " .. tostring(result), "Airbase.GetCategoryName")
+        _HarnessInternal.log.error(
+            "Failed to get airbase category name: " .. tostring(result),
+            "Airbase.GetCategoryName"
+        )
         return nil
     end
 
@@ -1120,7 +1155,10 @@ function GetAirbaseParking(airbase, available)
 
     local success, result = pcall(airbase.getParking, airbase, available)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase parking: " .. tostring(result), "Airbase.GetParking")
+        _HarnessInternal.log.error(
+            "Failed to get airbase parking: " .. tostring(result),
+            "Airbase.GetParking"
+        )
         return nil
     end
 
@@ -1139,7 +1177,10 @@ function GetAirbaseRunways(airbase)
 
     local success, result = pcall(airbase.getRunways, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase runways: " .. tostring(result), "Airbase.GetRunways")
+        _HarnessInternal.log.error(
+            "Failed to get airbase runways: " .. tostring(result),
+            "Airbase.GetRunways"
+        )
         return nil
     end
 
@@ -1153,18 +1194,27 @@ end
 ---@usage local positions = getAirbaseTechObjectPos(airbase, 1)
 function GetAirbaseTechObjectPos(airbase, techObjectType)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseTechObjectPos requires valid airbase", "Airbase.GetTechObjectPos")
+        _HarnessInternal.log.error(
+            "GetAirbaseTechObjectPos requires valid airbase",
+            "Airbase.GetTechObjectPos"
+        )
         return nil
     end
 
     if not techObjectType or type(techObjectType) ~= "number" then
-        _HarnessInternal.log.error("GetAirbaseTechObjectPos requires valid tech object type", "Airbase.GetTechObjectPos")
+        _HarnessInternal.log.error(
+            "GetAirbaseTechObjectPos requires valid tech object type",
+            "Airbase.GetTechObjectPos"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getTechObjectPos, airbase, techObjectType)
     if not success then
-        _HarnessInternal.log.error("Failed to get tech object positions: " .. tostring(result), "Airbase.GetTechObjectPos")
+        _HarnessInternal.log.error(
+            "Failed to get tech object positions: " .. tostring(result),
+            "Airbase.GetTechObjectPos"
+        )
         return nil
     end
 
@@ -1177,13 +1227,19 @@ end
 ---@usage local towerPos = getAirbaseDispatcherTowerPos(airbase)
 function GetAirbaseDispatcherTowerPos(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseDispatcherTowerPos requires valid airbase", "Airbase.GetDispatcherTowerPos")
+        _HarnessInternal.log.error(
+            "GetAirbaseDispatcherTowerPos requires valid airbase",
+            "Airbase.GetDispatcherTowerPos"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getDispatcherTowerPos, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get dispatcher tower position: " .. tostring(result), "Airbase.GetDispatcherTowerPos")
+        _HarnessInternal.log.error(
+            "Failed to get dispatcher tower position: " .. tostring(result),
+            "Airbase.GetDispatcherTowerPos"
+        )
         return nil
     end
 
@@ -1196,13 +1252,19 @@ end
 ---@usage local isSilent = getAirbaseRadioSilentMode(airbase)
 function GetAirbaseRadioSilentMode(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseRadioSilentMode requires valid airbase", "Airbase.GetRadioSilentMode")
+        _HarnessInternal.log.error(
+            "GetAirbaseRadioSilentMode requires valid airbase",
+            "Airbase.GetRadioSilentMode"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getRadioSilentMode, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get radio silent mode: " .. tostring(result), "Airbase.GetRadioSilentMode")
+        _HarnessInternal.log.error(
+            "Failed to get radio silent mode: " .. tostring(result),
+            "Airbase.GetRadioSilentMode"
+        )
         return nil
     end
 
@@ -1216,18 +1278,27 @@ end
 ---@usage SetAirbaseRadioSilentMode(airbase, true)
 function SetAirbaseRadioSilentMode(airbase, silent)
     if not airbase then
-        _HarnessInternal.log.error("SetAirbaseRadioSilentMode requires valid airbase", "Airbase.SetRadioSilentMode")
+        _HarnessInternal.log.error(
+            "SetAirbaseRadioSilentMode requires valid airbase",
+            "Airbase.SetRadioSilentMode"
+        )
         return nil
     end
 
     if type(silent) ~= "boolean" then
-        _HarnessInternal.log.error("SetAirbaseRadioSilentMode requires boolean silent value", "Airbase.SetRadioSilentMode")
+        _HarnessInternal.log.error(
+            "SetAirbaseRadioSilentMode requires boolean silent value",
+            "Airbase.SetRadioSilentMode"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.setRadioSilentMode, airbase, silent)
     if not success then
-        _HarnessInternal.log.error("Failed to set radio silent mode: " .. tostring(result), "Airbase.SetRadioSilentMode")
+        _HarnessInternal.log.error(
+            "Failed to set radio silent mode: " .. tostring(result),
+            "Airbase.SetRadioSilentMode"
+        )
         return nil
     end
 
@@ -1246,7 +1317,10 @@ function GetAirbaseBeacon(airbase)
 
     local success, result = pcall(airbase.getBeacon, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase beacon: " .. tostring(result), "Airbase.GetBeacon")
+        _HarnessInternal.log.error(
+            "Failed to get airbase beacon: " .. tostring(result),
+            "Airbase.GetBeacon"
+        )
         return nil
     end
 
@@ -1260,18 +1334,27 @@ end
 ---@usage AirbaseAutoCapture(airbase, true)
 function AirbaseAutoCapture(airbase, enabled)
     if not airbase then
-        _HarnessInternal.log.error("AirbaseAutoCapture requires valid airbase", "Airbase.AutoCapture")
+        _HarnessInternal.log.error(
+            "AirbaseAutoCapture requires valid airbase",
+            "Airbase.AutoCapture"
+        )
         return nil
     end
 
     if type(enabled) ~= "boolean" then
-        _HarnessInternal.log.error("AirbaseAutoCapture requires boolean enabled value", "Airbase.AutoCapture")
+        _HarnessInternal.log.error(
+            "AirbaseAutoCapture requires boolean enabled value",
+            "Airbase.AutoCapture"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.autoCapture, airbase, enabled)
     if not success then
-        _HarnessInternal.log.error("Failed to set auto capture: " .. tostring(result), "Airbase.AutoCapture")
+        _HarnessInternal.log.error(
+            "Failed to set auto capture: " .. tostring(result),
+            "Airbase.AutoCapture"
+        )
         return nil
     end
 
@@ -1284,13 +1367,19 @@ end
 ---@usage local isOn = airbaseAutoCaptureIsOn(airbase)
 function AirbaseAutoCaptureIsOn(airbase)
     if not airbase then
-        _HarnessInternal.log.error("AirbaseAutoCaptureIsOn requires valid airbase", "Airbase.AutoCaptureIsOn")
+        _HarnessInternal.log.error(
+            "AirbaseAutoCaptureIsOn requires valid airbase",
+            "Airbase.AutoCaptureIsOn"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.autoCaptureIsOn, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to check auto capture status: " .. tostring(result), "Airbase.AutoCaptureIsOn")
+        _HarnessInternal.log.error(
+            "Failed to check auto capture status: " .. tostring(result),
+            "Airbase.AutoCaptureIsOn"
+        )
         return nil
     end
 
@@ -1304,18 +1393,27 @@ end
 ---@usage SetAirbaseCoalition(airbase, coalition.side.BLUE)
 function SetAirbaseCoalition(airbase, coalitionId)
     if not airbase then
-        _HarnessInternal.log.error("SetAirbaseCoalition requires valid airbase", "Airbase.SetCoalition")
+        _HarnessInternal.log.error(
+            "SetAirbaseCoalition requires valid airbase",
+            "Airbase.SetCoalition"
+        )
         return nil
     end
 
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("SetAirbaseCoalition requires valid coalition ID", "Airbase.SetCoalition")
+        _HarnessInternal.log.error(
+            "SetAirbaseCoalition requires valid coalition ID",
+            "Airbase.SetCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.setCoalition, airbase, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to set airbase coalition: " .. tostring(result), "Airbase.SetCoalition")
+        _HarnessInternal.log.error(
+            "Failed to set airbase coalition: " .. tostring(result),
+            "Airbase.SetCoalition"
+        )
         return nil
     end
 
@@ -1328,13 +1426,19 @@ end
 ---@usage local warehouse = getAirbaseWarehouse(airbase)
 function GetAirbaseWarehouse(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseWarehouse requires valid airbase", "Airbase.GetWarehouse")
+        _HarnessInternal.log.error(
+            "GetAirbaseWarehouse requires valid airbase",
+            "Airbase.GetWarehouse"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getWarehouse, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase warehouse: " .. tostring(result), "Airbase.GetWarehouse")
+        _HarnessInternal.log.error(
+            "Failed to get airbase warehouse: " .. tostring(result),
+            "Airbase.GetWarehouse"
+        )
         return nil
     end
 
@@ -1348,13 +1452,19 @@ end
 ---@usage local terminal = getAirbaseFreeParkingTerminal(airbase)
 function GetAirbaseFreeParkingTerminal(airbase, terminalType)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseFreeParkingTerminal requires valid airbase", "Airbase.GetFreeParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetAirbaseFreeParkingTerminal requires valid airbase",
+            "Airbase.GetFreeParkingTerminal"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getFreeParkingTerminal, airbase, terminalType)
     if not success then
-        _HarnessInternal.log.error("Failed to get free parking terminal: " .. tostring(result), "Airbase.GetFreeParkingTerminal")
+        _HarnessInternal.log.error(
+            "Failed to get free parking terminal: " .. tostring(result),
+            "Airbase.GetFreeParkingTerminal"
+        )
         return nil
     end
 
@@ -1369,13 +1479,19 @@ end
 ---@usage local terminals = getAirbaseFreeParkingTerminalByType(airbase, type, true)
 function GetAirbaseFreeParkingTerminalByType(airbase, terminalType, multiple)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseFreeParkingTerminalByType requires valid airbase", "Airbase.GetFreeParkingTerminalByType")
+        _HarnessInternal.log.error(
+            "GetAirbaseFreeParkingTerminalByType requires valid airbase",
+            "Airbase.GetFreeParkingTerminalByType"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getFreeParkingTerminal, airbase, terminalType, multiple)
     if not success then
-        _HarnessInternal.log.error("Failed to get free parking terminals by type: " .. tostring(result), "Airbase.GetFreeParkingTerminalByType")
+        _HarnessInternal.log.error(
+            "Failed to get free parking terminals by type: " .. tostring(result),
+            "Airbase.GetFreeParkingTerminalByType"
+        )
         return nil
     end
 
@@ -1389,13 +1505,19 @@ end
 ---@usage local terminal = getFreeAirbaseParkingTerminal(airbase)
 function GetFreeAirbaseParkingTerminal(airbase, terminalType)
     if not airbase then
-        _HarnessInternal.log.error("GetFreeAirbaseParkingTerminal requires valid airbase", "Airbase.GetFreeAirbaseParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetFreeAirbaseParkingTerminal requires valid airbase",
+            "Airbase.GetFreeAirbaseParkingTerminal"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getFreeAirbaseParkingTerminal, airbase, terminalType)
     if not success then
-        _HarnessInternal.log.error("Failed to get free airbase parking terminal: " .. tostring(result), "Airbase.GetFreeAirbaseParkingTerminal")
+        _HarnessInternal.log.error(
+            "Failed to get free airbase parking terminal: " .. tostring(result),
+            "Airbase.GetFreeAirbaseParkingTerminal"
+        )
         return nil
     end
 
@@ -1409,18 +1531,27 @@ end
 ---@usage local terminal = getAirbaseParkingTerminal(airbase, 1)
 function GetAirbaseParkingTerminal(airbase, terminal)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseParkingTerminal requires valid airbase", "Airbase.GetParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminal requires valid airbase",
+            "Airbase.GetParkingTerminal"
+        )
         return nil
     end
 
     if not terminal or type(terminal) ~= "number" then
-        _HarnessInternal.log.error("GetAirbaseParkingTerminal requires valid terminal number", "Airbase.GetParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminal requires valid terminal number",
+            "Airbase.GetParkingTerminal"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getParkingTerminal, airbase, terminal)
     if not success then
-        _HarnessInternal.log.error("Failed to get parking terminal: " .. tostring(result), "Airbase.GetParkingTerminal")
+        _HarnessInternal.log.error(
+            "Failed to get parking terminal: " .. tostring(result),
+            "Airbase.GetParkingTerminal"
+        )
         return nil
     end
 
@@ -1434,18 +1565,27 @@ end
 ---@usage local terminal = getAirbaseParkingTerminalByIndex(airbase, 1)
 function GetAirbaseParkingTerminalByIndex(airbase, index)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseParkingTerminalByIndex requires valid airbase", "Airbase.GetParkingTerminalByIndex")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminalByIndex requires valid airbase",
+            "Airbase.GetParkingTerminalByIndex"
+        )
         return nil
     end
 
     if not index or type(index) ~= "number" then
-        _HarnessInternal.log.error("GetAirbaseParkingTerminalByIndex requires valid index", "Airbase.GetParkingTerminalByIndex")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminalByIndex requires valid index",
+            "Airbase.GetParkingTerminalByIndex"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getParkingTerminalByIndex, airbase, index)
     if not success then
-        _HarnessInternal.log.error("Failed to get parking terminal by index: " .. tostring(result), "Airbase.GetParkingTerminalByIndex")
+        _HarnessInternal.log.error(
+            "Failed to get parking terminal by index: " .. tostring(result),
+            "Airbase.GetParkingTerminalByIndex"
+        )
         return nil
     end
 
@@ -1458,13 +1598,19 @@ end
 ---@usage local count = getAirbaseParkingCount(airbase)
 function GetAirbaseParkingCount(airbase)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseParkingCount requires valid airbase", "Airbase.GetParkingCount")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingCount requires valid airbase",
+            "Airbase.GetParkingCount"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getParkingCount, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get parking count: " .. tostring(result), "Airbase.GetParkingCount")
+        _HarnessInternal.log.error(
+            "Failed to get parking count: " .. tostring(result),
+            "Airbase.GetParkingCount"
+        )
         return nil
     end
 
@@ -1478,18 +1624,27 @@ end
 ---@usage local details = getAirbaseRunwayDetails(airbase, 1)
 function GetAirbaseRunwayDetails(airbase, runwayIndex)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseRunwayDetails requires valid airbase", "Airbase.GetRunwayDetails")
+        _HarnessInternal.log.error(
+            "GetAirbaseRunwayDetails requires valid airbase",
+            "Airbase.GetRunwayDetails"
+        )
         return nil
     end
 
     if runwayIndex and type(runwayIndex) ~= "number" then
-        _HarnessInternal.log.error("getAirbaseRunwayDetails runway index must be a number if provided", "Airbase.GetRunwayDetails")
+        _HarnessInternal.log.error(
+            "getAirbaseRunwayDetails runway index must be a number if provided",
+            "Airbase.GetRunwayDetails"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getRunwayDetails, airbase, runwayIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to get runway details: " .. tostring(result), "Airbase.GetRunwayDetails")
+        _HarnessInternal.log.error(
+            "Failed to get runway details: " .. tostring(result),
+            "Airbase.GetRunwayDetails"
+        )
         return nil
     end
 
@@ -1509,7 +1664,10 @@ function GetAirbaseMeteo(airbase, height)
 
     local success, result = pcall(airbase.getMeteo, airbase, height)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase meteo: " .. tostring(result), "Airbase.GetMeteo")
+        _HarnessInternal.log.error(
+            "Failed to get airbase meteo: " .. tostring(result),
+            "Airbase.GetMeteo"
+        )
         return nil
     end
 
@@ -1523,13 +1681,19 @@ end
 ---@usage local wind = getAirbaseWindWithTurbulence(airbase, 100)
 function GetAirbaseWindWithTurbulence(airbase, height)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseWindWithTurbulence requires valid airbase", "Airbase.GetWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "GetAirbaseWindWithTurbulence requires valid airbase",
+            "Airbase.GetWindWithTurbulence"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getWindWithTurbulence, airbase, height)
     if not success then
-        _HarnessInternal.log.error("Failed to get wind with turbulence: " .. tostring(result), "Airbase.GetWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "Failed to get wind with turbulence: " .. tostring(result),
+            "Airbase.GetWindWithTurbulence"
+        )
         return nil
     end
 
@@ -1543,18 +1707,27 @@ end
 ---@usage local hasService = getAirbaseIsServiceProvided(airbase, 1)
 function GetAirbaseIsServiceProvided(airbase, service)
     if not airbase then
-        _HarnessInternal.log.error("GetAirbaseIsServiceProvided requires valid airbase", "Airbase.GetIsServiceProvided")
+        _HarnessInternal.log.error(
+            "GetAirbaseIsServiceProvided requires valid airbase",
+            "Airbase.GetIsServiceProvided"
+        )
         return nil
     end
 
     if not service or type(service) ~= "number" then
-        _HarnessInternal.log.error("GetAirbaseIsServiceProvided requires valid service type", "Airbase.GetIsServiceProvided")
+        _HarnessInternal.log.error(
+            "GetAirbaseIsServiceProvided requires valid service type",
+            "Airbase.GetIsServiceProvided"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getIsServiceProvided, airbase, service)
     if not success then
-        _HarnessInternal.log.error("Failed to check service availability: " .. tostring(result), "Airbase.GetIsServiceProvided")
+        _HarnessInternal.log.error(
+            "Failed to check service availability: " .. tostring(result),
+            "Airbase.GetIsServiceProvided"
+        )
         return nil
     end
 
@@ -1570,28 +1743,30 @@ end
 ==================================================================================================
 ]]
 -- Ensure cache tables exist (may have been initialized in _header.lua)
-_HarnessInternal.cache = _HarnessInternal.cache or {
-    units = {},
-    groups = {},
-    controllers = {},
-    airbases = {},
-    
-    -- Statistics
-    stats = {
-        hits = 0,
-        misses = 0,
-        evictions = 0
+_HarnessInternal.cache = _HarnessInternal.cache
+    or {
+        units = {},
+        groups = {},
+        controllers = {},
+        airbases = {},
+
+        -- Statistics
+        stats = {
+            hits = 0,
+            misses = 0,
+            evictions = 0,
+        },
     }
-}
 
 -- Cache configuration
-_HarnessInternal.cache.config = _HarnessInternal.cache.config or {
-    maxUnits = 1000,
-    maxGroups = 500,
-    maxControllers = 500,
-    maxAirbases = 100,
-    ttl = 300 -- 5 minutes default TTL
-}
+_HarnessInternal.cache.config = _HarnessInternal.cache.config
+    or {
+        maxUnits = 1000,
+        maxGroups = 500,
+        maxControllers = 500,
+        maxAirbases = 100,
+        ttl = 300, -- 5 minutes default TTL
+    }
 
 --- Clear all caches
 ---@usage ClearAllCaches()
@@ -1609,16 +1784,16 @@ function ClearAllCaches()
     for _ in pairs(_HarnessInternal.cache.airbases) do
         count = count + 1
     end
-    
+
     _HarnessInternal.cache.units = {}
     _HarnessInternal.cache.groups = {}
     _HarnessInternal.cache.controllers = {}
     _HarnessInternal.cache.airbases = {}
-    
+
     if count > 0 then
         _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + count
     end
-    
+
     _HarnessInternal.log.info("Cleared all caches (" .. count .. " entries)", "ClearAllCaches")
 end
 
@@ -1655,7 +1830,10 @@ function ClearControllerCache()
     end
     _HarnessInternal.cache.controllers = {}
     _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + count
-    _HarnessInternal.log.info("Cleared controller cache (" .. count .. " entries)", "ClearControllerCache")
+    _HarnessInternal.log.info(
+        "Cleared controller cache (" .. count .. " entries)",
+        "ClearControllerCache"
+    )
 end
 
 --- Remove specific unit from cache
@@ -1676,7 +1854,10 @@ function RemoveGroupFromCache(groupName)
     if groupName and _HarnessInternal.cache.groups[groupName] then
         _HarnessInternal.cache.groups[groupName] = nil
         _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
-        _HarnessInternal.log.debug("Removed group from cache: " .. groupName, "RemoveGroupFromCache")
+        _HarnessInternal.log.debug(
+            "Removed group from cache: " .. groupName,
+            "RemoveGroupFromCache"
+        )
     end
 end
 
@@ -1692,9 +1873,9 @@ function GetCacheStats()
         units = 0,
         groups = 0,
         controllers = 0,
-        airbases = 0
+        airbases = 0,
     }
-    
+
     -- Count entries
     for _ in pairs(_HarnessInternal.cache.units) do
         stats.units = stats.units + 1
@@ -1708,13 +1889,13 @@ function GetCacheStats()
     for _ in pairs(_HarnessInternal.cache.airbases) do
         stats.airbases = stats.airbases + 1
     end
-    
+
     -- Calculate hit rate
     local total = stats.hits + stats.misses
     if total > 0 then
         stats.hitRate = stats.hits / total
     end
-    
+
     return stats
 end
 
@@ -1726,7 +1907,7 @@ function SetCacheConfig(config)
         _HarnessInternal.log.error("SetCacheConfig requires table", "SetCacheConfig")
         return
     end
-    
+
     if config.maxUnits and type(config.maxUnits) == "number" then
         _HarnessInternal.cache.config.maxUnits = config.maxUnits
     end
@@ -1742,7 +1923,7 @@ function SetCacheConfig(config)
     if config.ttl and type(config.ttl) == "number" then
         _HarnessInternal.cache.config.ttl = config.ttl
     end
-    
+
     _HarnessInternal.log.info("Updated cache configuration", "SetCacheConfig")
 end
 
@@ -1754,7 +1935,7 @@ function GetCacheTables()
         units = _HarnessInternal.cache.units,
         groups = _HarnessInternal.cache.groups,
         controllers = _HarnessInternal.cache.controllers,
-        airbases = _HarnessInternal.cache.airbases
+        airbases = _HarnessInternal.cache.airbases,
     }
 end
 
@@ -1767,7 +1948,7 @@ function _HarnessInternal.cache.isExpired(entry)
     if not entry or not entry.time then
         return true
     end
-    
+
     local currentTime = timer and timer.getTime and timer.getTime() or os.time()
     return (currentTime - entry.time) > _HarnessInternal.cache.config.ttl
 end
@@ -1779,13 +1960,13 @@ function _HarnessInternal.cache.addUnit(name, unit)
     if not name or not unit then
         return
     end
-    
+
     -- Check cache size
     local count = 0
     for _ in pairs(_HarnessInternal.cache.units) do
         count = count + 1
     end
-    
+
     if count >= _HarnessInternal.cache.config.maxUnits then
         -- Evict oldest entry
         local oldestKey, oldestTime = nil, math.huge
@@ -1800,10 +1981,10 @@ function _HarnessInternal.cache.addUnit(name, unit)
             _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
         end
     end
-    
+
     _HarnessInternal.cache.units[name] = {
         object = unit,
-        time = timer and timer.getTime and timer.getTime() or os.time()
+        time = timer and timer.getTime and timer.getTime() or os.time(),
     }
 end
 
@@ -1814,13 +1995,13 @@ function _HarnessInternal.cache.getUnit(name)
     if not name then
         return nil
     end
-    
+
     local entry = _HarnessInternal.cache.units[name]
     if not entry then
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
         return nil
     end
-    
+
     -- Check expiration
     if _HarnessInternal.cache.isExpired(entry) then
         _HarnessInternal.cache.units[name] = nil
@@ -1828,7 +2009,7 @@ function _HarnessInternal.cache.getUnit(name)
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
         return nil
     end
-    
+
     _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
     return entry.object
 end
@@ -1840,13 +2021,13 @@ function _HarnessInternal.cache.addGroup(name, group)
     if not name or not group then
         return
     end
-    
+
     -- Check cache size
     local count = 0
     for _ in pairs(_HarnessInternal.cache.groups) do
         count = count + 1
     end
-    
+
     if count >= _HarnessInternal.cache.config.maxGroups then
         -- Evict oldest entry
         local oldestKey, oldestTime = nil, math.huge
@@ -1861,10 +2042,10 @@ function _HarnessInternal.cache.addGroup(name, group)
             _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
         end
     end
-    
+
     _HarnessInternal.cache.groups[name] = {
         object = group,
-        time = timer and timer.getTime and timer.getTime() or os.time()
+        time = timer and timer.getTime and timer.getTime() or os.time(),
     }
 end
 
@@ -1875,13 +2056,13 @@ function _HarnessInternal.cache.getGroup(name)
     if not name then
         return nil
     end
-    
+
     local entry = _HarnessInternal.cache.groups[name]
     if not entry then
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
         return nil
     end
-    
+
     -- Check expiration
     if _HarnessInternal.cache.isExpired(entry) then
         _HarnessInternal.cache.groups[name] = nil
@@ -1889,7 +2070,7 @@ function _HarnessInternal.cache.getGroup(name)
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
         return nil
     end
-    
+
     _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
     return entry.object
 end
@@ -1901,13 +2082,13 @@ function _HarnessInternal.cache.addController(key, controller)
     if not key or not controller then
         return
     end
-    
+
     -- Check cache size
     local count = 0
     for _ in pairs(_HarnessInternal.cache.controllers) do
         count = count + 1
     end
-    
+
     if count >= _HarnessInternal.cache.config.maxControllers then
         -- Evict oldest entry
         local oldestKey, oldestTime = nil, math.huge
@@ -1922,10 +2103,10 @@ function _HarnessInternal.cache.addController(key, controller)
             _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
         end
     end
-    
+
     _HarnessInternal.cache.controllers[key] = {
         object = controller,
-        time = timer and timer.getTime and timer.getTime() or os.time()
+        time = timer and timer.getTime and timer.getTime() or os.time(),
     }
 end
 
@@ -1936,13 +2117,13 @@ function _HarnessInternal.cache.getController(key)
     if not key then
         return nil
     end
-    
+
     local entry = _HarnessInternal.cache.controllers[key]
     if not entry then
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
         return nil
     end
-    
+
     -- Check expiration
     if _HarnessInternal.cache.isExpired(entry) then
         _HarnessInternal.cache.controllers[key] = nil
@@ -1950,7 +2131,7 @@ function _HarnessInternal.cache.getController(key)
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
         return nil
     end
-    
+
     _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
     return entry.object
 end
@@ -1969,30 +2150,33 @@ function CacheDecorator(func, getCacheKey, cacheType, verifyFunc)
         _HarnessInternal.log.error("CacheDecorator requires a function", "CacheDecorator")
         return func
     end
-    
+
     if type(getCacheKey) ~= "function" then
         _HarnessInternal.log.error("CacheDecorator requires getCacheKey function", "CacheDecorator")
         return func
     end
-    
-    local validTypes = {unit = true, group = true, controller = true, generic = true}
+
+    local validTypes = { unit = true, group = true, controller = true, generic = true }
     if not validTypes[cacheType] then
         _HarnessInternal.log.error("Invalid cache type: " .. tostring(cacheType), "CacheDecorator")
         return func
     end
-    
+
     -- Default verify function checks isExist()
-    verifyFunc = verifyFunc or function(obj)
-        local success, exists = pcall(function() return obj:isExist() end)
-        return success and exists
-    end
-    
+    verifyFunc = verifyFunc
+        or function(obj)
+            local success, exists = pcall(function()
+                return obj:isExist()
+            end)
+            return success and exists
+        end
+
     return function(...)
         local cacheKey = getCacheKey(...)
         if not cacheKey then
             return func(...)
         end
-        
+
         -- Check appropriate cache
         local cached = nil
         if cacheType == "unit" then
@@ -2002,7 +2186,7 @@ function CacheDecorator(func, getCacheKey, cacheType, verifyFunc)
         elseif cacheType == "controller" then
             cached = _HarnessInternal.cache.getController(cacheKey)
         end
-        
+
         -- Verify cached object is still valid
         if cached and verifyFunc(cached) then
             return cached
@@ -2017,10 +2201,10 @@ function CacheDecorator(func, getCacheKey, cacheType, verifyFunc)
                 _HarnessInternal.cache.stats.evictions = _HarnessInternal.cache.stats.evictions + 1
             end
         end
-        
+
         -- Call original function
         local result = func(...)
-        
+
         -- Cache the result if valid
         if result then
             if cacheType == "unit" then
@@ -2031,7 +2215,7 @@ function CacheDecorator(func, getCacheKey, cacheType, verifyFunc)
                 _HarnessInternal.cache.addController(cacheKey, result)
             end
         end
-        
+
         return result
     end
 end
@@ -2074,13 +2258,19 @@ end
 --- @usage local coalition = getCoalitionByCountry(country.id.USA)
 function GetCoalitionByCountry(countryId)
     if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionByCountry requires valid country ID", "Coalition.GetCoalitionByCountry")
+        _HarnessInternal.log.error(
+            "GetCoalitionByCountry requires valid country ID",
+            "Coalition.GetCoalitionByCountry"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getCountryCoalition, countryId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition for country: " .. tostring(result), "Coalition.GetCoalitionByCountry")
+        _HarnessInternal.log.error(
+            "Failed to get coalition for country: " .. tostring(result),
+            "Coalition.GetCoalitionByCountry"
+        )
         return nil
     end
 
@@ -2093,13 +2283,19 @@ end
 --- @usage local bluePlayers = getCoalitionPlayers(coalition.side.BLUE)
 function GetCoalitionPlayers(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionPlayers requires valid coalition ID", "Coalition.GetCoalitionPlayers")
+        _HarnessInternal.log.error(
+            "GetCoalitionPlayers requires valid coalition ID",
+            "Coalition.GetCoalitionPlayers"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getPlayers, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition players: " .. tostring(result), "Coalition.GetCoalitionPlayers")
+        _HarnessInternal.log.error(
+            "Failed to get coalition players: " .. tostring(result),
+            "Coalition.GetCoalitionPlayers"
+        )
         return nil
     end
 
@@ -2113,18 +2309,27 @@ end
 --- @usage local redGroundGroups = getCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
 function GetCoalitionGroups(coalitionId, categoryId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionGroups requires valid coalition ID", "Coalition.GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "GetCoalitionGroups requires valid coalition ID",
+            "Coalition.GetCoalitionGroups"
+        )
         return nil
     end
 
     if categoryId and type(categoryId) ~= "number" then
-        _HarnessInternal.log.error("categoryId must be a number if provided", "Coalition.GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "categoryId must be a number if provided",
+            "Coalition.GetCoalitionGroups"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getGroups, coalitionId, categoryId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition groups: " .. tostring(result), "Coalition.GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "Failed to get coalition groups: " .. tostring(result),
+            "Coalition.GetCoalitionGroups"
+        )
         return {}
     end
 
@@ -2137,13 +2342,19 @@ end
 --- @usage local blueAirbases = getCoalitionAirbases(coalition.side.BLUE)
 function GetCoalitionAirbases(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionAirbases requires valid coalition ID", "Coalition.GetCoalitionAirbases")
+        _HarnessInternal.log.error(
+            "GetCoalitionAirbases requires valid coalition ID",
+            "Coalition.GetCoalitionAirbases"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getAirbases, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition airbases: " .. tostring(result), "Coalition.GetCoalitionAirbases")
+        _HarnessInternal.log.error(
+            "Failed to get coalition airbases: " .. tostring(result),
+            "Coalition.GetCoalitionAirbases"
+        )
         return nil
     end
 
@@ -2156,13 +2367,19 @@ end
 --- @usage local redCountries = getCoalitionCountries(coalition.side.RED)
 function GetCoalitionCountries(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionCountries requires valid coalition ID", "Coalition.GetCoalitionCountries")
+        _HarnessInternal.log.error(
+            "GetCoalitionCountries requires valid coalition ID",
+            "Coalition.GetCoalitionCountries"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getCountries, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition countries: " .. tostring(result), "Coalition.GetCoalitionCountries")
+        _HarnessInternal.log.error(
+            "Failed to get coalition countries: " .. tostring(result),
+            "Coalition.GetCoalitionCountries"
+        )
         return nil
     end
 
@@ -2175,13 +2392,19 @@ end
 --- @usage local blueStatics = getCoalitionStaticObjects(coalition.side.BLUE)
 function GetCoalitionStaticObjects(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionStaticObjects requires valid coalition ID", "Coalition.GetCoalitionStaticObjects")
+        _HarnessInternal.log.error(
+            "GetCoalitionStaticObjects requires valid coalition ID",
+            "Coalition.GetCoalitionStaticObjects"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getStaticObjects, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition static objects: " .. tostring(result), "Coalition.GetCoalitionStaticObjects")
+        _HarnessInternal.log.error(
+            "Failed to get coalition static objects: " .. tostring(result),
+            "Coalition.GetCoalitionStaticObjects"
+        )
         return nil
     end
 
@@ -2196,23 +2419,35 @@ end
 --- @usage local newGroup = addCoalitionGroup(country.id.USA, Group.Category.AIRPLANE, groupDefinition)
 function AddCoalitionGroup(countryId, categoryId, groupData)
     if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionGroup requires valid country ID", "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid country ID",
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
     if not categoryId or type(categoryId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionGroup requires valid category ID", "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid category ID",
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
     if not groupData or type(groupData) ~= "table" then
-        _HarnessInternal.log.error("AddCoalitionGroup requires valid group data table", "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid group data table",
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.addGroup, countryId, categoryId, groupData)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition group: " .. tostring(result), "Coalition.AddGroup")
+        _HarnessInternal.log.error(
+            "Failed to add coalition group: " .. tostring(result),
+            "Coalition.AddGroup"
+        )
         return nil
     end
 
@@ -2226,18 +2461,27 @@ end
 --- @usage local newStatic = addCoalitionStaticObject(country.id.USA, staticDefinition)
 function AddCoalitionStaticObject(countryId, staticData)
     if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionStaticObject requires valid country ID", "Coalition.AddStaticObject")
+        _HarnessInternal.log.error(
+            "AddCoalitionStaticObject requires valid country ID",
+            "Coalition.AddStaticObject"
+        )
         return nil
     end
 
     if not staticData or type(staticData) ~= "table" then
-        _HarnessInternal.log.error("AddCoalitionStaticObject requires valid static object data", "Coalition.AddStaticObject")
+        _HarnessInternal.log.error(
+            "AddCoalitionStaticObject requires valid static object data",
+            "Coalition.AddStaticObject"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.addStaticObject, countryId, staticData)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition static object: " .. tostring(result), "Coalition.AddStaticObject")
+        _HarnessInternal.log.error(
+            "Failed to add coalition static object: " .. tostring(result),
+            "Coalition.AddStaticObject"
+        )
         return nil
     end
 
@@ -2250,13 +2494,19 @@ end
 --- @usage local blueRefPoints = getCoalitionRefPoints(coalition.side.BLUE)
 function GetCoalitionRefPoints(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionRefPoints requires valid coalition ID", "Coalition.GetRefPoints")
+        _HarnessInternal.log.error(
+            "GetCoalitionRefPoints requires valid coalition ID",
+            "Coalition.GetRefPoints"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getRefPoints, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition reference points: " .. tostring(result), "Coalition.GetRefPoints")
+        _HarnessInternal.log.error(
+            "Failed to get coalition reference points: " .. tostring(result),
+            "Coalition.GetRefPoints"
+        )
         return nil
     end
 
@@ -2269,13 +2519,19 @@ end
 --- @usage local blueBullseye = getCoalitionMainRefPoint(coalition.side.BLUE)
 function GetCoalitionMainRefPoint(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionMainRefPoint requires valid coalition ID", "Coalition.GetMainRefPoint")
+        _HarnessInternal.log.error(
+            "GetCoalitionMainRefPoint requires valid coalition ID",
+            "Coalition.GetMainRefPoint"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getMainRefPoint, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition main reference point: " .. tostring(result), "Coalition.GetMainRefPoint")
+        _HarnessInternal.log.error(
+            "Failed to get coalition main reference point: " .. tostring(result),
+            "Coalition.GetMainRefPoint"
+        )
         return nil
     end
 
@@ -2288,13 +2544,19 @@ end
 --- @usage local redBullseye = getCoalitionBullseye(coalition.side.RED)
 function GetCoalitionBullseye(coalitionId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionBullseye requires valid coalition ID", "Coalition.GetBullseye")
+        _HarnessInternal.log.error(
+            "GetCoalitionBullseye requires valid coalition ID",
+            "Coalition.GetBullseye"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getBullseye, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition bullseye: " .. tostring(result), "Coalition.GetBullseye")
+        _HarnessInternal.log.error(
+            "Failed to get coalition bullseye: " .. tostring(result),
+            "Coalition.GetBullseye"
+        )
         return nil
     end
 
@@ -2308,18 +2570,27 @@ end
 --- @usage local newRefPoint = addCoalitionRefPoint(coalition.side.BLUE, {callsign = "ALPHA", x = 100000, y = 0, z = 200000})
 function AddCoalitionRefPoint(coalitionId, refPointData)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("AddCoalitionRefPoint requires valid coalition ID", "Coalition.AddRefPoint")
+        _HarnessInternal.log.error(
+            "AddCoalitionRefPoint requires valid coalition ID",
+            "Coalition.AddRefPoint"
+        )
         return nil
     end
 
     if not refPointData or type(refPointData) ~= "table" then
-        _HarnessInternal.log.error("AddCoalitionRefPoint requires valid reference point data", "Coalition.AddRefPoint")
+        _HarnessInternal.log.error(
+            "AddCoalitionRefPoint requires valid reference point data",
+            "Coalition.AddRefPoint"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.addRefPoint, coalitionId, refPointData)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition reference point: " .. tostring(result), "Coalition.AddRefPoint")
+        _HarnessInternal.log.error(
+            "Failed to add coalition reference point: " .. tostring(result),
+            "Coalition.AddRefPoint"
+        )
         return nil
     end
 
@@ -2333,18 +2604,27 @@ end
 --- @usage RemoveCoalitionRefPoint(coalition.side.BLUE, "ALPHA")
 function RemoveCoalitionRefPoint(coalitionId, refPointId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("RemoveCoalitionRefPoint requires valid coalition ID", "Coalition.RemoveRefPoint")
+        _HarnessInternal.log.error(
+            "RemoveCoalitionRefPoint requires valid coalition ID",
+            "Coalition.RemoveRefPoint"
+        )
         return nil
     end
 
     if not refPointId then
-        _HarnessInternal.log.error("RemoveCoalitionRefPoint requires valid reference point ID", "Coalition.RemoveRefPoint")
+        _HarnessInternal.log.error(
+            "RemoveCoalitionRefPoint requires valid reference point ID",
+            "Coalition.RemoveRefPoint"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.removeRefPoint, coalitionId, refPointId)
     if not success then
-        _HarnessInternal.log.error("Failed to remove coalition reference point: " .. tostring(result), "Coalition.RemoveRefPoint")
+        _HarnessInternal.log.error(
+            "Failed to remove coalition reference point: " .. tostring(result),
+            "Coalition.RemoveRefPoint"
+        )
         return nil
     end
 
@@ -2358,18 +2638,27 @@ end
 --- @usage local blueTankers = getCoalitionServiceProviders(coalition.side.BLUE, coalition.service.TANKER)
 function GetCoalitionServiceProviders(coalitionId, serviceType)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionServiceProviders requires valid coalition ID", "Coalition.GetServiceProviders")
+        _HarnessInternal.log.error(
+            "GetCoalitionServiceProviders requires valid coalition ID",
+            "Coalition.GetServiceProviders"
+        )
         return nil
     end
 
     if not serviceType or type(serviceType) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionServiceProviders requires valid service type", "Coalition.GetServiceProviders")
+        _HarnessInternal.log.error(
+            "GetCoalitionServiceProviders requires valid service type",
+            "Coalition.GetServiceProviders"
+        )
         return nil
     end
 
     local success, result = pcall(coalition.getServiceProviders, coalitionId, serviceType)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition service providers: " .. tostring(result), "Coalition.GetServiceProviders")
+        _HarnessInternal.log.error(
+            "Failed to get coalition service providers: " .. tostring(result),
+            "Coalition.GetServiceProviders"
+        )
         return nil
     end
 
@@ -2398,18 +2687,27 @@ end
 ---@usage SetControllerTask(controller, {id="Mission", params={...}})
 function SetControllerTask(controller, task)
     if not controller then
-        _HarnessInternal.log.error("SetControllerTask requires valid controller", "Controller.SetTask")
+        _HarnessInternal.log.error(
+            "SetControllerTask requires valid controller",
+            "Controller.SetTask"
+        )
         return nil
     end
 
     if not task or type(task) ~= "table" then
-        _HarnessInternal.log.error("SetControllerTask requires valid task table", "Controller.SetTask")
+        _HarnessInternal.log.error(
+            "SetControllerTask requires valid task table",
+            "Controller.SetTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setTask, controller, task)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller task: " .. tostring(result), "Controller.SetTask")
+        _HarnessInternal.log.error(
+            "Failed to set controller task: " .. tostring(result),
+            "Controller.SetTask"
+        )
         return nil
     end
 
@@ -2422,13 +2720,19 @@ end
 ---@usage ResetControllerTask(controller)
 function ResetControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("ResetControllerTask requires valid controller", "Controller.ResetTask")
+        _HarnessInternal.log.error(
+            "ResetControllerTask requires valid controller",
+            "Controller.ResetTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.resetTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to reset controller task: " .. tostring(result), "Controller.ResetTask")
+        _HarnessInternal.log.error(
+            "Failed to reset controller task: " .. tostring(result),
+            "Controller.ResetTask"
+        )
         return nil
     end
 
@@ -2442,18 +2746,27 @@ end
 ---@usage PushControllerTask(controller, {id="EngageTargets", params={...}})
 function PushControllerTask(controller, task)
     if not controller then
-        _HarnessInternal.log.error("PushControllerTask requires valid controller", "Controller.PushTask")
+        _HarnessInternal.log.error(
+            "PushControllerTask requires valid controller",
+            "Controller.PushTask"
+        )
         return nil
     end
 
     if not task or type(task) ~= "table" then
-        _HarnessInternal.log.error("PushControllerTask requires valid task table", "Controller.PushTask")
+        _HarnessInternal.log.error(
+            "PushControllerTask requires valid task table",
+            "Controller.PushTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.pushTask, controller, task)
     if not success then
-        _HarnessInternal.log.error("Failed to push controller task: " .. tostring(result), "Controller.PushTask")
+        _HarnessInternal.log.error(
+            "Failed to push controller task: " .. tostring(result),
+            "Controller.PushTask"
+        )
         return nil
     end
 
@@ -2466,13 +2779,19 @@ end
 ---@usage PopControllerTask(controller)
 function PopControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("PopControllerTask requires valid controller", "Controller.PopTask")
+        _HarnessInternal.log.error(
+            "PopControllerTask requires valid controller",
+            "Controller.PopTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.popTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to pop controller task: " .. tostring(result), "Controller.PopTask")
+        _HarnessInternal.log.error(
+            "Failed to pop controller task: " .. tostring(result),
+            "Controller.PopTask"
+        )
         return nil
     end
 
@@ -2485,13 +2804,19 @@ end
 ---@usage local hasTasks = hasControllerTask(controller)
 function HasControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("HasControllerTask requires valid controller", "Controller.HasTask")
+        _HarnessInternal.log.error(
+            "HasControllerTask requires valid controller",
+            "Controller.HasTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.hasTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to check controller task: " .. tostring(result), "Controller.HasTask")
+        _HarnessInternal.log.error(
+            "Failed to check controller task: " .. tostring(result),
+            "Controller.HasTask"
+        )
         return nil
     end
 
@@ -2505,18 +2830,27 @@ end
 ---@usage SetControllerCommand(controller, {id="Script", params={...}})
 function SetControllerCommand(controller, command)
     if not controller then
-        _HarnessInternal.log.error("SetControllerCommand requires valid controller", "Controller.SetCommand")
+        _HarnessInternal.log.error(
+            "SetControllerCommand requires valid controller",
+            "Controller.SetCommand"
+        )
         return nil
     end
 
     if not command or type(command) ~= "table" then
-        _HarnessInternal.log.error("SetControllerCommand requires valid command table", "Controller.SetCommand")
+        _HarnessInternal.log.error(
+            "SetControllerCommand requires valid command table",
+            "Controller.SetCommand"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setCommand, controller, command)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller command: " .. tostring(result), "Controller.SetCommand")
+        _HarnessInternal.log.error(
+            "Failed to set controller command: " .. tostring(result),
+            "Controller.SetCommand"
+        )
         return nil
     end
 
@@ -2530,18 +2864,27 @@ end
 ---@usage SetControllerOnOff(controller, false)
 function SetControllerOnOff(controller, onOff)
     if not controller then
-        _HarnessInternal.log.error("SetControllerOnOff requires valid controller", "Controller.SetOnOff")
+        _HarnessInternal.log.error(
+            "SetControllerOnOff requires valid controller",
+            "Controller.SetOnOff"
+        )
         return nil
     end
 
     if type(onOff) ~= "boolean" then
-        _HarnessInternal.log.error("SetControllerOnOff requires boolean value", "Controller.SetOnOff")
+        _HarnessInternal.log.error(
+            "SetControllerOnOff requires boolean value",
+            "Controller.SetOnOff"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setOnOff, controller, onOff)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller on/off: " .. tostring(result), "Controller.SetOnOff")
+        _HarnessInternal.log.error(
+            "Failed to set controller on/off: " .. tostring(result),
+            "Controller.SetOnOff"
+        )
         return nil
     end
 
@@ -2557,18 +2900,27 @@ end
 ---@usage SetControllerAltitude(controller, 5000, true, "BARO")
 function SetControllerAltitude(controller, altitude, keep, altType)
     if not controller then
-        _HarnessInternal.log.error("SetControllerAltitude requires valid controller", "Controller.SetAltitude")
+        _HarnessInternal.log.error(
+            "SetControllerAltitude requires valid controller",
+            "Controller.SetAltitude"
+        )
         return nil
     end
 
     if not altitude or type(altitude) ~= "number" then
-        _HarnessInternal.log.error("SetControllerAltitude requires valid altitude", "Controller.SetAltitude")
+        _HarnessInternal.log.error(
+            "SetControllerAltitude requires valid altitude",
+            "Controller.SetAltitude"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setAltitude, controller, altitude, keep, altType)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller altitude: " .. tostring(result), "Controller.SetAltitude")
+        _HarnessInternal.log.error(
+            "Failed to set controller altitude: " .. tostring(result),
+            "Controller.SetAltitude"
+        )
         return nil
     end
 
@@ -2583,7 +2935,10 @@ end
 ---@usage SetControllerSpeed(controller, 250, true)
 function SetControllerSpeed(controller, speed, keep)
     if not controller then
-        _HarnessInternal.log.error("SetControllerSpeed requires valid controller", "Controller.SetSpeed")
+        _HarnessInternal.log.error(
+            "SetControllerSpeed requires valid controller",
+            "Controller.SetSpeed"
+        )
         return nil
     end
 
@@ -2594,7 +2949,10 @@ function SetControllerSpeed(controller, speed, keep)
 
     local success, result = pcall(controller.setSpeed, controller, speed, keep)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller speed: " .. tostring(result), "Controller.SetSpeed")
+        _HarnessInternal.log.error(
+            "Failed to set controller speed: " .. tostring(result),
+            "Controller.SetSpeed"
+        )
         return nil
     end
 
@@ -2609,18 +2967,27 @@ end
 ---@usage SetControllerOption(controller, 0, AI.Option.Air.val.ROE.WEAPON_FREE)
 function SetControllerOption(controller, optionId, optionValue)
     if not controller then
-        _HarnessInternal.log.error("SetControllerOption requires valid controller", "Controller.SetOption")
+        _HarnessInternal.log.error(
+            "SetControllerOption requires valid controller",
+            "Controller.SetOption"
+        )
         return nil
     end
 
     if not optionId or type(optionId) ~= "number" then
-        _HarnessInternal.log.error("SetControllerOption requires valid option ID", "Controller.SetOption")
+        _HarnessInternal.log.error(
+            "SetControllerOption requires valid option ID",
+            "Controller.SetOption"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setOption, controller, optionId, optionValue)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller option: " .. tostring(result), "Controller.SetOption")
+        _HarnessInternal.log.error(
+            "Failed to set controller option: " .. tostring(result),
+            "Controller.SetOption"
+        )
         return nil
     end
 
@@ -2636,7 +3003,10 @@ function ControllerSetROE(controller, value, domain)
     local d = (domain == "Ground" or domain == "Naval") and domain or "Air"
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ROE then
-        _HarnessInternal.log.error("AI.Option." .. d .. ".id.ROE not available", "Controller.SetROE")
+        _HarnessInternal.log.error(
+            "AI.Option." .. d .. ".id.ROE not available",
+            "Controller.SetROE"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.ROE then
@@ -2644,7 +3014,10 @@ function ControllerSetROE(controller, value, domain)
         value = opt.val.ROE[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetROE requires numeric or valid string ROE", "Controller.SetROE")
+        _HarnessInternal.log.error(
+            "ControllerSetROE requires numeric or valid string ROE",
+            "Controller.SetROE"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.ROE, value)
@@ -2657,7 +3030,10 @@ end
 function ControllerSetReactionOnThreat(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.REACTION_ON_THREAT then
-        _HarnessInternal.log.error("AI.Option.Air.id.REACTION_ON_THREAT not available", "Controller.SetReactionOnThreat")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.REACTION_ON_THREAT not available",
+            "Controller.SetReactionOnThreat"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.REACTION_ON_THREAT then
@@ -2665,7 +3041,10 @@ function ControllerSetReactionOnThreat(controller, value)
         value = opt.val.REACTION_ON_THREAT[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetReactionOnThreat requires numeric or valid string value", "Controller.SetReactionOnThreat")
+        _HarnessInternal.log.error(
+            "ControllerSetReactionOnThreat requires numeric or valid string value",
+            "Controller.SetReactionOnThreat"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.REACTION_ON_THREAT, value)
@@ -2678,11 +3057,17 @@ end
 function ControllerSetRadarUsing(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.RADAR_USING then
-        _HarnessInternal.log.error("AI.Option.Air.id.RADAR_USING not available", "Controller.SetRadarUsing")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.RADAR_USING not available",
+            "Controller.SetRadarUsing"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetRadarUsing requires numeric enum value", "Controller.SetRadarUsing")
+        _HarnessInternal.log.error(
+            "ControllerSetRadarUsing requires numeric enum value",
+            "Controller.SetRadarUsing"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.RADAR_USING, value)
@@ -2695,11 +3080,17 @@ end
 function ControllerSetFlareUsing(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.FLARE_USING then
-        _HarnessInternal.log.error("AI.Option.Air.id.FLARE_USING not available", "Controller.SetFlareUsing")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.FLARE_USING not available",
+            "Controller.SetFlareUsing"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetFlareUsing requires numeric enum value", "Controller.SetFlareUsing")
+        _HarnessInternal.log.error(
+            "ControllerSetFlareUsing requires numeric enum value",
+            "Controller.SetFlareUsing"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.FLARE_USING, value)
@@ -2712,11 +3103,17 @@ end
 function ControllerSetFormation(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.FORMATION then
-        _HarnessInternal.log.error("AI.Option.Air.id.FORMATION not available", "Controller.SetFormation")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.FORMATION not available",
+            "Controller.SetFormation"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetFormation requires numeric enum value", "Controller.SetFormation")
+        _HarnessInternal.log.error(
+            "ControllerSetFormation requires numeric enum value",
+            "Controller.SetFormation"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.FORMATION, value)
@@ -2729,11 +3126,17 @@ end
 function ControllerSetRTBOnBingo(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.RTB_ON_BINGO then
-        _HarnessInternal.log.error("AI.Option.Air.id.RTB_ON_BINGO not available", "Controller.SetRTBOnBingo")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.RTB_ON_BINGO not available",
+            "Controller.SetRTBOnBingo"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetRTBOnBingo requires boolean", "Controller.SetRTBOnBingo")
+        _HarnessInternal.log.error(
+            "ControllerSetRTBOnBingo requires boolean",
+            "Controller.SetRTBOnBingo"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.RTB_ON_BINGO, value)
@@ -2746,7 +3149,10 @@ end
 function ControllerSetSilence(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.SILENCE then
-        _HarnessInternal.log.error("AI.Option.Air.id.SILENCE not available", "Controller.SetSilence")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.SILENCE not available",
+            "Controller.SetSilence"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
@@ -2765,7 +3171,10 @@ function ControllerSetAlarmState(controller, value, domain)
     local d = (domain == "Air") and domain or "Ground"
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ALARM_STATE then
-        _HarnessInternal.log.error("AI.Option." .. d .. ".id.ALARM_STATE not available", "Controller.SetAlarmState")
+        _HarnessInternal.log.error(
+            "AI.Option." .. d .. ".id.ALARM_STATE not available",
+            "Controller.SetAlarmState"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.ALARM_STATE then
@@ -2773,7 +3182,10 @@ function ControllerSetAlarmState(controller, value, domain)
         value = opt.val.ALARM_STATE[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetAlarmState requires numeric or valid string value", "Controller.SetAlarmState")
+        _HarnessInternal.log.error(
+            "ControllerSetAlarmState requires numeric or valid string value",
+            "Controller.SetAlarmState"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.ALARM_STATE, value)
@@ -2787,11 +3199,17 @@ end
 function ControllerSetDisperseOnAttack(controller, seconds)
     local opt = AI and AI.Option and AI.Option.Ground
     if not opt or not opt.id or not opt.id.DISPERSE_ON_ATTACK then
-        _HarnessInternal.log.error("AI.Option.Ground.id.DISPERSE_ON_ATTACK not available", "Controller.SetDisperseOnAttack")
+        _HarnessInternal.log.error(
+            "AI.Option.Ground.id.DISPERSE_ON_ATTACK not available",
+            "Controller.SetDisperseOnAttack"
+        )
         return nil
     end
     if type(seconds) ~= "number" or seconds < 0 then
-        _HarnessInternal.log.error("ControllerSetDisperseOnAttack requires non-negative number of seconds", "Controller.SetDisperseOnAttack")
+        _HarnessInternal.log.error(
+            "ControllerSetDisperseOnAttack requires non-negative number of seconds",
+            "Controller.SetDisperseOnAttack"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.DISPERSE_ON_ATTACK, seconds)
@@ -2804,11 +3222,17 @@ end
 function ControllerSetRTBOnOutOfAmmo(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.RTB_ON_OUT_OF_AMMO then
-        _HarnessInternal.log.error("AI.Option.Air.id.RTB_ON_OUT_OF_AMMO not available", "Controller.SetRTBOnOutOfAmmo")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.RTB_ON_OUT_OF_AMMO not available",
+            "Controller.SetRTBOnOutOfAmmo"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetRTBOnOutOfAmmo requires boolean", "Controller.SetRTBOnOutOfAmmo")
+        _HarnessInternal.log.error(
+            "ControllerSetRTBOnOutOfAmmo requires boolean",
+            "Controller.SetRTBOnOutOfAmmo"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.RTB_ON_OUT_OF_AMMO, value)
@@ -2821,11 +3245,17 @@ end
 function ControllerSetECMUsing(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.ECM_USING then
-        _HarnessInternal.log.error("AI.Option.Air.id.ECM_USING not available", "Controller.SetECMUsing")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.ECM_USING not available",
+            "Controller.SetECMUsing"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetECMUsing requires numeric enum value", "Controller.SetECMUsing")
+        _HarnessInternal.log.error(
+            "ControllerSetECMUsing requires numeric enum value",
+            "Controller.SetECMUsing"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.ECM_USING, value)
@@ -2838,11 +3268,17 @@ end
 function ControllerSetProhibitWPPassReport(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_WP_PASS_REPORT then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT not available", "Controller.SetProhibitWPPassReport")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT not available",
+            "Controller.SetProhibitWPPassReport"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitWPPassReport requires boolean", "Controller.SetProhibitWPPassReport")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitWPPassReport requires boolean",
+            "Controller.SetProhibitWPPassReport"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_WP_PASS_REPORT, value)
@@ -2855,11 +3291,17 @@ end
 function ControllerSetProhibitAA(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_AA then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_AA not available", "Controller.SetProhibitAA")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_AA not available",
+            "Controller.SetProhibitAA"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitAA requires boolean", "Controller.SetProhibitAA")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitAA requires boolean",
+            "Controller.SetProhibitAA"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_AA, value)
@@ -2872,11 +3314,17 @@ end
 function ControllerSetProhibitJettison(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_JETT then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_JETT not available", "Controller.SetProhibitJettison")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_JETT not available",
+            "Controller.SetProhibitJettison"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitJettison requires boolean", "Controller.SetProhibitJettison")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitJettison requires boolean",
+            "Controller.SetProhibitJettison"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_JETT, value)
@@ -2889,11 +3337,17 @@ end
 function ControllerSetProhibitAB(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_AB then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_AB not available", "Controller.SetProhibitAB")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_AB not available",
+            "Controller.SetProhibitAB"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitAB requires boolean", "Controller.SetProhibitAB")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitAB requires boolean",
+            "Controller.SetProhibitAB"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_AB, value)
@@ -2906,11 +3360,17 @@ end
 function ControllerSetProhibitAG(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_AG then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_AG not available", "Controller.SetProhibitAG")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_AG not available",
+            "Controller.SetProhibitAG"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitAG requires boolean", "Controller.SetProhibitAG")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitAG requires boolean",
+            "Controller.SetProhibitAG"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_AG, value)
@@ -2924,7 +3384,10 @@ end
 function ControllerSetMissileAttack(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.MISSILE_ATTACK then
-        _HarnessInternal.log.error("AI.Option.Air.id.MISSILE_ATTACK not available", "Controller.SetMissileAttack")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.MISSILE_ATTACK not available",
+            "Controller.SetMissileAttack"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.MISSILE_ATTACK then
@@ -2932,7 +3395,10 @@ function ControllerSetMissileAttack(controller, value)
         value = opt.val.MISSILE_ATTACK[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetMissileAttack requires numeric or valid string enum value", "Controller.SetMissileAttack")
+        _HarnessInternal.log.error(
+            "ControllerSetMissileAttack requires numeric or valid string enum value",
+            "Controller.SetMissileAttack"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.MISSILE_ATTACK, value)
@@ -2948,13 +3414,20 @@ end
 ---@usage local targets = getControllerDetectedTargets(controller)
 function GetControllerDetectedTargets(controller, detectionType, categoryFilter)
     if not controller then
-        _HarnessInternal.log.error("GetControllerDetectedTargets requires valid controller", "Controller.GetDetectedTargets")
+        _HarnessInternal.log.error(
+            "GetControllerDetectedTargets requires valid controller",
+            "Controller.GetDetectedTargets"
+        )
         return nil
     end
 
-    local success, result = pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
+    local success, result =
+        pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
     if not success then
-        _HarnessInternal.log.error("Failed to get detected targets: " .. tostring(result), "Controller.GetDetectedTargets")
+        _HarnessInternal.log.error(
+            "Failed to get detected targets: " .. tostring(result),
+            "Controller.GetDetectedTargets"
+        )
         return nil
     end
 
@@ -2970,18 +3443,28 @@ end
 ---@usage KnowControllerTarget(controller, targetUnit, true, true)
 function KnowControllerTarget(controller, target, typeKnown, distanceKnown)
     if not controller then
-        _HarnessInternal.log.error("KnowControllerTarget requires valid controller", "Controller.KnowTarget")
+        _HarnessInternal.log.error(
+            "KnowControllerTarget requires valid controller",
+            "Controller.KnowTarget"
+        )
         return nil
     end
 
     if not target then
-        _HarnessInternal.log.error("KnowControllerTarget requires valid target", "Controller.KnowTarget")
+        _HarnessInternal.log.error(
+            "KnowControllerTarget requires valid target",
+            "Controller.KnowTarget"
+        )
         return nil
     end
 
-    local success, result = pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
+    local success, result =
+        pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
     if not success then
-        _HarnessInternal.log.error("Failed to know target: " .. tostring(result), "Controller.KnowTarget")
+        _HarnessInternal.log.error(
+            "Failed to know target: " .. tostring(result),
+            "Controller.KnowTarget"
+        )
         return nil
     end
 
@@ -2996,18 +3479,27 @@ end
 ---@usage local detected = isControllerTargetDetected(controller, targetUnit)
 function IsControllerTargetDetected(controller, target, detectionType)
     if not controller then
-        _HarnessInternal.log.error("IsControllerTargetDetected requires valid controller", "Controller.IsTargetDetected")
+        _HarnessInternal.log.error(
+            "IsControllerTargetDetected requires valid controller",
+            "Controller.IsTargetDetected"
+        )
         return nil
     end
 
     if not target then
-        _HarnessInternal.log.error("IsControllerTargetDetected requires valid target", "Controller.IsTargetDetected")
+        _HarnessInternal.log.error(
+            "IsControllerTargetDetected requires valid target",
+            "Controller.IsTargetDetected"
+        )
         return nil
     end
 
     local success, result = pcall(controller.isTargetDetected, controller, target, detectionType)
     if not success then
-        _HarnessInternal.log.error("Failed to check target detection: " .. tostring(result), "Controller.IsTargetDetected")
+        _HarnessInternal.log.error(
+            "Failed to check target detection: " .. tostring(result),
+            "Controller.IsTargetDetected"
+        )
         return nil
     end
 
@@ -3029,16 +3521,16 @@ function CreateOrbitTask(pattern, point, altitude, speed, taskParams)
             pattern = pattern or "Circle",
             point = point,
             altitude = altitude,
-            speed = speed
-        }
+            speed = speed,
+        },
     }
-    
+
     if taskParams then
         for k, v in pairs(taskParams) do
             task.params[k] = v
         end
     end
-    
+
     return task
 end
 
@@ -3050,7 +3542,10 @@ end
 ---@usage local task = createFollowTask(1001, {x=100, y=0, z=100})
 function CreateFollowTask(groupId, position, lastWaypointIndex)
     if not groupId then
-        _HarnessInternal.log.error("CreateFollowTask requires valid group ID", "Controller.CreateFollowTask")
+        _HarnessInternal.log.error(
+            "CreateFollowTask requires valid group ID",
+            "Controller.CreateFollowTask"
+        )
         return nil
     end
 
@@ -3058,12 +3553,12 @@ function CreateFollowTask(groupId, position, lastWaypointIndex)
         id = "follow",
         params = {
             groupId = groupId,
-            pos = position or {x = 50, y = 0, z = 50},
+            pos = position or { x = 50, y = 0, z = 50 },
             lastWptIndexFlag = lastWaypointIndex ~= nil,
-            lastWptIndex = lastWaypointIndex
-        }
+            lastWptIndex = lastWaypointIndex,
+        },
     }
-    
+
     return task
 end
 
@@ -3076,7 +3571,10 @@ end
 ---@usage local task = createEscortTask(1001, {x=200, y=0, z=0}, nil, 30000)
 function CreateEscortTask(groupId, position, lastWaypointIndex, engagementDistance)
     if not groupId then
-        _HarnessInternal.log.error("CreateEscortTask requires valid group ID", "Controller.CreateEscortTask")
+        _HarnessInternal.log.error(
+            "CreateEscortTask requires valid group ID",
+            "Controller.CreateEscortTask"
+        )
         return nil
     end
 
@@ -3084,13 +3582,13 @@ function CreateEscortTask(groupId, position, lastWaypointIndex, engagementDistan
         id = "escort",
         params = {
             groupId = groupId,
-            pos = position or {x = 50, y = 0, z = 50},
+            pos = position or { x = 50, y = 0, z = 50 },
             lastWptIndexFlag = lastWaypointIndex ~= nil,
             lastWptIndex = lastWaypointIndex,
-            engagementDistMax = engagementDistance or 60000
-        }
+            engagementDistMax = engagementDistance or 60000,
+        },
     }
-    
+
     return task
 end
 
@@ -3105,7 +3603,10 @@ end
 ---@usage local task = createAttackGroupTask(2001, nil, true)
 function CreateAttackGroupTask(groupId, weaponType, groupAttack, altitude, attackQty, direction)
     if not groupId then
-        _HarnessInternal.log.error("CreateAttackGroupTask requires valid group ID", "Controller.CreateAttackGroupTask")
+        _HarnessInternal.log.error(
+            "CreateAttackGroupTask requires valid group ID",
+            "Controller.CreateAttackGroupTask"
+        )
         return nil
     end
 
@@ -3117,10 +3618,10 @@ function CreateAttackGroupTask(groupId, weaponType, groupAttack, altitude, attac
             groupAttack = (groupAttack == nil) and true or groupAttack,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -3135,7 +3636,10 @@ end
 ---@usage local task = createAttackUnitTask(3001)
 function CreateAttackUnitTask(unitId, weaponType, groupAttack, altitude, attackQty, direction)
     if not unitId then
-        _HarnessInternal.log.error("CreateAttackUnitTask requires valid unit ID", "Controller.CreateAttackUnitTask")
+        _HarnessInternal.log.error(
+            "CreateAttackUnitTask requires valid unit ID",
+            "Controller.CreateAttackUnitTask"
+        )
         return nil
     end
 
@@ -3147,10 +3651,10 @@ function CreateAttackUnitTask(unitId, weaponType, groupAttack, altitude, attackQ
             groupAttack = groupAttack or false,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -3165,7 +3669,10 @@ end
 ---@usage local task = createBombingTask({x=1000, y=0, z=2000})
 function CreateBombingTask(point, weaponType, groupAttack, altitude, attackQty, direction)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("CreateBombingTask requires valid point with x, y, z", "Controller.CreateBombingTask")
+        _HarnessInternal.log.error(
+            "CreateBombingTask requires valid point with x, y, z",
+            "Controller.CreateBombingTask"
+        )
         return nil
     end
 
@@ -3177,10 +3684,10 @@ function CreateBombingTask(point, weaponType, groupAttack, altitude, attackQty, 
             groupAttack = groupAttack or false,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -3195,22 +3702,25 @@ end
 ---@usage local task = createBombingRunwayTask(1)
 function CreateBombingRunwayTask(runwayId, weaponType, groupAttack, altitude, attackQty, direction)
     if not runwayId then
-        _HarnessInternal.log.error("CreateBombingRunwayTask requires valid runway ID", "Controller.CreateBombingRunwayTask")
+        _HarnessInternal.log.error(
+            "CreateBombingRunwayTask requires valid runway ID",
+            "Controller.CreateBombingRunwayTask"
+        )
         return nil
     end
 
     local task = {
-        id = "BombingRunway", 
+        id = "BombingRunway",
         params = {
             runwayId = runwayId,
             weaponType = weaponType,
             groupAttack = groupAttack or false,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -3222,7 +3732,10 @@ end
 ---@usage local task = createLandTask({x=1000, y=0, z=2000}, true, 300)
 function CreateLandTask(point, durationFlag, duration)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createLandTask requires valid point with x, y, z", "Controller.CreateLandTask")
+        _HarnessInternal.log.error(
+            "createLandTask requires valid point with x, y, z",
+            "Controller.CreateLandTask"
+        )
         return nil
     end
 
@@ -3231,10 +3744,10 @@ function CreateLandTask(point, durationFlag, duration)
         params = {
             point = point,
             durationFlag = durationFlag or false,
-            duration = duration
-        }
+            duration = duration,
+        },
     }
-    
+
     return task
 end
 
@@ -3244,9 +3757,9 @@ end
 function CreateRefuelingTask()
     local task = {
         id = "refueling",
-        params = {}
+        params = {},
     }
-    
+
     return task
 end
 
@@ -3260,9 +3773,20 @@ end
 ---@param callsign number? Callsign number
 ---@return table? task The FAC attack group task table or nil on error
 ---@usage local task = createFACAttackGroupTask(2001)
-function CreateFACAttackGroupTask(groupId, priority, designation, datalink, frequency, modulation, callsign)
+function CreateFACAttackGroupTask(
+    groupId,
+    priority,
+    designation,
+    datalink,
+    frequency,
+    modulation,
+    callsign
+)
     if not groupId then
-        _HarnessInternal.log.error("createFACAttackGroupTask requires valid group ID", "Controller.CreateFACAttackGroupTask")
+        _HarnessInternal.log.error(
+            "createFACAttackGroupTask requires valid group ID",
+            "Controller.CreateFACAttackGroupTask"
+        )
         return nil
     end
 
@@ -3275,10 +3799,10 @@ function CreateFACAttackGroupTask(groupId, priority, designation, datalink, freq
             datalink = datalink,
             frequency = frequency,
             modulation = modulation,
-            callsign = callsign
-        }
+            callsign = callsign,
+        },
     }
-    
+
     return task
 end
 
@@ -3291,9 +3815,19 @@ end
 ---@param altitudeEnabled boolean? Whether to use altitude
 ---@return table? task The fire at point task table or nil on error
 ---@usage local task = createFireAtPointTask({x=1000, y=0, z=2000}, 100)
-function CreateFireAtPointTask(point, radius, expendQty, expendQtyEnabled, altitude, altitudeEnabled)
+function CreateFireAtPointTask(
+    point,
+    radius,
+    expendQty,
+    expendQtyEnabled,
+    altitude,
+    altitudeEnabled
+)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createFireAtPointTask requires valid point with x, y, z", "Controller.CreateFireAtPointTask")
+        _HarnessInternal.log.error(
+            "createFireAtPointTask requires valid point with x, y, z",
+            "Controller.CreateFireAtPointTask"
+        )
         return nil
     end
 
@@ -3305,10 +3839,10 @@ function CreateFireAtPointTask(point, radius, expendQty, expendQtyEnabled, altit
             expendQty = expendQty,
             expendQtyEnabled = expendQtyEnabled or false,
             altitude = altitude,
-            alt_type = altitudeEnabled and 1 or 0
-        }
+            alt_type = altitudeEnabled and 1 or 0,
+        },
     }
-    
+
     return task
 end
 
@@ -3321,10 +3855,10 @@ function CreateHoldTask(template)
         id = "Hold",
         params = {
             templateFlag = template ~= nil,
-            template = template
-        }
+            template = template,
+        },
     }
-    
+
     return task
 end
 
@@ -3338,10 +3872,10 @@ function CreateGoToWaypointTask(fromWaypointIndex, toWaypointIndex)
         id = "goToWaypoint",
         params = {
             fromWaypointIndex = fromWaypointIndex,
-            goToWaypointIndex = toWaypointIndex
-        }
+            goToWaypointIndex = toWaypointIndex,
+        },
     }
-    
+
     return task
 end
 
@@ -3352,7 +3886,10 @@ end
 ---@usage local task = createWrappedAction({id="Script", params={...}})
 function CreateWrappedAction(action, stopFlag)
     if not action or type(action) ~= "table" then
-        _HarnessInternal.log.error("createWrappedAction requires valid action table", "Controller.CreateWrappedAction")
+        _HarnessInternal.log.error(
+            "createWrappedAction requires valid action table",
+            "Controller.CreateWrappedAction"
+        )
         return nil
     end
 
@@ -3360,10 +3897,10 @@ function CreateWrappedAction(action, stopFlag)
         id = "WrappedAction",
         params = {
             action = action,
-            stopFlag = stopFlag or false
-        }
+            stopFlag = stopFlag or false,
+        },
     }
-    
+
     return task
 end
 
@@ -3372,112 +3909,278 @@ end
 ---@return table option The ROE option table
 ---@usage local option = createROEOption(2) -- WEAPON_FREE
 -- Deprecated: use ControllerSetROE
-function CreateROEOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ROE) or 0, value = value } end
+function CreateROEOption(value)
+    return {
+        id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ROE)
+            or 0,
+        value = value,
+    }
+end
 
 --- Creates a reaction on threat option
 ---@param value number The reaction value
 ---@return table option The reaction option table
 ---@usage local option = createReactionOnThreatOption(1)
 -- Deprecated: use ControllerSetReactionOnThreat
-function CreateReactionOnThreatOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.REACTION_ON_THREAT) or 1, value = value } end
+function CreateReactionOnThreatOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.REACTION_ON_THREAT
+        ) or 1,
+        value = value,
+    }
+end
 
 --- Creates a radar using option
 ---@param value number The radar usage value
 ---@return table option The radar option table
 ---@usage local option = createRadarUsingOption(1)
 -- Deprecated: use ControllerSetRadarUsing
-function CreateRadarUsingOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.RADAR_USING) or 3, value = value } end
+function CreateRadarUsingOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.RADAR_USING
+        ) or 3,
+        value = value,
+    }
+end
 
 --- Creates a flare using option
 ---@param value number The flare usage value
 ---@return table option The flare option table
 ---@usage local option = createFlareUsingOption(1)
 -- Deprecated: use ControllerSetFlareUsing
-function CreateFlareUsingOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.FLARE_USING) or 4, value = value } end
+function CreateFlareUsingOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.FLARE_USING
+        ) or 4,
+        value = value,
+    }
+end
 
 --- Creates a formation option
 ---@param value number The formation value
 ---@return table option The formation option table
 ---@usage local option = createFormationOption(1)
 -- Deprecated: use ControllerSetFormation
-function CreateFormationOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.FORMATION) or 5, value = value } end
+function CreateFormationOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.FORMATION
+        ) or 5,
+        value = value,
+    }
+end
 
 --- Creates a Return To Base on bingo fuel option
 ---@param value boolean The RTB on bingo value
 ---@return table option The RTB option table
 ---@usage local option = createRTBOnBingoOption(true)
 -- Deprecated: use ControllerSetRTBOnBingo
-function CreateRTBOnBingoOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.RTB_ON_BINGO) or 6, value = value } end
+function CreateRTBOnBingoOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.RTB_ON_BINGO
+        ) or 6,
+        value = value,
+    }
+end
 
 --- Creates a radio silence option
 ---@param value boolean The silence value
 ---@return table option The silence option table
 ---@usage local option = createSilenceOption(true)
 -- Deprecated: use ControllerSetSilence
-function CreateSilenceOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.SILENCE) or 7, value = value } end
+function CreateSilenceOption(value)
+    return {
+        id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.SILENCE)
+            or 7,
+        value = value,
+    }
+end
 
 --- Creates an alarm state option
 ---@param value number The alarm state value
 ---@return table option The alarm state option table
 ---@usage local option = createAlarmStateOption(2)
 -- Deprecated: use ControllerSetAlarmState
-function CreateAlarmStateOption(value) return { id = (AI and AI.Option and AI.Option.Ground and AI.Option.Ground.id and AI.Option.Ground.id.ALARM_STATE) or 9, value = value } end
+function CreateAlarmStateOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Ground
+            and AI.Option.Ground.id
+            and AI.Option.Ground.id.ALARM_STATE
+        ) or 9,
+        value = value,
+    }
+end
 
 --- Creates a Return To Base on out of ammo option
 ---@param value boolean The RTB on out of ammo value
 ---@return table option The RTB option table
 ---@usage local option = createRTBOnOutOfAmmoOption(true)
 -- Deprecated: use ControllerSetRTBOnOutOfAmmo
-function CreateRTBOnOutOfAmmoOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.RTB_ON_OUT_OF_AMMO) or 10, value = value } end
+function CreateRTBOnOutOfAmmoOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.RTB_ON_OUT_OF_AMMO
+        ) or 10,
+        value = value,
+    }
+end
 
 --- Creates an ECM using option
 ---@param value number The ECM usage value
 ---@return table option The ECM option table
 ---@usage local option = createECMUsingOption(1)
 -- Deprecated: use ControllerSetECMUsing
-function CreateECMUsingOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ECM_USING) or 13, value = value } end
+function CreateECMUsingOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.ECM_USING
+        ) or 13,
+        value = value,
+    }
+end
 
 --- Creates a prohibit waypoint pass report option (ID 19)
 ---@param value boolean The prohibit value
 ---@return table option The prohibit option table
 ---@usage local option = createProhibitWPPassReportOption(true)
 -- Deprecated: use ControllerSetProhibitWPPassReport
-function CreateProhibitWPPassReportOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT) or 19, value = value } end
+function CreateProhibitWPPassReportOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT
+        ) or 19,
+        value = value,
+    }
+end
 
 --- Creates a prohibit air-to-air option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit AA option table
 ---@usage local option = createProhibitAAOption(false)
 -- Deprecated: use ControllerSetProhibitAA
-function CreateProhibitAAOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_AA) or 14, value = value } end
+function CreateProhibitAAOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_AA
+        ) or 14,
+        value = value,
+    }
+end
 
 --- Creates a prohibit jettison option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit jettison option table
 ---@usage local option = createProhibitJettisonOption(true)
 -- Deprecated: use ControllerSetProhibitJettison
-function CreateProhibitJettisonOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_JETT) or 15, value = value } end
+function CreateProhibitJettisonOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_JETT
+        ) or 15,
+        value = value,
+    }
+end
 
 --- Creates a prohibit afterburner option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit AB option table
 ---@usage local option = createProhibitABOption(true)
 -- Deprecated: use ControllerSetProhibitAB
-function CreateProhibitABOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_AB) or 16, value = value } end
+function CreateProhibitABOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_AB
+        ) or 16,
+        value = value,
+    }
+end
 
 --- Creates a prohibit air-to-ground option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit AG option table
 ---@usage local option = createProhibitAGOption(false)
 -- Deprecated: use ControllerSetProhibitAG
-function CreateProhibitAGOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_AG) or 17, value = value } end
+function CreateProhibitAGOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_AG
+        ) or 17,
+        value = value,
+    }
+end
 
 --- Creates a missile attack option
 ---@param value number The missile attack value
 ---@return table option The missile attack option table
 ---@usage local option = createMissileAttackOption(1)
 -- Deprecated: use ControllerSetMissileAttack
-function CreateMissileAttackOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.MISSILE_ATTACK) or 18, value = value } end
+function CreateMissileAttackOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.MISSILE_ATTACK
+        ) or 18,
+        value = value,
+    }
+end
 -- ==== END: src\controller.lua ====
 
 -- ==== BEGIN: src\flag.lua ====
@@ -3496,13 +4199,13 @@ function GetFlag(flagName)
         _HarnessInternal.log.error("GetFlag requires flag name", "GetFlag")
         return 0
     end
-    
+
     local success, value = pcall(trigger.misc.getUserFlag, flagName)
     if not success then
         _HarnessInternal.log.error("Failed to get flag: " .. tostring(value), "GetFlag")
         return 0
     end
-    
+
     return value
 end
 
@@ -3516,15 +4219,15 @@ function SetFlag(flagName, value)
         _HarnessInternal.log.error("SetFlag requires flag name", "SetFlag")
         return false
     end
-    
+
     value = value or 1
-    
+
     local success, result = pcall(trigger.action.setUserFlag, flagName, value)
     if not success then
         _HarnessInternal.log.error("Failed to set flag: " .. tostring(result), "SetFlag")
         return false
     end
-    
+
     return true
 end
 
@@ -3535,7 +4238,7 @@ end
 ---@usage IncFlag("counter", 5)
 function IncFlag(flagName, amount)
     amount = amount or 1
-    
+
     local currentValue = GetFlag(flagName)
     return SetFlag(flagName, currentValue + amount)
 end
@@ -3547,7 +4250,7 @@ end
 ---@usage DecFlag("counter", 2)
 function DecFlag(flagName, amount)
     amount = amount or 1
-    
+
     local currentValue = GetFlag(flagName)
     return SetFlag(flagName, currentValue - amount)
 end
@@ -3624,15 +4327,15 @@ function SetFlags(flagTable)
         _HarnessInternal.log.error("SetFlags requires table of flag name/value pairs", "SetFlags")
         return false
     end
-    
+
     local allSuccess = true
-    
+
     for flagName, value in pairs(flagTable) do
         if not SetFlag(flagName, value) then
             allSuccess = false
         end
     end
-    
+
     return allSuccess
 end
 
@@ -3645,13 +4348,13 @@ function GetFlags(flagNames)
         _HarnessInternal.log.error("GetFlags requires table of flag names", "GetFlags")
         return {}
     end
-    
+
     local values = {}
-    
+
     for _, flagName in ipairs(flagNames) do
         values[flagName] = GetFlag(flagName)
     end
-    
+
     return values
 end
 
@@ -3672,15 +4375,15 @@ function ClearFlags(flagNames)
         _HarnessInternal.log.error("ClearFlags requires table of flag names", "ClearFlags")
         return false
     end
-    
+
     local allSuccess = true
-    
+
     for _, flagName in ipairs(flagNames) do
         if not ClearFlag(flagName) then
             allSuccess = false
         end
     end
-    
+
     return allSuccess
 end
 -- ==== END: src\flag.lua ====
@@ -3700,12 +4403,12 @@ function DeepCopy(original)
     if type(original) ~= "table" then
         return original
     end
-    
+
     local copy = {}
     for key, value in pairs(original) do
         copy[key] = DeepCopy(value)
     end
-    
+
     return copy
 end
 
@@ -3717,12 +4420,12 @@ function ShallowCopy(original)
     if type(original) ~= "table" then
         return original
     end
-    
+
     local copy = {}
     for key, value in pairs(original) do
         copy[key] = value
     end
-    
+
     return copy
 end
 
@@ -3735,13 +4438,13 @@ function Contains(table, value)
     if type(table) ~= "table" then
         return false
     end
-    
+
     for _, v in pairs(table) do
         if v == value then
             return true
         end
     end
-    
+
     return false
 end
 
@@ -3754,7 +4457,7 @@ function ContainsKey(table, key)
     if type(table) ~= "table" then
         return false
     end
-    
+
     return table[key] ~= nil
 end
 
@@ -3766,12 +4469,12 @@ function TableSize(t)
     if type(t) ~= "table" then
         return 0
     end
-    
+
     local count = 0
     for _ in pairs(t) do
         count = count + 1
     end
-    
+
     return count
 end
 
@@ -3783,12 +4486,12 @@ function TableKeys(t)
     if type(t) ~= "table" then
         return {}
     end
-    
+
     local keys = {}
     for key, _ in pairs(t) do
         table.insert(keys, key)
     end
-    
+
     return keys
 end
 
@@ -3800,12 +4503,12 @@ function TableValues(t)
     if type(t) ~= "table" then
         return {}
     end
-    
+
     local values = {}
     for _, value in pairs(t) do
         table.insert(values, value)
     end
-    
+
     return values
 end
 
@@ -3818,17 +4521,17 @@ function MergeTables(t1, t2)
     if type(t1) ~= "table" then
         t1 = {}
     end
-    
+
     if type(t2) ~= "table" then
         return t1
     end
-    
+
     local merged = DeepCopy(t1)
-    
+
     for key, value in pairs(t2) do
         merged[key] = value
     end
-    
+
     return merged
 end
 
@@ -3841,15 +4544,15 @@ function FilterTable(t, predicate)
     if type(t) ~= "table" or type(predicate) ~= "function" then
         return {}
     end
-    
+
     local filtered = {}
-    
+
     for key, value in pairs(t) do
         if predicate(value, key) then
             filtered[key] = value
         end
     end
-    
+
     return filtered
 end
 
@@ -3862,13 +4565,13 @@ function MapTable(t, func)
     if type(t) ~= "table" or type(func) ~= "function" then
         return {}
     end
-    
+
     local mapped = {}
-    
+
     for key, value in pairs(t) do
         mapped[key] = func(value, key)
     end
-    
+
     return mapped
 end
 
@@ -3883,7 +4586,7 @@ function Clamp(value, min, max)
         _HarnessInternal.log.error("Clamp requires three numbers", "Clamp")
         return min
     end
-    
+
     return math.max(min, math.min(max, value))
 end
 
@@ -3898,7 +4601,7 @@ function Lerp(a, b, t)
         _HarnessInternal.log.error("Lerp requires three numbers", "Lerp")
         return a or 0
     end
-    
+
     return a + (b - a) * t
 end
 
@@ -3912,7 +4615,7 @@ function Round(value, decimals)
         _HarnessInternal.log.error("Round requires number", "Round")
         return 0
     end
-    
+
     decimals = decimals or 0
     local mult = 10 ^ decimals
     return math.floor(value * mult + 0.5) / mult
@@ -3928,7 +4631,7 @@ function RandomFloat(min, max)
         _HarnessInternal.log.error("RandomFloat requires two numbers", "RandomFloat")
         return 0
     end
-    
+
     return min + math.random() * (max - min)
 end
 
@@ -3942,7 +4645,7 @@ function RandomInt(min, max)
         _HarnessInternal.log.error("RandomInt requires two numbers", "RandomInt")
         return 0
     end
-    
+
     return math.random(min, max)
 end
 
@@ -3954,7 +4657,7 @@ function RandomChoice(choices)
     if type(choices) ~= "table" or #choices == 0 then
         return nil
     end
-    
+
     return choices[math.random(1, #choices)]
 end
 
@@ -3966,13 +4669,13 @@ function Shuffle(array)
     if type(array) ~= "table" then
         return array
     end
-    
+
     local n = #array
     for i = n, 2, -1 do
         local j = math.random(1, i)
         array[i], array[j] = array[j], array[i]
     end
-    
+
     return array
 end
 
@@ -3984,12 +4687,12 @@ function ShuffledCopy(array)
     if type(array) ~= "table" then
         return {}
     end
-    
+
     local copy = {}
     for i, v in ipairs(array) do
         copy[i] = v
     end
-    
+
     return Shuffle(copy)
 end
 
@@ -4002,16 +4705,16 @@ function SplitString(str, delimiter)
     if type(str) ~= "string" then
         return {}
     end
-    
+
     delimiter = delimiter or ","
-    
+
     local result = {}
     local pattern = string.format("([^%s]+)", delimiter)
-    
+
     for match in string.gmatch(str, pattern) do
         table.insert(result, match)
     end
-    
+
     return result
 end
 
@@ -4023,7 +4726,7 @@ function TrimString(str)
     if type(str) ~= "string" then
         return ""
     end
-    
+
     return str:match("^%s*(.-)%s*$")
 end
 
@@ -4036,7 +4739,7 @@ function StartsWith(str, prefix)
     if type(str) ~= "string" or type(prefix) ~= "string" then
         return false
     end
-    
+
     return string.sub(str, 1, string.len(prefix)) == prefix
 end
 
@@ -4049,7 +4752,7 @@ function EndsWith(str, suffix)
     if type(str) ~= "string" or type(suffix) ~= "string" then
         return false
     end
-    
+
     return string.sub(str, -string.len(suffix)) == suffix
 end
 
@@ -4064,15 +4767,15 @@ function NormalizeAngle(angle)
         _HarnessInternal.log.error("NormalizeAngle requires number", "NormalizeAngle")
         return 0
     end
-    
+
     while angle < 0 do
         angle = angle + 360
     end
-    
+
     while angle >= 360 do
         angle = angle - 360
     end
-    
+
     return angle
 end
 
@@ -4086,17 +4789,17 @@ function AngleDiff(angle1, angle2)
         _HarnessInternal.log.error("AngleDiff requires two numbers", "AngleDiff")
         return 0
     end
-    
+
     local diff = angle2 - angle1
-    
+
     while diff > 180 do
         diff = diff - 360
     end
-    
+
     while diff < -180 do
         diff = diff + 360
     end
-    
+
     return diff
 end
 
@@ -4109,25 +4812,25 @@ function TableToString(tbl, indent)
     if type(tbl) ~= "table" then
         return tostring(tbl)
     end
-    
+
     indent = indent or 0
     local indentStr = string.rep("  ", indent)
     local result = "{\n"
-    
+
     for key, value in pairs(tbl) do
         result = result .. indentStr .. "  [" .. tostring(key) .. "] = "
-        
+
         if type(value) == "table" then
             result = result .. TableToString(value, indent + 1)
         else
             result = result .. tostring(value)
         end
-        
+
         result = result .. ",\n"
     end
-    
+
     result = result .. indentStr .. "}"
-    
+
     return result
 end
 
@@ -4151,23 +4854,35 @@ _HarnessInternal.log.info("Harness v" .. HARNESS_VERSION .. " loaded", "Init")
 --- @usage local cmdId = AddCommand({"Main", "SubMenu"}, {name="Test", enabled=true}, function() print("Selected") end)
 function AddCommand(path, menuItem, handler, params)
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddCommand requires valid path table", "MissionCommands.AddCommand")
+        _HarnessInternal.log.error(
+            "AddCommand requires valid path table",
+            "MissionCommands.AddCommand"
+        )
         return nil
     end
 
     if not menuItem or type(menuItem) ~= "table" then
-        _HarnessInternal.log.error("AddCommand requires valid menu item table", "MissionCommands.AddCommand")
+        _HarnessInternal.log.error(
+            "AddCommand requires valid menu item table",
+            "MissionCommands.AddCommand"
+        )
         return nil
     end
 
     if not handler or type(handler) ~= "function" then
-        _HarnessInternal.log.error("AddCommand requires valid handler function", "MissionCommands.AddCommand")
+        _HarnessInternal.log.error(
+            "AddCommand requires valid handler function",
+            "MissionCommands.AddCommand"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.addCommand, path, menuItem, handler, params)
     if not success then
-        _HarnessInternal.log.error("Failed to add command: " .. tostring(result), "MissionCommands.AddCommand")
+        _HarnessInternal.log.error(
+            "Failed to add command: " .. tostring(result),
+            "MissionCommands.AddCommand"
+        )
         return nil
     end
 
@@ -4181,18 +4896,27 @@ end
 --- @usage local subPath = AddSubMenu({}, "My Menu")
 function AddSubMenu(path, name)
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddSubMenu requires valid path table", "MissionCommands.AddSubMenu")
+        _HarnessInternal.log.error(
+            "AddSubMenu requires valid path table",
+            "MissionCommands.AddSubMenu"
+        )
         return nil
     end
 
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("AddSubMenu requires valid name string", "MissionCommands.AddSubMenu")
+        _HarnessInternal.log.error(
+            "AddSubMenu requires valid name string",
+            "MissionCommands.AddSubMenu"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.addSubMenu, name, path)
     if not success then
-        _HarnessInternal.log.error("Failed to add submenu: " .. tostring(result), "MissionCommands.AddSubMenu")
+        _HarnessInternal.log.error(
+            "Failed to add submenu: " .. tostring(result),
+            "MissionCommands.AddSubMenu"
+        )
         return nil
     end
 
@@ -4205,13 +4929,19 @@ end
 --- @usage RemoveItem({"Main", "SubMenu", "Command"})
 function RemoveItem(path)
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("RemoveItem requires valid path table", "MissionCommands.RemoveItem")
+        _HarnessInternal.log.error(
+            "RemoveItem requires valid path table",
+            "MissionCommands.RemoveItem"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.removeItem, path)
     if not success then
-        _HarnessInternal.log.error("Failed to remove item: " .. tostring(result), "MissionCommands.RemoveItem")
+        _HarnessInternal.log.error(
+            "Failed to remove item: " .. tostring(result),
+            "MissionCommands.RemoveItem"
+        )
         return nil
     end
 
@@ -4228,28 +4958,44 @@ end
 --- @usage AddCommandForCoalition(coalition.side.BLUE, {}, {name="Intel"}, function() end)
 function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("AddCommandForCoalition requires valid coalition ID", "MissionCommands.AddCommandForCoalition")
+        _HarnessInternal.log.error(
+            "AddCommandForCoalition requires valid coalition ID",
+            "MissionCommands.AddCommandForCoalition"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddCommandForCoalition requires valid path table", "MissionCommands.AddCommandForCoalition")
+        _HarnessInternal.log.error(
+            "AddCommandForCoalition requires valid path table",
+            "MissionCommands.AddCommandForCoalition"
+        )
         return nil
     end
 
     if not menuItem or type(menuItem) ~= "table" then
-        _HarnessInternal.log.error("AddCommandForCoalition requires valid menu item table", "MissionCommands.AddCommandForCoalition")
+        _HarnessInternal.log.error(
+            "AddCommandForCoalition requires valid menu item table",
+            "MissionCommands.AddCommandForCoalition"
+        )
         return nil
     end
 
     if not handler or type(handler) ~= "function" then
-        _HarnessInternal.log.error("AddCommandForCoalition requires valid handler function", "MissionCommands.AddCommandForCoalition")
+        _HarnessInternal.log.error(
+            "AddCommandForCoalition requires valid handler function",
+            "MissionCommands.AddCommandForCoalition"
+        )
         return nil
     end
 
-    local success, result = pcall(missionCommands.addCommandForCoalition, coalitionId, path, menuItem, handler, params)
+    local success, result =
+        pcall(missionCommands.addCommandForCoalition, coalitionId, path, menuItem, handler, params)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition command: " .. tostring(result), "MissionCommands.AddCommandForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to add coalition command: " .. tostring(result),
+            "MissionCommands.AddCommandForCoalition"
+        )
         return nil
     end
 
@@ -4264,23 +5010,35 @@ end
 --- @usage AddSubMenuForCoalition(coalition.side.RED, {}, "Enemy Options")
 function AddSubMenuForCoalition(coalitionId, path, name)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("AddSubMenuForCoalition requires valid coalition ID", "MissionCommands.AddSubMenuForCoalition")
+        _HarnessInternal.log.error(
+            "AddSubMenuForCoalition requires valid coalition ID",
+            "MissionCommands.AddSubMenuForCoalition"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddSubMenuForCoalition requires valid path table", "MissionCommands.AddSubMenuForCoalition")
+        _HarnessInternal.log.error(
+            "AddSubMenuForCoalition requires valid path table",
+            "MissionCommands.AddSubMenuForCoalition"
+        )
         return nil
     end
 
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("AddSubMenuForCoalition requires valid name string", "MissionCommands.AddSubMenuForCoalition")
+        _HarnessInternal.log.error(
+            "AddSubMenuForCoalition requires valid name string",
+            "MissionCommands.AddSubMenuForCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.addSubMenuForCoalition, coalitionId, name, path)
     if not success then
-        _HarnessInternal.log.error("Failed to add coalition submenu: " .. tostring(result), "MissionCommands.AddSubMenuForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to add coalition submenu: " .. tostring(result),
+            "MissionCommands.AddSubMenuForCoalition"
+        )
         return nil
     end
 
@@ -4294,18 +5052,27 @@ end
 --- @usage RemoveItemForCoalition(coalition.side.BLUE, {"Intel", "Report"})
 function RemoveItemForCoalition(coalitionId, path)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("RemoveItemForCoalition requires valid coalition ID", "MissionCommands.RemoveItemForCoalition")
+        _HarnessInternal.log.error(
+            "RemoveItemForCoalition requires valid coalition ID",
+            "MissionCommands.RemoveItemForCoalition"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("RemoveItemForCoalition requires valid path table", "MissionCommands.RemoveItemForCoalition")
+        _HarnessInternal.log.error(
+            "RemoveItemForCoalition requires valid path table",
+            "MissionCommands.RemoveItemForCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.removeItemForCoalition, coalitionId, path)
     if not success then
-        _HarnessInternal.log.error("Failed to remove coalition item: " .. tostring(result), "MissionCommands.RemoveItemForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to remove coalition item: " .. tostring(result),
+            "MissionCommands.RemoveItemForCoalition"
+        )
         return nil
     end
 
@@ -4322,28 +5089,44 @@ end
 --- @usage AddCommandForGroup(groupId, {}, {name="Request Support"}, function() end)
 function AddCommandForGroup(groupId, path, menuItem, handler, params)
     if not groupId or type(groupId) ~= "number" then
-        _HarnessInternal.log.error("AddCommandForGroup requires valid group ID", "MissionCommands.AddCommandForGroup")
+        _HarnessInternal.log.error(
+            "AddCommandForGroup requires valid group ID",
+            "MissionCommands.AddCommandForGroup"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddCommandForGroup requires valid path table", "MissionCommands.AddCommandForGroup")
+        _HarnessInternal.log.error(
+            "AddCommandForGroup requires valid path table",
+            "MissionCommands.AddCommandForGroup"
+        )
         return nil
     end
 
     if not menuItem or type(menuItem) ~= "table" then
-        _HarnessInternal.log.error("AddCommandForGroup requires valid menu item table", "MissionCommands.AddCommandForGroup")
+        _HarnessInternal.log.error(
+            "AddCommandForGroup requires valid menu item table",
+            "MissionCommands.AddCommandForGroup"
+        )
         return nil
     end
 
     if not handler or type(handler) ~= "function" then
-        _HarnessInternal.log.error("AddCommandForGroup requires valid handler function", "MissionCommands.AddCommandForGroup")
+        _HarnessInternal.log.error(
+            "AddCommandForGroup requires valid handler function",
+            "MissionCommands.AddCommandForGroup"
+        )
         return nil
     end
 
-    local success, result = pcall(missionCommands.addCommandForGroup, groupId, path, menuItem, handler, params)
+    local success, result =
+        pcall(missionCommands.addCommandForGroup, groupId, path, menuItem, handler, params)
     if not success then
-        _HarnessInternal.log.error("Failed to add group command: " .. tostring(result), "MissionCommands.AddCommandForGroup")
+        _HarnessInternal.log.error(
+            "Failed to add group command: " .. tostring(result),
+            "MissionCommands.AddCommandForGroup"
+        )
         return nil
     end
 
@@ -4358,23 +5141,35 @@ end
 --- @usage AddSubMenuForGroup(groupId, {}, "Flight Options")
 function AddSubMenuForGroup(groupId, path, name)
     if not groupId or type(groupId) ~= "number" then
-        _HarnessInternal.log.error("AddSubMenuForGroup requires valid group ID", "MissionCommands.AddSubMenuForGroup")
+        _HarnessInternal.log.error(
+            "AddSubMenuForGroup requires valid group ID",
+            "MissionCommands.AddSubMenuForGroup"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddSubMenuForGroup requires valid path table", "MissionCommands.AddSubMenuForGroup")
+        _HarnessInternal.log.error(
+            "AddSubMenuForGroup requires valid path table",
+            "MissionCommands.AddSubMenuForGroup"
+        )
         return nil
     end
 
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("AddSubMenuForGroup requires valid name string", "MissionCommands.AddSubMenuForGroup")
+        _HarnessInternal.log.error(
+            "AddSubMenuForGroup requires valid name string",
+            "MissionCommands.AddSubMenuForGroup"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.addSubMenuForGroup, groupId, path, name)
     if not success then
-        _HarnessInternal.log.error("Failed to add group submenu: " .. tostring(result), "MissionCommands.AddSubMenuForGroup")
+        _HarnessInternal.log.error(
+            "Failed to add group submenu: " .. tostring(result),
+            "MissionCommands.AddSubMenuForGroup"
+        )
         return nil
     end
 
@@ -4388,18 +5183,27 @@ end
 --- @usage RemoveItemForGroup(groupId, {"Flight Options", "RTB"})
 function RemoveItemForGroup(groupId, path)
     if not groupId or type(groupId) ~= "number" then
-        _HarnessInternal.log.error("RemoveItemForGroup requires valid group ID", "MissionCommands.RemoveItemForGroup")
+        _HarnessInternal.log.error(
+            "RemoveItemForGroup requires valid group ID",
+            "MissionCommands.RemoveItemForGroup"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("RemoveItemForGroup requires valid path table", "MissionCommands.RemoveItemForGroup")
+        _HarnessInternal.log.error(
+            "RemoveItemForGroup requires valid path table",
+            "MissionCommands.RemoveItemForGroup"
+        )
         return nil
     end
 
     local success, result = pcall(missionCommands.removeItemForGroup, groupId, path)
     if not success then
-        _HarnessInternal.log.error("Failed to remove group item: " .. tostring(result), "MissionCommands.RemoveItemForGroup")
+        _HarnessInternal.log.error(
+            "Failed to remove group item: " .. tostring(result),
+            "MissionCommands.RemoveItemForGroup"
+        )
         return nil
     end
 
@@ -4416,28 +5220,44 @@ end
 --- @usage AddCommandForUnit(unitId, {}, {name="Eject"}, function() end)
 function AddCommandForUnit(unitId, path, menuItem, handler, params)
     if not unitId or type(unitId) ~= "number" then
-        _HarnessInternal.log.error("AddCommandForUnit requires valid unit ID", "MissionCommands.AddCommandForUnit")
+        _HarnessInternal.log.error(
+            "AddCommandForUnit requires valid unit ID",
+            "MissionCommands.AddCommandForUnit"
+        )
         return nil
     end
 
     if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error("AddCommandForUnit requires valid path table", "MissionCommands.AddCommandForUnit")
+        _HarnessInternal.log.error(
+            "AddCommandForUnit requires valid path table",
+            "MissionCommands.AddCommandForUnit"
+        )
         return nil
     end
 
     if not menuItem or type(menuItem) ~= "table" then
-        _HarnessInternal.log.error("AddCommandForUnit requires valid menu item table", "MissionCommands.AddCommandForUnit")
+        _HarnessInternal.log.error(
+            "AddCommandForUnit requires valid menu item table",
+            "MissionCommands.AddCommandForUnit"
+        )
         return nil
     end
 
     if not handler or type(handler) ~= "function" then
-        _HarnessInternal.log.error("AddCommandForUnit requires valid handler function", "MissionCommands.AddCommandForUnit")
+        _HarnessInternal.log.error(
+            "AddCommandForUnit requires valid handler function",
+            "MissionCommands.AddCommandForUnit"
+        )
         return nil
     end
 
-    local success, result = pcall(missionCommands.addCommandForUnit, unitId, path, menuItem, handler, params)
+    local success, result =
+        pcall(missionCommands.addCommandForUnit, unitId, path, menuItem, handler, params)
     if not success then
-        _HarnessInternal.log.error("Failed to add unit command: " .. tostring(result), "MissionCommands.AddCommandForUnit")
+        _HarnessInternal.log.error(
+            "Failed to add unit command: " .. tostring(result),
+            "MissionCommands.AddCommandForUnit"
+        )
         return nil
     end
 
@@ -4452,7 +5272,10 @@ end
 --- @usage local item = CreateMenuItem("Launch Attack", true, false)
 function CreateMenuItem(name, enabled, removable)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("CreateMenuItem requires valid name string", "MissionCommands.CreateMenuItem")
+        _HarnessInternal.log.error(
+            "CreateMenuItem requires valid name string",
+            "MissionCommands.CreateMenuItem"
+        )
         return nil
     end
 
@@ -4467,7 +5290,7 @@ function CreateMenuItem(name, enabled, removable)
     return {
         name = name,
         enabled = enabled,
-        removable = removable
+        removable = removable,
     }
 end
 
@@ -4477,11 +5300,14 @@ end
 --- @usage local path = CreateMenuPath("Main", "Options", "Graphics")
 function CreateMenuPath(...)
     local path = {}
-    for i, v in ipairs({...}) do
+    for i, v in ipairs({ ... }) do
         if type(v) == "number" or type(v) == "string" then
             table.insert(path, v)
         else
-            _HarnessInternal.log.error("CreateMenuPath requires number or string path elements", "MissionCommands.CreateMenuPath")
+            _HarnessInternal.log.error(
+                "CreateMenuPath requires number or string path elements",
+                "MissionCommands.CreateMenuPath"
+            )
             return nil
         end
     end
@@ -4510,18 +5336,18 @@ function SendChat(message, all)
         _HarnessInternal.log.error("SendChat requires string message", "SendChat")
         return false
     end
-    
+
     if type(all) ~= "boolean" then
         _HarnessInternal.log.error("SendChat requires boolean for 'all' parameter", "SendChat")
         return false
     end
-    
+
     local success, result = pcall(net.send_chat, message, all)
     if not success then
         _HarnessInternal.log.error("Failed to send chat: " .. tostring(result), "SendChat")
         return false
     end
-    
+
     _HarnessInternal.log.info("Sent chat message", "SendChat")
     return true
 end
@@ -4537,23 +5363,26 @@ function SendChatTo(message, playerId, fromId)
         _HarnessInternal.log.error("SendChatTo requires string message", "SendChatTo")
         return false
     end
-    
+
     if not playerId or type(playerId) ~= "number" then
         _HarnessInternal.log.error("SendChatTo requires numeric player ID", "SendChatTo")
         return false
     end
-    
+
     if fromId and type(fromId) ~= "number" then
         _HarnessInternal.log.error("SendChatTo fromId must be numeric", "SendChatTo")
         return false
     end
-    
+
     local success, result = pcall(net.send_chat_to, message, playerId, fromId)
     if not success then
-        _HarnessInternal.log.error("Failed to send chat to player: " .. tostring(result), "SendChatTo")
+        _HarnessInternal.log.error(
+            "Failed to send chat to player: " .. tostring(result),
+            "SendChatTo"
+        )
         return false
     end
-    
+
     _HarnessInternal.log.info("Sent chat to player " .. playerId, "SendChatTo")
     return true
 end
@@ -4567,7 +5396,7 @@ function GetPlayers()
         _HarnessInternal.log.error("Failed to get player list: " .. tostring(players), "GetPlayers")
         return {}
     end
-    
+
     return players or {}
 end
 
@@ -4580,13 +5409,13 @@ function GetPlayerInfo(playerId)
         _HarnessInternal.log.error("GetPlayerInfo requires numeric player ID", "GetPlayerInfo")
         return nil
     end
-    
+
     local success, info = pcall(net.get_player_info, playerId)
     if not success then
         _HarnessInternal.log.error("Failed to get player info: " .. tostring(info), "GetPlayerInfo")
         return nil
     end
-    
+
     return info
 end
 
@@ -4596,10 +5425,13 @@ end
 function GetServerSettings()
     local success, settings = pcall(net.get_server_settings)
     if not success then
-        _HarnessInternal.log.error("Failed to get server settings: " .. tostring(settings), "GetServerSettings")
+        _HarnessInternal.log.error(
+            "Failed to get server settings: " .. tostring(settings),
+            "GetServerSettings"
+        )
         return nil
     end
-    
+
     return settings
 end
 
@@ -4613,15 +5445,15 @@ function KickPlayer(playerId, reason)
         _HarnessInternal.log.error("KickPlayer requires numeric player ID", "KickPlayer")
         return false
     end
-    
+
     reason = reason or "Kicked by server"
-    
+
     local success, result = pcall(net.kick, playerId, reason)
     if not success then
         _HarnessInternal.log.error("Failed to kick player: " .. tostring(result), "KickPlayer")
         return false
     end
-    
+
     _HarnessInternal.log.info("Kicked player " .. playerId .. ": " .. reason, "KickPlayer")
     return true
 end
@@ -4636,18 +5468,21 @@ function GetPlayerStat(playerId, statId)
         _HarnessInternal.log.error("GetPlayerStat requires numeric player ID", "GetPlayerStat")
         return nil
     end
-    
+
     if not statId or type(statId) ~= "number" then
         _HarnessInternal.log.error("GetPlayerStat requires numeric stat ID", "GetPlayerStat")
         return nil
     end
-    
+
     local success, value = pcall(net.get_stat, playerId, statId)
     if not success then
-        _HarnessInternal.log.error("Failed to get player stat: " .. tostring(value), "GetPlayerStat")
+        _HarnessInternal.log.error(
+            "Failed to get player stat: " .. tostring(value),
+            "GetPlayerStat"
+        )
         return nil
     end
-    
+
     return value
 end
 
@@ -4657,23 +5492,29 @@ end
 function IsServer()
     local success, result = pcall(net.is_server)
     if not success then
-        _HarnessInternal.log.error("Failed to check server status: " .. tostring(result), "IsServer")
+        _HarnessInternal.log.error(
+            "Failed to check server status: " .. tostring(result),
+            "IsServer"
+        )
         return false
     end
-    
+
     return result == true
 end
 
 --- Check if running in multiplayer
 ---@return boolean isMultiplayer True if in multiplayer
----@usage if IsMultiplayer() then ... end  
+---@usage if IsMultiplayer() then ... end
 function IsMultiplayer()
     local success, result = pcall(net.is_multiplayer)
     if not success then
-        _HarnessInternal.log.error("Failed to check multiplayer status: " .. tostring(result), "IsMultiplayer")
+        _HarnessInternal.log.error(
+            "Failed to check multiplayer status: " .. tostring(result),
+            "IsMultiplayer"
+        )
         return false
     end
-    
+
     return result == true
 end
 
@@ -4686,13 +5527,13 @@ function PauseServer(paused)
         _HarnessInternal.log.error("PauseServer requires boolean parameter", "PauseServer")
         return false
     end
-    
+
     local success, result = pcall(net.pause, paused)
     if not success then
         _HarnessInternal.log.error("Failed to pause server: " .. tostring(result), "PauseServer")
         return false
     end
-    
+
     _HarnessInternal.log.info("Server pause state: " .. tostring(paused), "PauseServer")
     return true
 end
@@ -4706,13 +5547,13 @@ function LoadMission(missionPath)
         _HarnessInternal.log.error("LoadMission requires string mission path", "LoadMission")
         return false
     end
-    
+
     local success, result = pcall(net.load_mission, missionPath)
     if not success then
         _HarnessInternal.log.error("Failed to load mission: " .. tostring(result), "LoadMission")
         return false
     end
-    
+
     _HarnessInternal.log.info("Loading mission: " .. missionPath, "LoadMission")
     return true
 end
@@ -4723,10 +5564,13 @@ end
 function LoadNextMission()
     local success, result = pcall(net.load_next_mission)
     if not success then
-        _HarnessInternal.log.error("Failed to load next mission: " .. tostring(result), "LoadNextMission")
+        _HarnessInternal.log.error(
+            "Failed to load next mission: " .. tostring(result),
+            "LoadNextMission"
+        )
         return false
     end
-    
+
     _HarnessInternal.log.info("Loading next mission", "LoadNextMission")
     return true
 end
@@ -4737,10 +5581,13 @@ end
 function GetMissionName()
     local success, name = pcall(net.get_mission_name)
     if not success then
-        _HarnessInternal.log.error("Failed to get mission name: " .. tostring(name), "GetMissionName")
+        _HarnessInternal.log.error(
+            "Failed to get mission name: " .. tostring(name),
+            "GetMissionName"
+        )
         return nil
     end
-    
+
     return name
 end
 
@@ -4755,24 +5602,30 @@ function ForcePlayerSlot(playerId, side, slotId)
         _HarnessInternal.log.error("ForcePlayerSlot requires numeric player ID", "ForcePlayerSlot")
         return false
     end
-    
+
     if not side or type(side) ~= "number" then
         _HarnessInternal.log.error("ForcePlayerSlot requires numeric side", "ForcePlayerSlot")
         return false
     end
-    
+
     if not slotId or type(slotId) ~= "string" then
         _HarnessInternal.log.error("ForcePlayerSlot requires string slot ID", "ForcePlayerSlot")
         return false
     end
-    
+
     local success, result = pcall(net.force_player_slot, playerId, side, slotId)
     if not success then
-        _HarnessInternal.log.error("Failed to force player slot: " .. tostring(result), "ForcePlayerSlot")
+        _HarnessInternal.log.error(
+            "Failed to force player slot: " .. tostring(result),
+            "ForcePlayerSlot"
+        )
         return false
     end
-    
-    _HarnessInternal.log.info("Forced player " .. playerId .. " to slot " .. slotId, "ForcePlayerSlot")
+
+    _HarnessInternal.log.info(
+        "Forced player " .. playerId .. " to slot " .. slotId,
+        "ForcePlayerSlot"
+    )
     return true
 end
 -- ==== END: src\net.lua ====
@@ -4791,13 +5644,19 @@ end
 ---@usage local static = GetStaticByName("Warehouse01")
 function GetStaticByName(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("GetStaticByName requires valid name string", "StaticObject.GetByName")
+        _HarnessInternal.log.error(
+            "GetStaticByName requires valid name string",
+            "StaticObject.GetByName"
+        )
         return nil
     end
 
     local success, result = pcall(StaticObject.getByName, name)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object by name: " .. tostring(result), "StaticObject.GetByName")
+        _HarnessInternal.log.error(
+            "Failed to get static object by name: " .. tostring(result),
+            "StaticObject.GetByName"
+        )
         return nil
     end
 
@@ -4808,7 +5667,7 @@ end
 ---@param staticObject table The static object
 ---@return number? id The ID of the static object or nil on error
 ---@usage local id = GetStaticID(staticObj)
-function GetStaticID(staticObject) 
+function GetStaticID(staticObject)
     if not staticObject then
         _HarnessInternal.log.error("GetStaticID requires valid static object", "StaticObject.GetID")
         return nil
@@ -4816,7 +5675,10 @@ function GetStaticID(staticObject)
 
     local success, result = pcall(staticObject.getID, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object ID: " .. tostring(result), "StaticObject.GetID")
+        _HarnessInternal.log.error(
+            "Failed to get static object ID: " .. tostring(result),
+            "StaticObject.GetID"
+        )
         return nil
     end
 
@@ -4829,13 +5691,19 @@ end
 ---@usage local life = GetStaticLife(staticObj)
 function GetStaticLife(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticLife requires valid static object", "StaticObject.GetLife")
+        _HarnessInternal.log.error(
+            "GetStaticLife requires valid static object",
+            "StaticObject.GetLife"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getLife, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object life: " .. tostring(result), "StaticObject.GetLife")
+        _HarnessInternal.log.error(
+            "Failed to get static object life: " .. tostring(result),
+            "StaticObject.GetLife"
+        )
         return nil
     end
 
@@ -4848,13 +5716,19 @@ end
 ---@usage local cargoName = GetStaticCargoDisplayName(staticObj)
 function GetStaticCargoDisplayName(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCargoDisplayName requires valid static object", "StaticObject.GetCargoDisplayName")
+        _HarnessInternal.log.error(
+            "GetStaticCargoDisplayName requires valid static object",
+            "StaticObject.GetCargoDisplayName"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCargoDisplayName, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get cargo display name: " .. tostring(result), "StaticObject.GetCargoDisplayName")
+        _HarnessInternal.log.error(
+            "Failed to get cargo display name: " .. tostring(result),
+            "StaticObject.GetCargoDisplayName"
+        )
         return nil
     end
 
@@ -4867,13 +5741,19 @@ end
 ---@usage local weight = GetStaticCargoWeight(staticObj)
 function GetStaticCargoWeight(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCargoWeight requires valid static object", "StaticObject.GetCargoWeight")
+        _HarnessInternal.log.error(
+            "GetStaticCargoWeight requires valid static object",
+            "StaticObject.GetCargoWeight"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCargoWeight, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get cargo weight: " .. tostring(result), "StaticObject.GetCargoWeight")
+        _HarnessInternal.log.error(
+            "Failed to get cargo weight: " .. tostring(result),
+            "StaticObject.GetCargoWeight"
+        )
         return nil
     end
 
@@ -4886,13 +5766,19 @@ end
 ---@usage DestroyStatic(staticObj)
 function DestroyStatic(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("DestroyStatic requires valid static object", "StaticObject.Destroy")
+        _HarnessInternal.log.error(
+            "DestroyStatic requires valid static object",
+            "StaticObject.Destroy"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.destroy, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy static object: " .. tostring(result), "StaticObject.Destroy")
+        _HarnessInternal.log.error(
+            "Failed to destroy static object: " .. tostring(result),
+            "StaticObject.Destroy"
+        )
         return nil
     end
 
@@ -4905,13 +5791,19 @@ end
 ---@usage local category = GetStaticCategory(staticObj)
 function GetStaticCategory(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCategory requires valid static object", "StaticObject.GetCategory")
+        _HarnessInternal.log.error(
+            "GetStaticCategory requires valid static object",
+            "StaticObject.GetCategory"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCategory, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object category: " .. tostring(result), "StaticObject.GetCategory")
+        _HarnessInternal.log.error(
+            "Failed to get static object category: " .. tostring(result),
+            "StaticObject.GetCategory"
+        )
         return nil
     end
 
@@ -4924,13 +5816,19 @@ end
 ---@usage local typeName = GetStaticTypeName(staticObj)
 function GetStaticTypeName(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticTypeName requires valid static object", "StaticObject.GetTypeName")
+        _HarnessInternal.log.error(
+            "GetStaticTypeName requires valid static object",
+            "StaticObject.GetTypeName"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getTypeName, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object type name: " .. tostring(result), "StaticObject.GetTypeName")
+        _HarnessInternal.log.error(
+            "Failed to get static object type name: " .. tostring(result),
+            "StaticObject.GetTypeName"
+        )
         return nil
     end
 
@@ -4943,13 +5841,19 @@ end
 ---@usage local desc = GetStaticDesc(staticObj)
 function GetStaticDesc(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticDesc requires valid static object", "StaticObject.GetDesc")
+        _HarnessInternal.log.error(
+            "GetStaticDesc requires valid static object",
+            "StaticObject.GetDesc"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getDesc, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object description: " .. tostring(result), "StaticObject.GetDesc")
+        _HarnessInternal.log.error(
+            "Failed to get static object description: " .. tostring(result),
+            "StaticObject.GetDesc"
+        )
         return nil
     end
 
@@ -4962,13 +5866,19 @@ end
 ---@usage local exists = IsStaticExist(staticObj)
 function IsStaticExist(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("IsStaticExist requires valid static object", "StaticObject.IsExist")
+        _HarnessInternal.log.error(
+            "IsStaticExist requires valid static object",
+            "StaticObject.IsExist"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.isExist, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to check static object existence: " .. tostring(result), "StaticObject.IsExist")
+        _HarnessInternal.log.error(
+            "Failed to check static object existence: " .. tostring(result),
+            "StaticObject.IsExist"
+        )
         return nil
     end
 
@@ -4981,13 +5891,19 @@ end
 ---@usage local coalition = GetStaticCoalition(staticObj)
 function GetStaticCoalition(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCoalition requires valid static object", "StaticObject.GetCoalition")
+        _HarnessInternal.log.error(
+            "GetStaticCoalition requires valid static object",
+            "StaticObject.GetCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCoalition, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object coalition: " .. tostring(result), "StaticObject.GetCoalition")
+        _HarnessInternal.log.error(
+            "Failed to get static object coalition: " .. tostring(result),
+            "StaticObject.GetCoalition"
+        )
         return nil
     end
 
@@ -5000,13 +5916,19 @@ end
 ---@usage local country = GetStaticCountry(staticObj)
 function GetStaticCountry(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCountry requires valid static object", "StaticObject.GetCountry")
+        _HarnessInternal.log.error(
+            "GetStaticCountry requires valid static object",
+            "StaticObject.GetCountry"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCountry, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object country: " .. tostring(result), "StaticObject.GetCountry")
+        _HarnessInternal.log.error(
+            "Failed to get static object country: " .. tostring(result),
+            "StaticObject.GetCountry"
+        )
         return nil
     end
 
@@ -5019,13 +5941,19 @@ end
 ---@usage local point = GetStaticPoint(staticObj)
 function GetStaticPoint(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticPoint requires valid static object", "StaticObject.GetPoint")
+        _HarnessInternal.log.error(
+            "GetStaticPoint requires valid static object",
+            "StaticObject.GetPoint"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getPoint, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object point: " .. tostring(result), "StaticObject.GetPoint")
+        _HarnessInternal.log.error(
+            "Failed to get static object point: " .. tostring(result),
+            "StaticObject.GetPoint"
+        )
         return nil
     end
 
@@ -5038,13 +5966,19 @@ end
 ---@usage local pos = GetStaticPosition(staticObj)
 function GetStaticPosition(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticPosition requires valid static object", "StaticObject.GetPosition")
+        _HarnessInternal.log.error(
+            "GetStaticPosition requires valid static object",
+            "StaticObject.GetPosition"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getPosition, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object position: " .. tostring(result), "StaticObject.GetPosition")
+        _HarnessInternal.log.error(
+            "Failed to get static object position: " .. tostring(result),
+            "StaticObject.GetPosition"
+        )
         return nil
     end
 
@@ -5057,13 +5991,19 @@ end
 ---@usage local vel = GetStaticVelocity(staticObj)
 function GetStaticVelocity(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticVelocity requires valid static object", "StaticObject.GetVelocity")
+        _HarnessInternal.log.error(
+            "GetStaticVelocity requires valid static object",
+            "StaticObject.GetVelocity"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getVelocity, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object velocity: " .. tostring(result), "StaticObject.GetVelocity")
+        _HarnessInternal.log.error(
+            "Failed to get static object velocity: " .. tostring(result),
+            "StaticObject.GetVelocity"
+        )
         return nil
     end
 
@@ -5076,22 +6016,34 @@ end
 ---@usage local static = CreateStaticObject({type="Warehouse", x=1000, y=2000, country=2})
 function CreateStaticObject(staticData)
     if not staticData or type(staticData) ~= "table" then
-        _HarnessInternal.log.error("CreateStaticObject requires valid static data table", "StaticObject.Create")
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid static data table",
+            "StaticObject.Create"
+        )
         return nil
     end
 
     if not staticData.type or type(staticData.type) ~= "string" then
-        _HarnessInternal.log.error("CreateStaticObject requires valid type in static data", "StaticObject.Create")
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid type in static data",
+            "StaticObject.Create"
+        )
         return nil
     end
 
     if not staticData.x or not staticData.y then
-        _HarnessInternal.log.error("CreateStaticObject requires valid x and y coordinates", "StaticObject.Create")
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid x and y coordinates",
+            "StaticObject.Create"
+        )
         return nil
     end
 
     if not staticData.country or type(staticData.country) ~= "number" then
-        _HarnessInternal.log.error("CreateStaticObject requires valid country ID", "StaticObject.Create")
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid country ID",
+            "StaticObject.Create"
+        )
         return nil
     end
 
@@ -5115,7 +6067,7 @@ function GetTime()
         _HarnessInternal.log.error("Failed to get mission time: " .. tostring(time), "GetTime")
         return 0
     end
-    
+
     return time
 end
 
@@ -5128,7 +6080,7 @@ function GetAbsTime()
         _HarnessInternal.log.error("Failed to get absolute time: " .. tostring(time), "GetAbsTime")
         return 0
     end
-    
+
     return time
 end
 
@@ -5138,10 +6090,13 @@ end
 function GetTime0()
     local success, time = pcall(timer.getTime0)
     if not success then
-        _HarnessInternal.log.error("Failed to get mission start time: " .. tostring(time), "GetTime0")
+        _HarnessInternal.log.error(
+            "Failed to get mission start time: " .. tostring(time),
+            "GetTime0"
+        )
         return 0
     end
-    
+
     return time
 end
 
@@ -5154,11 +6109,11 @@ function FormatTime(seconds)
         _HarnessInternal.log.error("FormatTime requires number", "FormatTime")
         return "00:00:00"
     end
-    
+
     local hours = math.floor(seconds / 3600)
     local minutes = math.floor((seconds % 3600) / 60)
     local secs = math.floor(seconds % 60)
-    
+
     return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
@@ -5171,10 +6126,10 @@ function FormatTimeShort(seconds)
         _HarnessInternal.log.error("FormatTimeShort requires number", "FormatTimeShort")
         return "00:00"
     end
-    
+
     local minutes = math.floor(seconds / 60)
     local secs = math.floor(seconds % 60)
-    
+
     return string.format("%02d:%02d", minutes, secs)
 end
 
@@ -5183,15 +6138,15 @@ end
 ---@usage local t = GetMissionTime() -- {hours=14, minutes=30, seconds=45}
 function GetMissionTime()
     local currentTime = GetAbsTime()
-    
+
     local hours = math.floor(currentTime / 3600)
     local minutes = math.floor((currentTime % 3600) / 60)
     local seconds = math.floor(currentTime % 60)
-    
+
     return {
         hours = hours,
         minutes = minutes,
-        seconds = seconds
+        seconds = seconds,
     }
 end
 
@@ -5202,7 +6157,7 @@ function IsNightTime()
     local absTime = GetAbsTime()
     local secondsInDay = absTime % 86400
     local hour = math.floor(secondsInDay / 3600)
-    
+
     return hour >= 19 or hour < 7
 end
 
@@ -5217,16 +6172,19 @@ function ScheduleOnce(func, args, delay)
         _HarnessInternal.log.error("ScheduleOnce requires function", "ScheduleOnce")
         return nil
     end
-    
+
     delay = delay or 0
     local time = GetTime() + delay
-    
+
     local success, timerId = pcall(timer.scheduleFunction, func, args, time)
     if not success then
-        _HarnessInternal.log.error("Failed to schedule function: " .. tostring(timerId), "ScheduleOnce")
+        _HarnessInternal.log.error(
+            "Failed to schedule function: " .. tostring(timerId),
+            "ScheduleOnce"
+        )
         return nil
     end
-    
+
     return timerId
 end
 
@@ -5238,13 +6196,16 @@ function CancelSchedule(timerId)
     if not timerId then
         return false
     end
-    
+
     local success, result = pcall(timer.removeFunction, timerId)
     if not success then
-        _HarnessInternal.log.warn("Failed to cancel scheduled function: " .. tostring(result), "CancelSchedule")
+        _HarnessInternal.log.warn(
+            "Failed to cancel scheduled function: " .. tostring(result),
+            "CancelSchedule"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -5255,16 +6216,22 @@ end
 ---@usage RescheduleFunction(timerId, GetTime() + 30)
 function RescheduleFunction(timerId, newTime)
     if not timerId or type(newTime) ~= "number" then
-        _HarnessInternal.log.error("RescheduleFunction requires timerId and new time", "RescheduleFunction")
+        _HarnessInternal.log.error(
+            "RescheduleFunction requires timerId and new time",
+            "RescheduleFunction"
+        )
         return false
     end
-    
+
     local success, result = pcall(timer.setFunctionTime, timerId, newTime)
     if not success then
-        _HarnessInternal.log.error("Failed to reschedule function: " .. tostring(result), "RescheduleFunction")
+        _HarnessInternal.log.error(
+            "Failed to reschedule function: " .. tostring(result),
+            "RescheduleFunction"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -5275,13 +6242,13 @@ end
 function SecondsToTime(seconds)
     if type(seconds) ~= "number" then
         _HarnessInternal.log.error("SecondsToTime requires number", "SecondsToTime")
-        return {hours = 0, minutes = 0, seconds = 0}
+        return { hours = 0, minutes = 0, seconds = 0 }
     end
-    
+
     return {
         hours = math.floor(seconds / 3600),
         minutes = math.floor((seconds % 3600) / 60),
-        seconds = math.floor(seconds % 60)
+        seconds = math.floor(seconds % 60),
     }
 end
 
@@ -5295,12 +6262,12 @@ function TimeToSeconds(hours, minutes, seconds)
     hours = hours or 0
     minutes = minutes or 0
     seconds = seconds or 0
-    
+
     if type(hours) ~= "number" or type(minutes) ~= "number" or type(seconds) ~= "number" then
         _HarnessInternal.log.error("TimeToSeconds requires numeric values", "TimeToSeconds")
         return 0
     end
-    
+
     return hours * 3600 + minutes * 60 + seconds
 end
 
@@ -5334,7 +6301,7 @@ local function BSTNode(key, value)
         value = value,
         left = nil,
         right = nil,
-        parent = nil
+        parent = nil,
     }
 end
 
@@ -5348,25 +6315,29 @@ function BinarySearchTree(compareFunc)
         _root = nil,
         _size = 0,
         _compare = compareFunc or function(a, b)
-            if a < b then return -1
-            elseif a > b then return 1
-            else return 0 end
-        end
+            if a < b then
+                return -1
+            elseif a > b then
+                return 1
+            else
+                return 0
+            end
+        end,
     }
-    
+
     --- Insert key-value pair
     ---@param key any Key to insert
     ---@param value any? Value associated with key
     ---@usage bst:insert(5, "five")
     function bst:insert(key, value)
         local newNode = BSTNode(key, value)
-        
+
         if not self._root then
             self._root = newNode
             self._size = self._size + 1
             return
         end
-        
+
         local current = self._root
         while true do
             local cmp = self._compare(key, current.key)
@@ -5393,7 +6364,7 @@ function BinarySearchTree(compareFunc)
             end
         end
     end
-    
+
     --- Find value by key
     ---@param key any Key to search for
     ---@return any? value Value if found, nil otherwise
@@ -5402,7 +6373,7 @@ function BinarySearchTree(compareFunc)
         local node = self:_findNode(key)
         return node and node.value or nil
     end
-    
+
     --- Remove key from tree
     ---@param key any Key to remove
     ---@return boolean removed True if key was removed
@@ -5412,30 +6383,34 @@ function BinarySearchTree(compareFunc)
         if not node then
             return false
         end
-        
+
         self:_removeNode(node)
         self._size = self._size - 1
         return true
     end
-    
+
     --- Get minimum key
     ---@return any? key Minimum key or nil if empty
     ---@usage local min = bst:min()
     function bst:min()
-        if not self._root then return nil end
+        if not self._root then
+            return nil
+        end
         local node = self:_minNode(self._root)
         return node.key
     end
-    
+
     --- Get maximum key
     ---@return any? key Maximum key or nil if empty
     ---@usage local max = bst:max()
     function bst:max()
-        if not self._root then return nil end
+        if not self._root then
+            return nil
+        end
         local node = self:_maxNode(self._root)
         return node.key
     end
-    
+
     --- Check if tree contains key
     ---@param key any Key to check
     ---@return boolean contains True if tree contains key
@@ -5443,44 +6418,46 @@ function BinarySearchTree(compareFunc)
     function bst:contains(key)
         return self:_findNode(key) ~= nil
     end
-    
+
     --- Get number of nodes
     ---@return number size Number of nodes
     ---@usage local size = bst:size()
     function bst:size()
         return self._size
     end
-    
+
     --- Check if tree is empty
     ---@return boolean empty True if tree is empty
     ---@usage if bst:isEmpty() then ... end
     function bst:isEmpty()
         return self._size == 0
     end
-    
+
     --- Clear all nodes
     ---@usage bst:clear()
     function bst:clear()
         self._root = nil
         self._size = 0
     end
-    
+
     --- In-order traversal
     ---@param callback function Function(key, value) called for each node
     ---@usage bst:inorder(function(k, v) print(k, v) end)
     function bst:inorder(callback)
         self:_inorderRecursive(self._root, callback)
     end
-    
+
     --- Get array of keys in sorted order
     ---@return table keys Array of keys
     ---@usage local keys = bst:keys()
     function bst:keys()
         local keys = {}
-        self:inorder(function(k, v) table.insert(keys, k) end)
+        self:inorder(function(k, v)
+            table.insert(keys, k)
+        end)
         return keys
     end
-    
+
     -- Internal methods
     function bst:_findNode(key)
         local current = self._root
@@ -5496,21 +6473,21 @@ function BinarySearchTree(compareFunc)
         end
         return nil
     end
-    
+
     function bst:_minNode(node)
         while node.left do
             node = node.left
         end
         return node
     end
-    
+
     function bst:_maxNode(node)
         while node.right do
             node = node.right
         end
         return node
     end
-    
+
     function bst:_removeNode(node)
         if not node.left and not node.right then
             -- Leaf node
@@ -5545,14 +6522,16 @@ function BinarySearchTree(compareFunc)
             self:_removeNode(successor)
         end
     end
-    
+
     function bst:_inorderRecursive(node, callback)
-        if not node then return end
+        if not node then
+            return
+        end
         self:_inorderRecursive(node.left, callback)
         callback(node.key, node.value)
         self:_inorderRecursive(node.right, callback)
     end
-    
+
     return bst
 end
 
@@ -5566,7 +6545,7 @@ local function RBNode(key, value)
         color = RBColor.RED,
         left = nil,
         right = nil,
-        parent = nil
+        parent = nil,
     }
 end
 
@@ -5575,7 +6554,7 @@ local RBNil = {
     color = RBColor.BLACK,
     left = nil,
     right = nil,
-    parent = nil
+    parent = nil,
 }
 
 -- Red-Black Tree Implementation
@@ -5588,12 +6567,16 @@ function RedBlackTree(compareFunc)
         _root = RBNil,
         _size = 0,
         _compare = compareFunc or function(a, b)
-            if a < b then return -1
-            elseif a > b then return 1
-            else return 0 end
-        end
+            if a < b then
+                return -1
+            elseif a > b then
+                return 1
+            else
+                return 0
+            end
+        end,
     }
-    
+
     --- Insert key-value pair
     ---@param key any Key to insert
     ---@param value any? Value associated with key
@@ -5602,10 +6585,10 @@ function RedBlackTree(compareFunc)
         local newNode = RBNode(key, value)
         newNode.left = RBNil
         newNode.right = RBNil
-        
+
         local parent = nil
         local current = self._root
-        
+
         while current ~= RBNil do
             parent = current
             local cmp = self._compare(key, current.key)
@@ -5619,9 +6602,9 @@ function RedBlackTree(compareFunc)
                 current = current.right
             end
         end
-        
+
         newNode.parent = parent
-        
+
         if parent == nil then
             self._root = newNode
         elseif self._compare(key, parent.key) < 0 then
@@ -5629,11 +6612,11 @@ function RedBlackTree(compareFunc)
         else
             parent.right = newNode
         end
-        
+
         self._size = self._size + 1
         self:_insertFixup(newNode)
     end
-    
+
     --- Find value by key
     ---@param key any Key to search for
     ---@return any? value Value if found, nil otherwise
@@ -5642,7 +6625,7 @@ function RedBlackTree(compareFunc)
         local node = self:_findNode(key)
         return (node ~= RBNil) and node.value or nil
     end
-    
+
     --- Remove key from tree
     ---@param key any Key to remove
     ---@return boolean removed True if key was removed
@@ -5652,51 +6635,55 @@ function RedBlackTree(compareFunc)
         if node == RBNil then
             return false
         end
-        
+
         self:_removeNode(node)
         self._size = self._size - 1
         return true
     end
-    
+
     --- Get minimum key
     ---@return any? key Minimum key or nil if empty
     ---@usage local min = rbt:min()
     function rbt:min()
-        if self._root == RBNil then return nil end
+        if self._root == RBNil then
+            return nil
+        end
         local node = self:_minNode(self._root)
         return node.key
     end
-    
+
     --- Get maximum key
     ---@return any? key Maximum key or nil if empty
     ---@usage local max = rbt:max()
     function rbt:max()
-        if self._root == RBNil then return nil end
+        if self._root == RBNil then
+            return nil
+        end
         local node = self:_maxNode(self._root)
         return node.key
     end
-    
+
     --- Get number of nodes
     ---@return number size Number of nodes
     ---@usage local size = rbt:size()
     function rbt:size()
         return self._size
     end
-    
+
     --- Check if tree is empty
     ---@return boolean empty True if tree is empty
     ---@usage if rbt:isEmpty() then ... end
     function rbt:isEmpty()
         return self._size == 0
     end
-    
+
     --- Clear all nodes
     ---@usage rbt:clear()
     function rbt:clear()
         self._root = RBNil
         self._size = 0
     end
-    
+
     -- Internal methods
     function rbt:_findNode(key)
         local current = self._root
@@ -5712,31 +6699,31 @@ function RedBlackTree(compareFunc)
         end
         return RBNil
     end
-    
+
     function rbt:_minNode(node)
         while node.left ~= RBNil do
             node = node.left
         end
         return node
     end
-    
+
     function rbt:_maxNode(node)
         while node.right ~= RBNil do
             node = node.right
         end
         return node
     end
-    
+
     function rbt:_rotateLeft(x)
         local y = x.right
         x.right = y.left
-        
+
         if y.left ~= RBNil then
             y.left.parent = x
         end
-        
+
         y.parent = x.parent
-        
+
         if x.parent == nil then
             self._root = y
         elseif x == x.parent.left then
@@ -5744,21 +6731,21 @@ function RedBlackTree(compareFunc)
         else
             x.parent.right = y
         end
-        
+
         y.left = x
         x.parent = y
     end
-    
+
     function rbt:_rotateRight(x)
         local y = x.left
         x.left = y.right
-        
+
         if y.right ~= RBNil then
             y.right.parent = x
         end
-        
+
         y.parent = x.parent
-        
+
         if x.parent == nil then
             self._root = y
         elseif x == x.parent.right then
@@ -5766,11 +6753,11 @@ function RedBlackTree(compareFunc)
         else
             x.parent.left = y
         end
-        
+
         y.right = x
         x.parent = y
     end
-    
+
     function rbt:_insertFixup(z)
         while z.parent and z.parent.color == RBColor.RED do
             if z.parent == z.parent.parent.left then
@@ -5809,12 +6796,12 @@ function RedBlackTree(compareFunc)
         end
         self._root.color = RBColor.BLACK
     end
-    
+
     function rbt:_removeNode(z)
         local y = z
         local yOrigColor = y.color
         local x
-        
+
         if z.left == RBNil then
             x = z.right
             self:_transplant(z, z.right)
@@ -5825,7 +6812,7 @@ function RedBlackTree(compareFunc)
             y = self:_minNode(z.right)
             yOrigColor = y.color
             x = y.right
-            
+
             if y.parent == z then
                 x.parent = y
             else
@@ -5833,18 +6820,18 @@ function RedBlackTree(compareFunc)
                 y.right = z.right
                 y.right.parent = y
             end
-            
+
             self:_transplant(z, y)
             y.left = z.left
             y.left.parent = y
             y.color = z.color
         end
-        
+
         if yOrigColor == RBColor.BLACK then
             self:_deleteFixup(x)
         end
     end
-    
+
     function rbt:_transplant(u, v)
         if u.parent == nil then
             self._root = v
@@ -5855,7 +6842,7 @@ function RedBlackTree(compareFunc)
         end
         v.parent = u.parent
     end
-    
+
     function rbt:_deleteFixup(x)
         while x ~= self._root and x.color == RBColor.BLACK do
             if x == x.parent.left then
@@ -5866,7 +6853,7 @@ function RedBlackTree(compareFunc)
                     self:_rotateLeft(x.parent)
                     w = x.parent.right
                 end
-                
+
                 if w.left.color == RBColor.BLACK and w.right.color == RBColor.BLACK then
                     w.color = RBColor.RED
                     x = x.parent
@@ -5891,7 +6878,7 @@ function RedBlackTree(compareFunc)
                     self:_rotateRight(x.parent)
                     w = x.parent.left
                 end
-                
+
                 if w.right.color == RBColor.BLACK and w.left.color == RBColor.BLACK then
                     w.color = RBColor.RED
                     x = x.parent
@@ -5912,7 +6899,7 @@ function RedBlackTree(compareFunc)
         end
         x.color = RBColor.BLACK
     end
-    
+
     return rbt
 end
 
@@ -5923,9 +6910,9 @@ end
 function Trie()
     local trie = {
         _root = { children = {}, isEnd = false },
-        _size = 0
+        _size = 0,
     }
-    
+
     --- Insert word into trie
     ---@param word string Word to insert
     ---@usage trie:insert("hello")
@@ -5934,10 +6921,10 @@ function Trie()
             _HarnessInternal.log.error("Trie:insert requires string", "Trees.Trie")
             return
         end
-        
+
         local node = self._root
         local isNew = false
-        
+
         for i = 1, #word do
             local char = word:sub(i, i)
             if not node.children[char] then
@@ -5946,13 +6933,13 @@ function Trie()
             end
             node = node.children[char]
         end
-        
+
         if not node.isEnd then
             node.isEnd = true
             self._size = self._size + 1
         end
     end
-    
+
     --- Search for word in trie
     ---@param word string Word to search for
     ---@return boolean found True if word exists
@@ -5961,7 +6948,7 @@ function Trie()
         if type(word) ~= "string" then
             return false
         end
-        
+
         local node = self._root
         for i = 1, #word do
             local char = word:sub(i, i)
@@ -5970,10 +6957,10 @@ function Trie()
             end
             node = node.children[char]
         end
-        
+
         return node.isEnd
     end
-    
+
     --- Check if any word starts with prefix
     ---@param prefix string Prefix to check
     ---@return boolean hasPrefix True if any word has this prefix
@@ -5982,7 +6969,7 @@ function Trie()
         if type(prefix) ~= "string" then
             return false
         end
-        
+
         local node = self._root
         for i = 1, #prefix do
             local char = prefix:sub(i, i)
@@ -5991,10 +6978,10 @@ function Trie()
             end
             node = node.children[char]
         end
-        
+
         return true
     end
-    
+
     --- Get all words with given prefix
     ---@param prefix string? Prefix to search (empty for all words)
     ---@return table words Array of words with prefix
@@ -6004,7 +6991,7 @@ function Trie()
         if type(prefix) ~= "string" then
             return {}
         end
-        
+
         local node = self._root
         for i = 1, #prefix do
             local char = prefix:sub(i, i)
@@ -6013,12 +7000,12 @@ function Trie()
             end
             node = node.children[char]
         end
-        
+
         local words = {}
         self:_collectWords(node, prefix, words)
         return words
     end
-    
+
     --- Delete word from trie
     ---@param word string Word to delete
     ---@return boolean deleted True if word was deleted
@@ -6027,71 +7014,71 @@ function Trie()
         if type(word) ~= "string" then
             return false
         end
-        
+
         if not self:search(word) then
             return false
         end
-        
+
         self:_deleteHelper(self._root, word, 1)
         self._size = self._size - 1
         return true
     end
-    
+
     --- Get number of words in trie
     ---@return number size Number of words
     ---@usage local count = trie:size()
     function trie:size()
         return self._size
     end
-    
+
     --- Check if trie is empty
     ---@return boolean empty True if trie is empty
     ---@usage if trie:isEmpty() then ... end
     function trie:isEmpty()
         return self._size == 0
     end
-    
+
     --- Clear all words
     ---@usage trie:clear()
     function trie:clear()
         self._root = { children = {}, isEnd = false }
         self._size = 0
     end
-    
+
     -- Internal methods
     function trie:_collectWords(node, prefix, words)
         if node.isEnd then
             table.insert(words, prefix)
         end
-        
+
         for char, child in pairs(node.children) do
             self:_collectWords(child, prefix .. char, words)
         end
     end
-    
+
     function trie:_deleteHelper(node, word, index)
         if index > #word then
             node.isEnd = false
             return next(node.children) == nil and not node.isEnd
         end
-        
+
         local char = word:sub(index, index)
         local child = node.children[char]
-        
+
         if not child then
             return false
         end
-        
+
         local shouldDelete = self:_deleteHelper(child, word, index + 1)
-        
+
         if shouldDelete then
             node.children[char] = nil
             return next(node.children) == nil and not node.isEnd
         end
-        
+
         return false
     end
-    
+
     return trie
 end
 
@@ -6102,7 +7089,7 @@ local function AVLNode(key, value)
         value = value,
         height = 1,
         left = nil,
-        right = nil
+        right = nil,
     }
 end
 
@@ -6116,12 +7103,16 @@ function AVLTree(compareFunc)
         _root = nil,
         _size = 0,
         _compare = compareFunc or function(a, b)
-            if a < b then return -1
-            elseif a > b then return 1
-            else return 0 end
-        end
+            if a < b then
+                return -1
+            elseif a > b then
+                return 1
+            else
+                return 0
+            end
+        end,
     }
-    
+
     --- Insert key-value pair
     ---@param key any Key to insert
     ---@param value any? Value associated with key
@@ -6129,7 +7120,7 @@ function AVLTree(compareFunc)
     function avl:insert(key, value)
         self._root = self:_insertNode(self._root, key, value)
     end
-    
+
     --- Find value by key
     ---@param key any Key to search for
     ---@return any? value Value if found, nil otherwise
@@ -6138,7 +7129,7 @@ function AVLTree(compareFunc)
         local node = self:_findNode(self._root, key)
         return node and node.value or nil
     end
-    
+
     --- Remove key from tree
     ---@param key any Key to remove
     ---@return boolean removed True if key was removed
@@ -6148,75 +7139,75 @@ function AVLTree(compareFunc)
         self._root = self:_removeNode(self._root, key)
         return self._size < oldSize
     end
-    
+
     --- Get number of nodes
     ---@return number size Number of nodes
     ---@usage local size = avl:size()
     function avl:size()
         return self._size
     end
-    
+
     --- Check if tree is empty
     ---@return boolean empty True if tree is empty
     ---@usage if avl:isEmpty() then ... end
     function avl:isEmpty()
         return self._size == 0
     end
-    
+
     --- Clear all nodes
     ---@usage avl:clear()
     function avl:clear()
         self._root = nil
         self._size = 0
     end
-    
+
     -- Internal methods
     function avl:_getHeight(node)
         return node and node.height or 0
     end
-    
+
     function avl:_updateHeight(node)
         if node then
             node.height = 1 + math.max(self:_getHeight(node.left), self:_getHeight(node.right))
         end
     end
-    
+
     function avl:_getBalance(node)
         return node and (self:_getHeight(node.left) - self:_getHeight(node.right)) or 0
     end
-    
+
     function avl:_rotateRight(y)
         local x = y.left
         local T2 = x.right
-        
+
         x.right = y
         y.left = T2
-        
+
         self:_updateHeight(y)
         self:_updateHeight(x)
-        
+
         return x
     end
-    
+
     function avl:_rotateLeft(x)
         local y = x.right
         local T2 = y.left
-        
+
         y.left = x
         x.right = T2
-        
+
         self:_updateHeight(x)
         self:_updateHeight(y)
-        
+
         return y
     end
-    
+
     function avl:_insertNode(node, key, value)
         if not node then
             self._size = self._size + 1
             return AVLNode(key, value)
         end
-        
+
         local cmp = self._compare(key, node.key)
         if cmp < 0 then
             node.left = self:_insertNode(node.left, key, value)
@@ -6227,39 +7218,41 @@ function AVLTree(compareFunc)
             node.value = value
             return node
         end
-        
+
         self:_updateHeight(node)
-        
+
         local balance = self:_getBalance(node)
-        
+
         -- Left Left
         if balance > 1 and self._compare(key, node.left.key) < 0 then
             return self:_rotateRight(node)
         end
-        
+
         -- Right Right
         if balance < -1 and self._compare(key, node.right.key) > 0 then
             return self:_rotateLeft(node)
         end
-        
+
         -- Left Right
         if balance > 1 and self._compare(key, node.left.key) > 0 then
             node.left = self:_rotateLeft(node.left)
             return self:_rotateRight(node)
         end
-        
+
         -- Right Left
         if balance < -1 and self._compare(key, node.right.key) < 0 then
             node.right = self:_rotateRight(node.right)
             return self:_rotateLeft(node)
         end
-        
+
         return node
     end
-    
+
     function avl:_findNode(node, key)
-        if not node then return nil end
-        
+        if not node then
+            return nil
+        end
+
         local cmp = self._compare(key, node.key)
         if cmp < 0 then
             return self:_findNode(node.left, key)
@@ -6269,17 +7262,19 @@ function AVLTree(compareFunc)
             return node
         end
     end
-    
+
     function avl:_minNode(node)
         while node.left do
             node = node.left
         end
         return node
     end
-    
+
     function avl:_removeNode(node, key)
-        if not node then return nil end
-        
+        if not node then
+            return nil
+        end
+
         local cmp = self._compare(key, node.key)
         if cmp < 0 then
             node.left = self:_removeNode(node.left, key)
@@ -6287,47 +7282,47 @@ function AVLTree(compareFunc)
             node.right = self:_removeNode(node.right, key)
         else
             self._size = self._size - 1
-            
+
             if not node.left or not node.right then
                 return node.left or node.right
             end
-            
+
             local temp = self:_minNode(node.right)
             node.key = temp.key
             node.value = temp.value
             node.right = self:_removeNode(node.right, temp.key)
             self._size = self._size + 1 -- Compensate for double decrement
         end
-        
+
         self:_updateHeight(node)
-        
+
         local balance = self:_getBalance(node)
-        
+
         -- Left Left
         if balance > 1 and self:_getBalance(node.left) >= 0 then
             return self:_rotateRight(node)
         end
-        
+
         -- Left Right
         if balance > 1 and self:_getBalance(node.left) < 0 then
             node.left = self:_rotateLeft(node.left)
             return self:_rotateRight(node)
         end
-        
+
         -- Right Right
         if balance < -1 and self:_getBalance(node.right) <= 0 then
             return self:_rotateLeft(node)
         end
-        
+
         -- Right Left
         if balance < -1 and self:_getBalance(node.right) > 0 then
             node.right = self:_rotateRight(node.right)
             return self:_rotateLeft(node)
         end
-        
+
         return node
     end
-    
+
     return avl
 end
 -- ==== END: src\trees.lua ====
@@ -6355,12 +7350,12 @@ function Vec2(x, z)
         z = x.z or x.y or x[2] or 0
         x = x.x or x[1] or 0
     end
-    
+
     local self = {
         x = x or 0,
-        z = z or 0
+        z = z or 0,
     }
-    
+
     setmetatable(self, Vec2_mt)
     return self
 end
@@ -6382,13 +7377,13 @@ function Vec3(x, y, z)
         y = x.y or x[2] or 0
         x = x.x or x[1] or 0
     end
-    
+
     local self = {
         x = x or 0,
         y = y or 0,
-        z = z or 0
+        z = z or 0,
     }
-    
+
     setmetatable(self, Vec3_mt)
     return self
 end
@@ -6402,9 +7397,7 @@ function IsVec3(vec)
     if not vec or type(vec) ~= "table" then
         return false
     end
-    return type(vec.x) == "number" and 
-           type(vec.y) == "number" and 
-           type(vec.z) == "number"
+    return type(vec.x) == "number" and type(vec.y) == "number" and type(vec.z) == "number"
 end
 
 --- Check if valid 2D vector (works with plain tables or Vec2 instances)
@@ -6416,8 +7409,7 @@ function IsVec2(vec)
         return false
     end
     -- Support both x,z and x,y formats
-    return type(vec.x) == "number" and 
-           (type(vec.z) == "number" or type(vec.y) == "number")
+    return type(vec.x) == "number" and (type(vec.z) == "number" or type(vec.y) == "number")
 end
 
 -- Conversion functions
@@ -6426,8 +7418,10 @@ end
 ---@return table? vec2 Converted Vec2 or nil on error
 ---@usage local v2 = ToVec2({x=100, z=200})
 function ToVec2(t)
-    if not t then return nil end
-    
+    if not t then
+        return nil
+    end
+
     if getmetatable(t) == Vec2_mt then
         return t
     elseif getmetatable(t) == Vec3_mt then
@@ -6448,8 +7442,10 @@ end
 ---@return table? vec3 Converted Vec3 or nil on error
 ---@usage local v3 = ToVec3({x=100, y=50, z=200})
 function ToVec3(t, altitude)
-    if not t then return nil end
-    
+    if not t then
+        return nil
+    end
+
     if getmetatable(t) == Vec3_mt then
         return t
     elseif getmetatable(t) == Vec2_mt then
@@ -6480,7 +7476,10 @@ function VecAdd(a, b)
     elseif IsVec2(a) and IsVec2(b) then
         return Vec2(a.x + b.x, (a.z or a.y) + (b.z or b.y))
     else
-        _HarnessInternal.log.error("VecAdd requires two valid vectors of same type", "Vector.VecAdd")
+        _HarnessInternal.log.error(
+            "VecAdd requires two valid vectors of same type",
+            "Vector.VecAdd"
+        )
         return Vec3()
     end
 end
@@ -6496,7 +7495,10 @@ function VecSub(a, b)
     elseif IsVec2(a) and IsVec2(b) then
         return Vec2(a.x - b.x, (a.z or a.y) - (b.z or b.y))
     else
-        _HarnessInternal.log.error("VecSub requires two valid vectors of same type", "Vector.VecSub")
+        _HarnessInternal.log.error(
+            "VecSub requires two valid vectors of same type",
+            "Vector.VecSub"
+        )
         return Vec3()
     end
 end
@@ -6511,7 +7513,7 @@ function VecScale(vec, scalar)
         _HarnessInternal.log.error("VecScale requires valid vector and number", "Vector.VecScale")
         return Vec3()
     end
-    
+
     if IsVec3(vec) then
         return Vec3(vec.x * scalar, vec.y * scalar, vec.z * scalar)
     elseif IsVec2(vec) then
@@ -6529,10 +7531,13 @@ end
 ---@usage local divided = VecDiv(v, 2)
 function VecDiv(vec, scalar)
     if type(scalar) ~= "number" or scalar == 0 then
-        _HarnessInternal.log.error("VecDiv requires valid vector and non-zero number", "Vector.VecDiv")
+        _HarnessInternal.log.error(
+            "VecDiv requires valid vector and non-zero number",
+            "Vector.VecDiv"
+        )
         return IsVec3(vec) and Vec3() or Vec2()
     end
-    
+
     return VecScale(vec, 1 / scalar)
 end
 
@@ -6561,7 +7566,7 @@ function VecLength2D(vec)
         _HarnessInternal.log.error("VecLength2D requires valid vector", "Vector.VecLength2D")
         return 0
     end
-    
+
     local z = vec.z or vec.y or 0
     return math.sqrt(vec.x * vec.x + z * z)
 end
@@ -6575,7 +7580,7 @@ function VecNormalize(vec)
     if length == 0 then
         return IsVec3(vec) and Vec3() or Vec2()
     end
-    
+
     return VecScale(vec, 1 / length)
 end
 
@@ -6588,12 +7593,12 @@ function VecNormalize2D(vec)
         _HarnessInternal.log.error("VecNormalize2D requires valid Vec3", "Vector.VecNormalize2D")
         return Vec3()
     end
-    
+
     local length = VecLength2D(vec)
     if length == 0 then
         return Vec3(0, vec.y, 0)
     end
-    
+
     return Vec3(vec.x / length, vec.y, vec.z / length)
 end
 
@@ -6608,7 +7613,10 @@ function VecDot(a, b)
     elseif IsVec2(a) and IsVec2(b) then
         return a.x * b.x + (a.z or a.y) * (b.z or b.y)
     else
-        _HarnessInternal.log.error("VecDot requires two valid vectors of same type", "Vector.VecDot")
+        _HarnessInternal.log.error(
+            "VecDot requires two valid vectors of same type",
+            "Vector.VecDot"
+        )
         return 0
     end
 end
@@ -6623,12 +7631,8 @@ function VecCross(a, b)
         _HarnessInternal.log.error("VecCross requires two valid Vec3", "Vector.VecCross")
         return Vec3()
     end
-    
-    return Vec3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x
-    )
+
+    return Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
 end
 
 --- Get distance between two points
@@ -6657,7 +7661,7 @@ function Distance2D(a, b)
         _HarnessInternal.log.error("Distance2D requires two valid positions", "Vector.Distance2D")
         return 0
     end
-    
+
     local dx = b.x - a.x
     local az = a.z or a.y or 0
     local bz = b.z or b.y or 0
@@ -6672,10 +7676,13 @@ end
 ---@usage local distSq = DistanceSquared(pos1, pos2)
 function DistanceSquared(a, b)
     if not IsVec3(a) or not IsVec3(b) then
-        _HarnessInternal.log.error("DistanceSquared requires two valid Vec3", "Vector.DistanceSquared")
+        _HarnessInternal.log.error(
+            "DistanceSquared requires two valid Vec3",
+            "Vector.DistanceSquared"
+        )
         return 0
     end
-    
+
     local dx = b.x - a.x
     local dy = b.y - a.y
     local dz = b.z - a.z
@@ -6689,10 +7696,13 @@ end
 ---@usage local dist2dSq = Distance2DSquared(pos1, pos2)
 function Distance2DSquared(a, b)
     if not a or not b or type(a) ~= "table" or type(b) ~= "table" then
-        _HarnessInternal.log.error("Distance2DSquared requires two valid positions", "Vector.Distance2DSquared")
+        _HarnessInternal.log.error(
+            "Distance2DSquared requires two valid positions",
+            "Vector.Distance2DSquared"
+        )
         return 0
     end
-    
+
     local dx = b.x - a.x
     local az = a.z or a.y or 0
     local bz = b.z or b.y or 0
@@ -6710,17 +7720,17 @@ function Bearing(from, to)
         _HarnessInternal.log.error("Bearing requires two valid positions", "Vector.Bearing")
         return 0
     end
-    
+
     local dx = to.x - from.x
     local fz = from.z or from.y or 0
     local tz = to.z or to.y or 0
     local dz = tz - fz
     local bearing = math.atan2(dx, dz) * 180 / math.pi
-    
+
     if bearing < 0 then
         bearing = bearing + 360
     end
-    
+
     return bearing
 end
 
@@ -6731,15 +7741,23 @@ end
 ---@return table position New position
 ---@usage local newPos = FromBearingDistance(pos, 45, 1000)
 function FromBearingDistance(origin, bearing, distance)
-    if not origin or type(origin) ~= "table" or type(bearing) ~= "number" or type(distance) ~= "number" then
-        _HarnessInternal.log.error("FromBearingDistance requires origin, bearing, and distance", "Vector.FromBearingDistance")
+    if
+        not origin
+        or type(origin) ~= "table"
+        or type(bearing) ~= "number"
+        or type(distance) ~= "number"
+    then
+        _HarnessInternal.log.error(
+            "FromBearingDistance requires origin, bearing, and distance",
+            "Vector.FromBearingDistance"
+        )
         return Vec3()
     end
-    
+
     local angle = bearing * math.pi / 180
     local dx = distance * math.sin(angle)
     local dz = distance * math.cos(angle)
-    
+
     if IsVec3(origin) then
         return Vec3(origin.x + dx, origin.y, origin.z + dz)
     else
@@ -6757,10 +7775,10 @@ function AngleBetween(a, b)
     local normA = VecNormalize(a)
     local normB = VecNormalize(b)
     local dot = VecDot(normA, normB)
-    
+
     -- Clamp to avoid floating point errors with acos
     dot = math.max(-1, math.min(1, dot))
-    
+
     return math.acos(dot) * 180 / math.pi
 end
 
@@ -6771,18 +7789,14 @@ end
 ---@usage local mid = Midpoint(pos1, pos2)
 function Midpoint(a, b)
     if IsVec3(a) and IsVec3(b) then
-        return Vec3(
-            (a.x + b.x) / 2,
-            (a.y + b.y) / 2,
-            (a.z + b.z) / 2
-        )
+        return Vec3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(
-            (a.x + b.x) / 2,
-            ((a.z or a.y) + (b.z or b.y)) / 2
-        )
+        return Vec2((a.x + b.x) / 2, ((a.z or a.y) + (b.z or b.y)) / 2)
     else
-        _HarnessInternal.log.error("Midpoint requires two valid vectors of same type", "Vector.Midpoint")
+        _HarnessInternal.log.error(
+            "Midpoint requires two valid vectors of same type",
+            "Vector.Midpoint"
+        )
         return Vec3()
     end
 end
@@ -6798,20 +7812,16 @@ function VecLerp(a, b, t)
         _HarnessInternal.log.error("VecLerp requires number for t", "Vector.VecLerp")
         return a
     end
-    
+
     if IsVec3(a) and IsVec3(b) then
-        return Vec3(
-            a.x + (b.x - a.x) * t,
-            a.y + (b.y - a.y) * t,
-            a.z + (b.z - a.z) * t
-        )
+        return Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(
-            a.x + (b.x - a.x) * t,
-            (a.z or a.y) + ((b.z or b.y) - (a.z or a.y)) * t
-        )
+        return Vec2(a.x + (b.x - a.x) * t, (a.z or a.y) + ((b.z or b.y) - (a.z or a.y)) * t)
     else
-        _HarnessInternal.log.error("VecLerp requires two valid vectors of same type", "Vector.VecLerp")
+        _HarnessInternal.log.error(
+            "VecLerp requires two valid vectors of same type",
+            "Vector.VecLerp"
+        )
         return Vec3()
     end
 end
@@ -6825,12 +7835,16 @@ function Vec3ToString(vec, precision)
     if not IsVec3(vec) then
         return "(invalid)"
     end
-    
+
     precision = precision or 2
     local format = "%." .. precision .. "f"
-    
-    return string.format("(" .. format .. ", " .. format .. ", " .. format .. ")", 
-                        vec.x, vec.y, vec.z)
+
+    return string.format(
+        "(" .. format .. ", " .. format .. ", " .. format .. ")",
+        vec.x,
+        vec.y,
+        vec.z
+    )
 end
 
 --- Convert Vec2 to string for debugging
@@ -6842,11 +7856,11 @@ function Vec2ToString(vec, precision)
     if not IsVec2(vec) then
         return "(invalid)"
     end
-    
+
     precision = precision or 2
     local format = "%." .. precision .. "f"
     local z = vec.z or vec.y
-    
+
     return string.format("(" .. format .. ", " .. format .. ")", vec.x, z)
 end
 
@@ -7082,9 +8096,7 @@ function Vec3_mt.__unm(a)
 end
 
 function Vec3_mt.__eq(a, b)
-    return math.abs(a.x - b.x) < 1e-6 and 
-           math.abs(a.y - b.y) < 1e-6 and 
-           math.abs(a.z - b.z) < 1e-6
+    return math.abs(a.x - b.x) < 1e-6 and math.abs(a.y - b.y) < 1e-6 and math.abs(a.z - b.z) < 1e-6
 end
 
 function Vec3_mt.__tostring(a)
@@ -7106,7 +8118,10 @@ end
 ---@usage local wind = GetWind(position)
 function GetWind(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("GetWind requires valid point with x, y, z", "Atmosphere.GetWind")
+        _HarnessInternal.log.error(
+            "GetWind requires valid point with x, y, z",
+            "Atmosphere.GetWind"
+        )
         return nil
     end
 
@@ -7125,13 +8140,19 @@ end
 ---@usage local wind = GetWindWithTurbulence(position)
 function GetWindWithTurbulence(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("GetWindWithTurbulence requires valid point with x, y, z", "Atmosphere.GetWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "GetWindWithTurbulence requires valid point with x, y, z",
+            "Atmosphere.GetWindWithTurbulence"
+        )
         return nil
     end
 
     local success, result = pcall(atmosphere.getWindWithTurbulence, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get wind with turbulence: " .. tostring(result), "Atmosphere.GetWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "Failed to get wind with turbulence: " .. tostring(result),
+            "Atmosphere.GetWindWithTurbulence"
+        )
         return nil
     end
 
@@ -7149,14 +8170,20 @@ end
 ---@usage local data = GetTemperatureAndPressure(position)
 function GetTemperatureAndPressure(point)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("GetTemperatureAndPressure requires valid point with x, y, z", "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error(
+            "GetTemperatureAndPressure requires valid point with x, y, z",
+            "Atmosphere.GetTemperatureAndPressure"
+        )
         return nil
     end
 
     -- DCS returns two numbers (temperature in Kelvin, pressure in Pascals)
     local success, temperatureK, pressurePa = pcall(atmosphere.getTemperatureAndPressure, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get temperature and pressure: " .. tostring(temperatureK), "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error(
+            "Failed to get temperature and pressure: " .. tostring(temperatureK),
+            "Atmosphere.GetTemperatureAndPressure"
+        )
         return nil
     end
 
@@ -7174,7 +8201,10 @@ function GetTemperatureAndPressure(point)
     end
 
     if not tK and not pPa then
-        _HarnessInternal.log.error("Temperature/pressure response could not be interpreted", "Atmosphere.GetTemperatureAndPressure")
+        _HarnessInternal.log.error(
+            "Temperature/pressure response could not be interpreted",
+            "Atmosphere.GetTemperatureAndPressure"
+        )
         return nil
     end
 
@@ -7214,7 +8244,10 @@ function LOtoLL(vec3)
 
     local success, result = pcall(coord.LOtoLL, vec3)
     if not success then
-        _HarnessInternal.log.error("Failed to convert LO to LL: " .. tostring(result), "Coord.LOtoLL")
+        _HarnessInternal.log.error(
+            "Failed to convert LO to LL: " .. tostring(result),
+            "Coord.LOtoLL"
+        )
         return nil
     end
 
@@ -7242,7 +8275,10 @@ function LLtoLO(latitude, longitude, altitude)
 
     local success, result = pcall(coord.LLtoLO, latitude, longitude, altitude)
     if not success then
-        _HarnessInternal.log.error("Failed to convert LL to LO: " .. tostring(result), "Coord.LLtoLO")
+        _HarnessInternal.log.error(
+            "Failed to convert LL to LO: " .. tostring(result),
+            "Coord.LLtoLO"
+        )
         return nil
     end
 
@@ -7261,7 +8297,10 @@ function LOtoMGRS(vec3)
 
     local success, result = pcall(coord.LOtoMGRS, vec3)
     if not success then
-        _HarnessInternal.log.error("Failed to convert LO to MGRS: " .. tostring(result), "Coord.LOtoMGRS")
+        _HarnessInternal.log.error(
+            "Failed to convert LO to MGRS: " .. tostring(result),
+            "Coord.LOtoMGRS"
+        )
         return nil
     end
 
@@ -7280,7 +8319,10 @@ function MGRStoLO(mgrsString)
 
     local success, result = pcall(coord.MGRStoLO, mgrsString)
     if not success then
-        _HarnessInternal.log.error("Failed to convert MGRS to LO: " .. tostring(result), "Coord.MGRStoLO")
+        _HarnessInternal.log.error(
+            "Failed to convert MGRS to LO: " .. tostring(result),
+            "Coord.MGRStoLO"
+        )
         return nil
     end
 
@@ -7344,7 +8386,10 @@ end
 --- local range = NauticalMilesToMeters(50) -- Returns 92600 (50 nautical miles)
 function NauticalMilesToMeters(nm)
     if not nm or type(nm) ~= "number" then
-        _HarnessInternal.log.error("NauticalMilesToMeters requires valid nautical miles", "GeoMath.NauticalMilesToMeters")
+        _HarnessInternal.log.error(
+            "NauticalMilesToMeters requires valid nautical miles",
+            "GeoMath.NauticalMilesToMeters"
+        )
         return nil
     end
     return nm * NM_TO_METERS
@@ -7358,7 +8403,10 @@ end
 --- local nm2 = MetersToNauticalMiles(92600) -- Returns 50 (50 nautical miles)
 function MetersToNauticalMiles(meters)
     if not meters or type(meters) ~= "number" then
-        _HarnessInternal.log.error("MetersToNauticalMiles requires valid meters", "GeoMath.MetersToNauticalMiles")
+        _HarnessInternal.log.error(
+            "MetersToNauticalMiles requires valid meters",
+            "GeoMath.MetersToNauticalMiles"
+        )
         return nil
     end
     return meters * METERS_TO_NM
@@ -7404,12 +8452,15 @@ function Distance2D(point1, point2)
         _HarnessInternal.log.error("Distance2D requires two valid points", "GeoMath.Distance2D")
         return nil
     end
-    
+
     if not point1.x or not point1.z or not point2.x or not point2.z then
-        _HarnessInternal.log.error("Distance2D points must have x and z coordinates", "GeoMath.Distance2D")
+        _HarnessInternal.log.error(
+            "Distance2D points must have x and z coordinates",
+            "GeoMath.Distance2D"
+        )
         return nil
     end
-    
+
     local dx = point2.x - point1.x
     local dz = point2.z - point1.z
     return math.sqrt(dx * dx + dz * dz)
@@ -7427,12 +8478,22 @@ function Distance3D(point1, point2)
         _HarnessInternal.log.error("Distance3D requires two valid points", "GeoMath.Distance3D")
         return nil
     end
-    
-    if not point1.x or not point1.y or not point1.z or not point2.x or not point2.y or not point2.z then
-        _HarnessInternal.log.error("Distance3D points must have x, y, and z coordinates", "GeoMath.Distance3D")
+
+    if
+        not point1.x
+        or not point1.y
+        or not point1.z
+        or not point2.x
+        or not point2.y
+        or not point2.z
+    then
+        _HarnessInternal.log.error(
+            "Distance3D points must have x, y, and z coordinates",
+            "GeoMath.Distance3D"
+        )
         return nil
     end
-    
+
     local dx = point2.x - point1.x
     local dy = point2.y - point1.y
     local dz = point2.z - point1.z
@@ -7449,25 +8510,31 @@ end
 --- local intercept = BearingBetween(fighter:getPoint(), bandit:getPoint()) -- Intercept heading
 function BearingBetween(from, to)
     if not from or not to then
-        _HarnessInternal.log.error("BearingBetween requires two valid points", "GeoMath.BearingBetween")
+        _HarnessInternal.log.error(
+            "BearingBetween requires two valid points",
+            "GeoMath.BearingBetween"
+        )
         return nil
     end
-    
+
     if not from.x or not from.z or not to.x or not to.z then
-        _HarnessInternal.log.error("BearingBetween points must have x and z coordinates", "GeoMath.BearingBetween")
+        _HarnessInternal.log.error(
+            "BearingBetween points must have x and z coordinates",
+            "GeoMath.BearingBetween"
+        )
         return nil
     end
-    
+
     local dx = to.x - from.x
     local dz = to.z - from.z
-    
+
     -- Calculate mathematical angle (0 = East, counterclockwise)
     local mathAngleRad = math.atan2(dz, dx)
-    
+
     -- Convert to aviation bearing (0 = North, clockwise)
     local aviationBearingRad = math.pi / 2 - mathAngleRad
     local aviationBearingDeg = RadToDeg(aviationBearingRad)
-    
+
     -- Normalize to 0-360
     return (aviationBearingDeg + 360) % 360
 end
@@ -7483,30 +8550,40 @@ end
 --- local orbit = DisplacePoint2D(tanker:getPoint(), hdg, 40 * 1852) -- 40nm ahead
 function DisplacePoint2D(point, bearingDeg, distance)
     if not point or not bearingDeg or not distance then
-        _HarnessInternal.log.error("DisplacePoint2D requires point, bearing, and distance", "GeoMath.DisplacePoint2D")
+        _HarnessInternal.log.error(
+            "DisplacePoint2D requires point, bearing, and distance",
+            "GeoMath.DisplacePoint2D"
+        )
         return nil
     end
-    
+
     if not point.x or not point.z then
-        _HarnessInternal.log.error("DisplacePoint2D point must have x and z coordinates", "GeoMath.DisplacePoint2D")
+        _HarnessInternal.log.error(
+            "DisplacePoint2D point must have x and z coordinates",
+            "GeoMath.DisplacePoint2D"
+        )
         return nil
     end
-    
+
     -- Convert aviation bearing to mathematical angle
     local mathAngleDeg = (90 - bearingDeg + 360) % 360
     local angleRad = DegToRad(mathAngleDeg)
-    
+
     local dx = math.cos(angleRad) * distance
     local dz = math.sin(angleRad) * distance
-    
+
     -- Mitigate floating point errors
-    if math.abs(dx) < 1e-6 then dx = 0 end
-    if math.abs(dz) < 1e-6 then dz = 0 end
-    
+    if math.abs(dx) < 1e-6 then
+        dx = 0
+    end
+    if math.abs(dz) < 1e-6 then
+        dz = 0
+    end
+
     return {
         x = point.x + dx,
         y = point.y or 0,
-        z = point.z + dz
+        z = point.z + dz,
     }
 end
 
@@ -7522,11 +8599,11 @@ function MidPoint(point1, point2)
         _HarnessInternal.log.error("MidPoint requires two valid points", "GeoMath.MidPoint")
         return nil
     end
-    
+
     return {
         x = (point1.x + point2.x) / 2,
         y = ((point1.y or 0) + (point2.y or 0)) / 2,
-        z = (point1.z + point2.z) / 2
+        z = (point1.z + point2.z) / 2,
     }
 end
 
@@ -7540,27 +8617,30 @@ end
 --- local formation = RotatePoint2D(wingman, lead, 45) -- Rotate wingman 45° around lead
 function RotatePoint2D(point, center, angleDeg)
     if not point or not center or not angleDeg then
-        _HarnessInternal.log.error("RotatePoint2D requires point, center, and angle", "GeoMath.RotatePoint2D")
+        _HarnessInternal.log.error(
+            "RotatePoint2D requires point, center, and angle",
+            "GeoMath.RotatePoint2D"
+        )
         return nil
     end
-    
+
     local angleRad = DegToRad(angleDeg)
     local cos_a = math.cos(angleRad)
     local sin_a = math.sin(angleRad)
-    
+
     -- Translate to origin
     local dx = point.x - center.x
     local dz = point.z - center.z
-    
+
     -- Rotate
     local new_dx = dx * cos_a - dz * sin_a
     local new_dz = dx * sin_a + dz * cos_a
-    
+
     -- Translate back
     return {
         x = center.x + new_dx,
         y = point.y or 0,
-        z = center.z + new_dz
+        z = center.z + new_dz,
     }
 end
 
@@ -7572,20 +8652,23 @@ end
 --- local dir = NormalizeVector2D(velocity) -- Get direction from velocity
 function NormalizeVector2D(vector)
     if not vector or not vector.x or not vector.z then
-        _HarnessInternal.log.error("NormalizeVector2D requires valid vector with x and z", "GeoMath.NormalizeVector2D")
+        _HarnessInternal.log.error(
+            "NormalizeVector2D requires valid vector with x and z",
+            "GeoMath.NormalizeVector2D"
+        )
         return nil
     end
-    
+
     local magnitude = math.sqrt(vector.x * vector.x + vector.z * vector.z)
-    
+
     if magnitude < 1e-6 then
-        return {x = 0, y = 0, z = 0}
+        return { x = 0, y = 0, z = 0 }
     end
-    
+
     return {
         x = vector.x / magnitude,
         y = vector.y or 0,
-        z = vector.z / magnitude
+        z = vector.z / magnitude,
     }
 end
 
@@ -7597,20 +8680,23 @@ end
 --- local dir = NormalizeVector3D(velocity) -- Get 3D direction from velocity
 function NormalizeVector3D(vector)
     if not vector or not vector.x or not vector.y or not vector.z then
-        _HarnessInternal.log.error("NormalizeVector3D requires valid vector with x, y, and z", "GeoMath.NormalizeVector3D")
+        _HarnessInternal.log.error(
+            "NormalizeVector3D requires valid vector with x, y, and z",
+            "GeoMath.NormalizeVector3D"
+        )
         return nil
     end
-    
+
     local magnitude = math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
-    
+
     if magnitude < 1e-6 then
-        return {x = 0, y = 0, z = 0}
+        return { x = 0, y = 0, z = 0 }
     end
-    
+
     return {
         x = vector.x / magnitude,
         y = vector.y / magnitude,
-        z = vector.z / magnitude
+        z = vector.z / magnitude,
     }
 end
 
@@ -7623,10 +8709,13 @@ end
 --- local dot2 = DotProduct2D({x=1, z=0}, {x=1, z=0}) -- Returns 1 (parallel)
 function DotProduct2D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("DotProduct2D requires two valid vectors", "GeoMath.DotProduct2D")
+        _HarnessInternal.log.error(
+            "DotProduct2D requires two valid vectors",
+            "GeoMath.DotProduct2D"
+        )
         return nil
     end
-    
+
     return (v1.x or 0) * (v2.x or 0) + (v1.z or 0) * (v2.z or 0)
 end
 
@@ -7639,10 +8728,13 @@ end
 --- local align = DotProduct3D(forward, target) -- Check alignment with target
 function DotProduct3D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("DotProduct3D requires two valid vectors", "GeoMath.DotProduct3D")
+        _HarnessInternal.log.error(
+            "DotProduct3D requires two valid vectors",
+            "GeoMath.DotProduct3D"
+        )
         return nil
     end
-    
+
     return (v1.x or 0) * (v2.x or 0) + (v1.y or 0) * (v2.y or 0) + (v1.z or 0) * (v2.z or 0)
 end
 
@@ -7655,14 +8747,17 @@ end
 --- local normal = CrossProduct3D(edge1, edge2) -- Surface normal from two edges
 function CrossProduct3D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("CrossProduct3D requires two valid vectors", "GeoMath.CrossProduct3D")
+        _HarnessInternal.log.error(
+            "CrossProduct3D requires two valid vectors",
+            "GeoMath.CrossProduct3D"
+        )
         return nil
     end
-    
+
     return {
         x = (v1.y or 0) * (v2.z or 0) - (v1.z or 0) * (v2.y or 0),
         y = (v1.z or 0) * (v2.x or 0) - (v1.x or 0) * (v2.z or 0),
-        z = (v1.x or 0) * (v2.y or 0) - (v1.y or 0) * (v2.x or 0)
+        z = (v1.x or 0) * (v2.y or 0) - (v1.y or 0) * (v2.x or 0),
     }
 end
 
@@ -7675,38 +8770,44 @@ end
 --- local angle2 = AngleBetweenVectors2D({x=1, z=0}, {x=-1, z=0}) -- Returns 180
 function AngleBetweenVectors2D(v1, v2)
     if not v1 or not v2 then
-        _HarnessInternal.log.error("AngleBetweenVectors2D requires two valid vectors", "GeoMath.AngleBetweenVectors2D")
+        _HarnessInternal.log.error(
+            "AngleBetweenVectors2D requires two valid vectors",
+            "GeoMath.AngleBetweenVectors2D"
+        )
         return nil
     end
-    
+
     local dot = DotProduct2D(v1, v2)
-    local mag1 = math.sqrt((v1.x or 0)^2 + (v1.z or 0)^2)
-    local mag2 = math.sqrt((v2.x or 0)^2 + (v2.z or 0)^2)
-    
+    local mag1 = math.sqrt((v1.x or 0) ^ 2 + (v1.z or 0) ^ 2)
+    local mag2 = math.sqrt((v2.x or 0) ^ 2 + (v2.z or 0) ^ 2)
+
     if mag1 < 1e-6 or mag2 < 1e-6 then
         return 0
     end
-    
+
     local cosAngle = dot / (mag1 * mag2)
     cosAngle = math.max(-1, math.min(1, cosAngle)) -- Clamp to [-1, 1]
-    
+
     return RadToDeg(math.acos(cosAngle))
 end
 
 function PointInPolygon2D(point, polygon)
     if not point or not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("PointInPolygon2D requires valid point and polygon with at least 3 vertices", "GeoMath.PointInPolygon2D")
+        _HarnessInternal.log.error(
+            "PointInPolygon2D requires valid point and polygon with at least 3 vertices",
+            "GeoMath.PointInPolygon2D"
+        )
         return nil
     end
-    
+
     local x, z = point.x, point.z
     local inside = false
-    
+
     local p1x, p1z = polygon[1].x, polygon[1].z
-    
+
     for i = 1, #polygon do
         local p2x, p2z = polygon[i % #polygon + 1].x, polygon[i % #polygon + 1].z
-        
+
         if z > math.min(p1z, p2z) and z <= math.max(p1z, p2z) and x <= math.max(p1x, p2x) then
             if p1z ~= p2z then
                 local xinters = (z - p1z) * (p2x - p1x) / (p2z - p1z) + p1x
@@ -7715,86 +8816,95 @@ function PointInPolygon2D(point, polygon)
                 end
             end
         end
-        
+
         p1x, p1z = p2x, p2z
     end
-    
+
     return inside
 end
 
 function CircleLineIntersection2D(circleCenter, radius, lineStart, lineEnd)
     if not circleCenter or not radius or not lineStart or not lineEnd then
-        _HarnessInternal.log.error("CircleLineIntersection2D requires all parameters", "GeoMath.CircleLineIntersection2D")
+        _HarnessInternal.log.error(
+            "CircleLineIntersection2D requires all parameters",
+            "GeoMath.CircleLineIntersection2D"
+        )
         return nil
     end
-    
+
     local dx = lineEnd.x - lineStart.x
     local dz = lineEnd.z - lineStart.z
     local fx = lineStart.x - circleCenter.x
     local fz = lineStart.z - circleCenter.z
-    
+
     local a = dx * dx + dz * dz
     local b = 2 * (fx * dx + fz * dz)
     local c = (fx * fx + fz * fz) - radius * radius
-    
+
     local discriminant = b * b - 4 * a * c
-    
+
     if discriminant < 0 then
         return {} -- No intersection
     end
-    
+
     local discriminantSqrt = math.sqrt(discriminant)
     local t1 = (-b - discriminantSqrt) / (2 * a)
     local t2 = (-b + discriminantSqrt) / (2 * a)
-    
+
     local intersections = {}
-    
+
     if t1 >= 0 and t1 <= 1 then
         table.insert(intersections, {
             x = lineStart.x + t1 * dx,
             y = lineStart.y or 0,
-            z = lineStart.z + t1 * dz
+            z = lineStart.z + t1 * dz,
         })
     end
-    
+
     if t2 >= 0 and t2 <= 1 and math.abs(t2 - t1) > 1e-6 then
         table.insert(intersections, {
             x = lineStart.x + t2 * dx,
             y = lineStart.y or 0,
-            z = lineStart.z + t2 * dz
+            z = lineStart.z + t2 * dz,
         })
     end
-    
+
     return intersections
 end
 
 function PolygonArea2D(polygon)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("PolygonArea2D requires polygon with at least 3 vertices", "GeoMath.PolygonArea2D")
+        _HarnessInternal.log.error(
+            "PolygonArea2D requires polygon with at least 3 vertices",
+            "GeoMath.PolygonArea2D"
+        )
         return nil
     end
-    
+
     local area = 0
     local n = #polygon
-    
+
     for i = 1, n do
         local j = (i % n) + 1
         area = area + polygon[i].x * polygon[j].z
         area = area - polygon[j].x * polygon[i].z
     end
-    
+
     return math.abs(area) / 2
 end
 
 function PolygonCentroid2D(polygon)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("PolygonCentroid2D requires polygon with at least 3 vertices", "GeoMath.PolygonCentroid2D")
+        _HarnessInternal.log.error(
+            "PolygonCentroid2D requires polygon with at least 3 vertices",
+            "GeoMath.PolygonCentroid2D"
+        )
         return nil
     end
-    
+
     local cx, cz = 0, 0
     local area = 0
-    
+
     for i = 1, #polygon do
         local j = (i % #polygon) + 1
         local a = polygon[i].x * polygon[j].z - polygon[j].x * polygon[i].z
@@ -7802,62 +8912,75 @@ function PolygonCentroid2D(polygon)
         cx = cx + (polygon[i].x + polygon[j].x) * a
         cz = cz + (polygon[i].z + polygon[j].z) * a
     end
-    
+
     area = area / 2
-    
+
     if math.abs(area) < 1e-6 then
         -- Degenerate polygon, return average of points
         for _, p in ipairs(polygon) do
             cx = cx + p.x
             cz = cz + p.z
         end
-        return {x = cx / #polygon, y = 0, z = cz / #polygon}
+        return { x = cx / #polygon, y = 0, z = cz / #polygon }
     end
-    
-    return {x = cx / (6 * area), y = 0, z = cz / (6 * area)}
+
+    return { x = cx / (6 * area), y = 0, z = cz / (6 * area) }
 end
 
 function ConvexHull2D(points)
     if not points or type(points) ~= "table" or #points < 3 then
-        _HarnessInternal.log.error("ConvexHull2D requires at least 3 points", "GeoMath.ConvexHull2D")
+        _HarnessInternal.log.error(
+            "ConvexHull2D requires at least 3 points",
+            "GeoMath.ConvexHull2D"
+        )
         return points or {}
     end
-    
+
     -- Find the leftmost point
     local start = 1
     for i = 2, #points do
-        if points[i].x < points[start].x or 
-           (points[i].x == points[start].x and points[i].z < points[start].z) then
+        if
+            points[i].x < points[start].x
+            or (points[i].x == points[start].x and points[i].z < points[start].z)
+        then
             start = i
         end
     end
-    
+
     local hull = {}
     local current = start
-    
+
     repeat
         table.insert(hull, points[current])
         local next = 1
-        
+
         for i = 1, #points do
             if i ~= current then
                 if next == current then
                     next = i
                 else
-                    local cross = (points[i].x - points[current].x) * (points[next].z - points[current].z) -
-                                  (points[i].z - points[current].z) * (points[next].x - points[current].x)
-                    
-                    if cross > 0 or (cross == 0 and 
-                       Distance2D(points[current], points[i]) > Distance2D(points[current], points[next])) then
+                    local cross = (points[i].x - points[current].x)
+                            * (points[next].z - points[current].z)
+                        - (points[i].z - points[current].z)
+                            * (points[next].x - points[current].x)
+
+                    if
+                        cross > 0
+                        or (
+                            cross == 0
+                            and Distance2D(points[current], points[i])
+                                > Distance2D(points[current], points[next])
+                        )
+                    then
                         next = i
                     end
                 end
             end
         end
-        
+
         current = next
     until current == start
-    
+
     return hull
 end
 -- ==== END: src\geomath.lua ====
@@ -7879,12 +9002,14 @@ function GetGroup(groupName)
         _HarnessInternal.log.error("GetGroup requires string group name", "GetGroup")
         return nil
     end
-    
+
     -- Check cache first
     local cached = _HarnessInternal.cache.groups[groupName]
     if cached then
         -- Verify group still exists
-        local success, exists = pcall(function() return cached:isExist() end)
+        local success, exists = pcall(function()
+            return cached:isExist()
+        end)
         if success and exists then
             _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
             return cached
@@ -7893,20 +9018,20 @@ function GetGroup(groupName)
             RemoveGroupFromCache(groupName)
         end
     end
-    
+
     -- Get from DCS API
     local success, group = pcall(Group.getByName, groupName)
     if not success then
         _HarnessInternal.log.error("Failed to get group: " .. tostring(group), "GetGroup")
         return nil
     end
-    
+
     -- Add to cache if valid
     if group then
         _HarnessInternal.cache.groups[groupName] = group
         _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
     end
-    
+
     return group
 end
 
@@ -7919,13 +9044,16 @@ function GroupExists(groupName)
     if not group then
         return false
     end
-    
+
     local success, exists = pcall(group.isExist, group)
     if not success then
-        _HarnessInternal.log.error("Failed to check group existence: " .. tostring(exists), "GroupExists")
+        _HarnessInternal.log.error(
+            "Failed to check group existence: " .. tostring(exists),
+            "GroupExists"
+        )
         return false
     end
-    
+
     return exists
 end
 
@@ -7938,13 +9066,16 @@ function GetGroupUnits(groupName)
     if not group then
         return nil
     end
-    
+
     local success, units = pcall(group.getUnits, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group units: " .. tostring(units), "GetGroupUnits")
+        _HarnessInternal.log.error(
+            "Failed to get group units: " .. tostring(units),
+            "GetGroupUnits"
+        )
         return nil
     end
-    
+
     return units
 end
 
@@ -7957,13 +9088,13 @@ function GetGroupSize(groupName)
     if not group then
         return 0
     end
-    
+
     local success, size = pcall(group.getSize, group)
     if not success then
         _HarnessInternal.log.error("Failed to get group size: " .. tostring(size), "GetGroupSize")
         return 0
     end
-    
+
     return size
 end
 
@@ -7976,13 +9107,16 @@ function GetGroupInitialSize(groupName)
     if not group then
         return 0
     end
-    
+
     local success, size = pcall(group.getInitialSize, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group initial size: " .. tostring(size), "GetGroupInitialSize")
+        _HarnessInternal.log.error(
+            "Failed to get group initial size: " .. tostring(size),
+            "GetGroupInitialSize"
+        )
         return 0
     end
-    
+
     return size
 end
 
@@ -7995,13 +9129,16 @@ function GetGroupCoalition(groupName)
     if not group then
         return nil
     end
-    
+
     local success, coalition = pcall(group.getCoalition, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group coalition: " .. tostring(coalition), "GetGroupCoalition")
+        _HarnessInternal.log.error(
+            "Failed to get group coalition: " .. tostring(coalition),
+            "GetGroupCoalition"
+        )
         return nil
     end
-    
+
     return coalition
 end
 
@@ -8014,13 +9151,16 @@ function GetGroupCategory(groupName)
     if not group then
         return nil
     end
-    
+
     local success, category = pcall(group.getCategory, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group category: " .. tostring(category), "GetGroupCategory")
+        _HarnessInternal.log.error(
+            "Failed to get group category: " .. tostring(category),
+            "GetGroupCategory"
+        )
         return nil
     end
-    
+
     return category
 end
 
@@ -8033,13 +9173,13 @@ function GetGroupID(groupName)
     if not group then
         return nil
     end
-    
+
     local success, id = pcall(group.getID, group)
     if not success then
         _HarnessInternal.log.error("Failed to get group ID: " .. tostring(id), "GetGroupID")
         return nil
     end
-    
+
     return id
 end
 
@@ -8054,23 +9194,26 @@ function GetGroupController(groupName)
     if cached then
         return cached
     end
-    
+
     local group = GetGroup(groupName)
     if not group then
         return nil
     end
-    
+
     local success, controller = pcall(group.getController, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group controller: " .. tostring(controller), "GetGroupController")
+        _HarnessInternal.log.error(
+            "Failed to get group controller: " .. tostring(controller),
+            "GetGroupController"
+        )
         return nil
     end
-    
+
     -- Add to cache
     if controller then
         _HarnessInternal.cache.addController(cacheKey, controller)
     end
-    
+
     return controller
 end
 
@@ -8085,20 +9228,23 @@ function MessageToGroup(groupId, message, duration)
         _HarnessInternal.log.error("MessageToGroup requires numeric group ID", "MessageToGroup")
         return false
     end
-    
+
     if not message or type(message) ~= "string" then
         _HarnessInternal.log.error("MessageToGroup requires string message", "MessageToGroup")
         return false
     end
-    
+
     duration = duration or 20
-    
+
     local success, result = pcall(trigger.action.outTextForGroup, groupId, message, duration, false)
     if not success then
-        _HarnessInternal.log.error(string.format("Failed to send message to group %d: %s", groupId, tostring(result)), "MessageToGroup")
+        _HarnessInternal.log.error(
+            string.format("Failed to send message to group %d: %s", groupId, tostring(result)),
+            "MessageToGroup"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -8110,23 +9256,37 @@ end
 ---@usage MessageToCoalition(coalition.side.BLUE, "Hello blues", 10)
 function MessageToCoalition(coalitionId, message, duration)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("MessageToCoalition requires numeric coalition ID", "MessageToCoalition")
+        _HarnessInternal.log.error(
+            "MessageToCoalition requires numeric coalition ID",
+            "MessageToCoalition"
+        )
         return false
     end
-    
+
     if not message or type(message) ~= "string" then
-        _HarnessInternal.log.error("MessageToCoalition requires string message", "MessageToCoalition")
+        _HarnessInternal.log.error(
+            "MessageToCoalition requires string message",
+            "MessageToCoalition"
+        )
         return false
     end
-    
+
     duration = duration or 20
-    
-    local success, result = pcall(trigger.action.outTextForCoalition, coalitionId, message, duration)
+
+    local success, result =
+        pcall(trigger.action.outTextForCoalition, coalitionId, message, duration)
     if not success then
-        _HarnessInternal.log.error(string.format("Failed to send message to coalition %d: %s", coalitionId, tostring(result)), "MessageToCoalition")
+        _HarnessInternal.log.error(
+            string.format(
+                "Failed to send message to coalition %d: %s",
+                coalitionId,
+                tostring(result)
+            ),
+            "MessageToCoalition"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -8140,15 +9300,18 @@ function MessageToAll(message, duration)
         _HarnessInternal.log.error("MessageToAll requires string message", "MessageToAll")
         return false
     end
-    
+
     duration = duration or 20
-    
+
     local success, result = pcall(trigger.action.outText, message, duration)
     if not success then
-        _HarnessInternal.log.error("Failed to send message to all: " .. tostring(result), "MessageToAll")
+        _HarnessInternal.log.error(
+            "Failed to send message to all: " .. tostring(result),
+            "MessageToAll"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -8161,13 +9324,16 @@ function ActivateGroup(groupName)
     if not group then
         return false
     end
-    
+
     local success, result = pcall(group.activate, group)
     if not success then
-        _HarnessInternal.log.error("Failed to activate group: " .. tostring(result), "ActivateGroup")
+        _HarnessInternal.log.error(
+            "Failed to activate group: " .. tostring(result),
+            "ActivateGroup"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -8178,16 +9344,22 @@ end
 ---@usage local blueAirGroups = GetCoalitionGroups(coalition.side.BLUE, Group.Category.AIRPLANE)
 function GetCoalitionGroups(coalitionId, categoryId)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("GetCoalitionGroups requires numeric coalition ID", "GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "GetCoalitionGroups requires numeric coalition ID",
+            "GetCoalitionGroups"
+        )
         return {}
     end
-    
+
     local success, groups = pcall(coalition.getGroups, coalitionId, categoryId)
     if not success then
-        _HarnessInternal.log.error("Failed to get coalition groups: " .. tostring(groups), "GetCoalitionGroups")
+        _HarnessInternal.log.error(
+            "Failed to get coalition groups: " .. tostring(groups),
+            "GetCoalitionGroups"
+        )
         return {}
     end
-    
+
     return groups or {}
 end
 
@@ -8202,13 +9374,15 @@ function GetGroupName(group)
         _HarnessInternal.log.error("GetGroupName requires group", "GetGroupName")
         return nil
     end
-    
-    local success, name = pcall(function() return group:getName() end)
+
+    local success, name = pcall(function()
+        return group:getName()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get group name: " .. tostring(name), "GetGroupName")
         return nil
     end
-    
+
     return name
 end
 
@@ -8222,18 +9396,23 @@ function GetGroupUnit(group, index)
         _HarnessInternal.log.error("GetGroupUnit requires group", "GetGroupUnit")
         return nil
     end
-    
+
     if not index or type(index) ~= "number" then
         _HarnessInternal.log.error("GetGroupUnit requires numeric index", "GetGroupUnit")
         return nil
     end
-    
-    local success, unit = pcall(function() return group:getUnit(index) end)
+
+    local success, unit = pcall(function()
+        return group:getUnit(index)
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit by index: " .. tostring(unit), "GetGroupUnit")
+        _HarnessInternal.log.error(
+            "Failed to get unit by index: " .. tostring(unit),
+            "GetGroupUnit"
+        )
         return nil
     end
-    
+
     return unit
 end
 
@@ -8246,13 +9425,18 @@ function GetGroupCategoryEx(group)
         _HarnessInternal.log.error("GetGroupCategoryEx requires group", "GetGroupCategoryEx")
         return nil
     end
-    
-    local success, category = pcall(function() return group:getCategoryEx() end)
+
+    local success, category = pcall(function()
+        return group:getCategoryEx()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get group category ex: " .. tostring(category), "GetGroupCategoryEx")
+        _HarnessInternal.log.error(
+            "Failed to get group category ex: " .. tostring(category),
+            "GetGroupCategoryEx"
+        )
         return nil
     end
-    
+
     return category
 end
 
@@ -8266,18 +9450,26 @@ function EnableGroupEmissions(group, enabled)
         _HarnessInternal.log.error("EnableGroupEmissions requires group", "EnableGroupEmissions")
         return false
     end
-    
+
     if type(enabled) ~= "boolean" then
-        _HarnessInternal.log.error("EnableGroupEmissions requires boolean enabled", "EnableGroupEmissions")
+        _HarnessInternal.log.error(
+            "EnableGroupEmissions requires boolean enabled",
+            "EnableGroupEmissions"
+        )
         return false
     end
-    
-    local success, result = pcall(function() group:enableEmission(enabled) end)
+
+    local success, result = pcall(function()
+        group:enableEmission(enabled)
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to set group emissions: " .. tostring(result), "EnableGroupEmissions")
+        _HarnessInternal.log.error(
+            "Failed to set group emissions: " .. tostring(result),
+            "EnableGroupEmissions"
+        )
         return false
     end
-    
+
     _HarnessInternal.log.info("Set group emissions: " .. tostring(enabled), "EnableGroupEmissions")
     return true
 end
@@ -8291,13 +9483,15 @@ function DestroyGroup(group)
         _HarnessInternal.log.error("DestroyGroup requires group", "DestroyGroup")
         return false
     end
-    
-    local success, result = pcall(function() group:destroy() end)
+
+    local success, result = pcall(function()
+        group:destroy()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to destroy group: " .. tostring(result), "DestroyGroup")
         return false
     end
-    
+
     _HarnessInternal.log.info("Destroyed group", "DestroyGroup")
     return true
 end
@@ -8311,13 +9505,18 @@ function IsGroupEmbarking(group)
         _HarnessInternal.log.error("IsGroupEmbarking requires group", "IsGroupEmbarking")
         return nil
     end
-    
-    local success, embarking = pcall(function() return group:embarking() end)
+
+    local success, embarking = pcall(function()
+        return group:embarking()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check group embarking: " .. tostring(embarking), "IsGroupEmbarking")
+        _HarnessInternal.log.error(
+            "Failed to check group embarking: " .. tostring(embarking),
+            "IsGroupEmbarking"
+        )
         return nil
     end
-    
+
     return embarking
 end
 
@@ -8332,23 +9531,25 @@ function MarkGroup(group, point, text)
         _HarnessInternal.log.error("MarkGroup requires group", "MarkGroup")
         return false
     end
-    
+
     if not point or not IsVec3(point) then
         _HarnessInternal.log.error("MarkGroup requires Vec3 position", "MarkGroup")
         return false
     end
-    
+
     if not text or type(text) ~= "string" then
         _HarnessInternal.log.error("MarkGroup requires string text", "MarkGroup")
         return false
     end
-    
-    local success, result = pcall(function() group:markGroup(point, text) end)
+
+    local success, result = pcall(function()
+        group:markGroup(point, text)
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to mark group: " .. tostring(result), "MarkGroup")
         return false
     end
-    
+
     _HarnessInternal.log.info("Marked group with: " .. text, "MarkGroup")
     return true
 end
@@ -8374,26 +9575,26 @@ function CreateTriangle(center, size, rotation)
         _HarnessInternal.log.error("CreateTriangle requires center point", "Shapes.CreateTriangle")
         return nil
     end
-    
+
     center = ToVec2(center)
     size = size or 1000 -- Default 1km sides
     rotation = rotation or 0
-    
+
     -- Create equilateral triangle
     local height = size * math.sqrt(3) / 2
     local points = {
-        Vec2(0, height * 2/3),           -- Top vertex
-        Vec2(-size/2, -height * 1/3),    -- Bottom left
-        Vec2(size/2, -height * 1/3)      -- Bottom right
+        Vec2(0, height * 2 / 3), -- Top vertex
+        Vec2(-size / 2, -height * 1 / 3), -- Bottom left
+        Vec2(size / 2, -height * 1 / 3), -- Bottom right
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -8406,32 +9607,35 @@ end
 --- @usage local rect = CreateRectangle({x=0, z=0}, 5000, 3000, 90)
 function CreateRectangle(center, width, height, rotation)
     if not center then
-        _HarnessInternal.log.error("CreateRectangle requires center point", "Shapes.CreateRectangle")
+        _HarnessInternal.log.error(
+            "CreateRectangle requires center point",
+            "Shapes.CreateRectangle"
+        )
         return nil
     end
-    
+
     center = ToVec2(center)
-    width = width or 2000    -- Default 2km width
-    height = height or 1000  -- Default 1km height
+    width = width or 2000 -- Default 2km width
+    height = height or 1000 -- Default 1km height
     rotation = rotation or 0
-    
+
     local halfW = width / 2
     local halfH = height / 2
-    
+
     local points = {
-        Vec2(-halfW, -halfH),  -- Bottom left
-        Vec2(halfW, -halfH),   -- Bottom right
-        Vec2(halfW, halfH),    -- Top right
-        Vec2(-halfW, halfH)    -- Top left
+        Vec2(-halfW, -halfH), -- Bottom left
+        Vec2(halfW, -halfH), -- Bottom right
+        Vec2(halfW, halfH), -- Top right
+        Vec2(-halfW, halfH), -- Top left
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -8457,22 +9661,22 @@ function CreateOval(center, radiusX, radiusZ, numPoints)
         _HarnessInternal.log.error("CreateOval requires center point", "Shapes.CreateOval")
         return nil
     end
-    
+
     center = ToVec2(center)
-    radiusX = radiusX or 1000    -- Default 1km radius X
-    radiusZ = radiusZ or radiusX  -- Default to circle if not specified
-    numPoints = numPoints or 36   -- Default 36 points (10-degree increments)
-    
+    radiusX = radiusX or 1000 -- Default 1km radius X
+    radiusZ = radiusZ or radiusX -- Default to circle if not specified
+    numPoints = numPoints or 36 -- Default 36 points (10-degree increments)
+
     local points = {}
     local angleStep = 2 * math.pi / numPoints
-    
+
     for i = 0, numPoints - 1 do
         local angle = i * angleStep
         local x = radiusX * math.cos(angle)
         local z = radiusZ * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -8499,29 +9703,29 @@ function CreateFan(origin, centerBearing, arcDegrees, distance, numPoints)
         _HarnessInternal.log.error("CreateFan requires origin point", "Shapes.CreateFan")
         return nil
     end
-    
+
     origin = ToVec2(origin)
     centerBearing = centerBearing or 0
     arcDegrees = arcDegrees or 90
-    distance = distance or 50 * 1852  -- Default 50 nautical miles
-    numPoints = numPoints or math.ceil(arcDegrees / 5) + 1  -- Default 5-degree increments
-    
-    local points = {origin}  -- Start with origin
-    
+    distance = distance or 50 * 1852 -- Default 50 nautical miles
+    numPoints = numPoints or math.ceil(arcDegrees / 5) + 1 -- Default 5-degree increments
+
+    local points = { origin } -- Start with origin
+
     -- Calculate start bearing (half arc to the left of center)
     local halfArc = arcDegrees / 2
     local startBearing = centerBearing - halfArc
     local angleStep = arcDegrees / (numPoints - 1)
-    
+
     for i = 0, numPoints - 1 do
         local bearing = startBearing + i * angleStep
         local point = origin:displace(bearing, distance)
         table.insert(points, point)
     end
-    
+
     -- Close the fan by returning to origin
     table.insert(points, origin)
-    
+
     return points
 end
 
@@ -8535,34 +9739,37 @@ end
 --- @usage local trap = CreateTrapezoid({x=0, z=0}, 1000, 3000, 2000)
 function CreateTrapezoid(center, topWidth, bottomWidth, height, rotation)
     if not center then
-        _HarnessInternal.log.error("CreateTrapezoid requires center point", "Shapes.CreateTrapezoid")
+        _HarnessInternal.log.error(
+            "CreateTrapezoid requires center point",
+            "Shapes.CreateTrapezoid"
+        )
         return nil
     end
-    
+
     center = ToVec2(center)
-    topWidth = topWidth or 1000      -- Default 1km top width
+    topWidth = topWidth or 1000 -- Default 1km top width
     bottomWidth = bottomWidth or 2000 -- Default 2km bottom width
-    height = height or 1000           -- Default 1km height
+    height = height or 1000 -- Default 1km height
     rotation = rotation or 0
-    
+
     local halfTop = topWidth / 2
     local halfBottom = bottomWidth / 2
     local halfH = height / 2
-    
+
     local points = {
-        Vec2(-halfBottom, -halfH),  -- Bottom left
-        Vec2(halfBottom, -halfH),   -- Bottom right
-        Vec2(halfTop, halfH),       -- Top right
-        Vec2(-halfTop, halfH)       -- Top left
+        Vec2(-halfBottom, -halfH), -- Bottom left
+        Vec2(halfBottom, -halfH), -- Bottom right
+        Vec2(halfTop, halfH), -- Top right
+        Vec2(-halfTop, halfH), -- Top left
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -8579,37 +9786,37 @@ function CreatePill(center, legBearing, legLength, radius, pointsPerCap)
         _HarnessInternal.log.error("CreatePill requires center point", "Shapes.CreatePill")
         return nil
     end
-    
+
     center = ToVec2(center)
     legBearing = legBearing or 0
-    legLength = legLength or 40 * 1852  -- Default 40 nautical miles
-    radius = radius or 10 * 1852         -- Default 10 nautical miles
-    pointsPerCap = pointsPerCap or 19    -- Points per semicircle
-    
+    legLength = legLength or 40 * 1852 -- Default 40 nautical miles
+    radius = radius or 10 * 1852 -- Default 10 nautical miles
+    pointsPerCap = pointsPerCap or 19 -- Points per semicircle
+
     local halfLegLength = legLength / 2
-    
+
     -- Calculate the two centers for the semicircular caps
     local cap1Center = center:displace(legBearing, halfLegLength)
     local cap2Center = center:displace((legBearing + 180) % 360, halfLegLength)
-    
+
     -- Calculate perpendicular bearing for the sides
     local perpBearing = (legBearing + 90) % 360
-    
+
     local points = {}
-    
+
     -- Generate first semicircle (right side going clockwise from perpBearing)
     local angleStep = 180 / (pointsPerCap - 1)
     for i = 0, pointsPerCap - 1 do
         local bearing = (perpBearing - i * angleStep + 720) % 360
         table.insert(points, cap1Center:displace(bearing, radius))
     end
-    
+
     -- Generate second semicircle (left side going clockwise from opposite perpBearing)
     for i = 0, pointsPerCap - 1 do
         local bearing = ((perpBearing + 180) - i * angleStep + 720) % 360
         table.insert(points, cap2Center:displace(bearing, radius))
     end
-    
+
     return points
 end
 
@@ -8626,16 +9833,16 @@ function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
         _HarnessInternal.log.error("CreateStar requires center point", "Shapes.CreateStar")
         return nil
     end
-    
+
     center = ToVec2(center)
-    outerRadius = outerRadius or 1000   -- Default 1km outer radius
-    innerRadius = innerRadius or 400    -- Default 400m inner radius
-    numPoints = numPoints or 5         -- Default 5-pointed star
+    outerRadius = outerRadius or 1000 -- Default 1km outer radius
+    innerRadius = innerRadius or 400 -- Default 400m inner radius
+    numPoints = numPoints or 5 -- Default 5-pointed star
     rotation = rotation or 0
-    
+
     local points = {}
-    local angleStep = math.pi / numPoints  -- Half angle between points
-    
+    local angleStep = math.pi / numPoints -- Half angle between points
+
     for i = 0, numPoints * 2 - 1 do
         local angle = i * angleStep - math.pi / 2 + DegToRad(rotation)
         local radius = (i % 2 == 0) and outerRadius or innerRadius
@@ -8643,7 +9850,7 @@ function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
         local z = radius * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -8656,28 +9863,34 @@ end
 --- @usage local pentagon = CreatePolygon({x=0, z=0}, 3000, 5, 0)
 function CreatePolygon(center, radius, numSides, rotation)
     if not center or not radius or not numSides then
-        _HarnessInternal.log.error("CreatePolygon requires center, radius, and number of sides", "Shapes.CreatePolygon")
+        _HarnessInternal.log.error(
+            "CreatePolygon requires center, radius, and number of sides",
+            "Shapes.CreatePolygon"
+        )
         return nil
     end
-    
+
     if numSides < 3 then
-        _HarnessInternal.log.error("CreatePolygon requires at least 3 sides", "Shapes.CreatePolygon")
+        _HarnessInternal.log.error(
+            "CreatePolygon requires at least 3 sides",
+            "Shapes.CreatePolygon"
+        )
         return nil
     end
-    
+
     center = ToVec2(center)
     rotation = rotation or 0
-    
+
     local points = {}
     local angleStep = 2 * math.pi / numSides
-    
+
     for i = 0, numSides - 1 do
         local angle = i * angleStep - math.pi / 2 + DegToRad(rotation)
         local x = radius * math.cos(angle)
         local z = radius * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -8714,31 +9927,31 @@ function CreateArc(center, radius, startBearing, endBearing, numPoints)
         _HarnessInternal.log.error("CreateArc requires center and radius", "Shapes.CreateArc")
         return nil
     end
-    
+
     center = ToVec2(center)
     startBearing = startBearing or 0
     endBearing = endBearing or 90
     numPoints = numPoints or math.ceil(math.abs(endBearing - startBearing) / 5) + 1
-    
+
     local points = {}
-    
+
     -- Normalize bearings
     startBearing = startBearing % 360
     endBearing = endBearing % 360
-    
+
     -- Calculate arc span
     local arcSpan = endBearing - startBearing
     if arcSpan < 0 then
         arcSpan = arcSpan + 360
     end
-    
+
     local angleStep = arcSpan / (numPoints - 1)
-    
+
     for i = 0, numPoints - 1 do
         local bearing = (startBearing + i * angleStep) % 360
         table.insert(points, center:displace(bearing, radius))
     end
-    
+
     return points
 end
 
@@ -8755,18 +9968,18 @@ function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
         _HarnessInternal.log.error("CreateSpiral requires center point", "Shapes.CreateSpiral")
         return nil
     end
-    
+
     center = ToVec2(center)
     startRadius = startRadius or 100
     endRadius = endRadius or 1000
     numTurns = numTurns or 3
     pointsPerTurn = pointsPerTurn or 36
-    
+
     local points = {}
     local totalPoints = numTurns * pointsPerTurn
     local radiusStep = (endRadius - startRadius) / totalPoints
     local angleStep = 2 * math.pi / pointsPerTurn
-    
+
     for i = 0, totalPoints - 1 do
         local radius = startRadius + i * radiusStep
         local angle = i * angleStep
@@ -8774,7 +9987,7 @@ function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
         local z = radius * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -8790,42 +10003,45 @@ function CreateRing(center, outerRadius, innerRadius, numPoints)
         _HarnessInternal.log.error("CreateRing requires center point", "Shapes.CreateRing")
         return nil
     end
-    
+
     if not outerRadius or not innerRadius or innerRadius >= outerRadius then
-        _HarnessInternal.log.error("CreateRing requires valid inner and outer radii", "Shapes.CreateRing")
+        _HarnessInternal.log.error(
+            "CreateRing requires valid inner and outer radii",
+            "Shapes.CreateRing"
+        )
         return nil
     end
-    
+
     -- Create as two circles that will form a ring when rendered
     -- Note: This creates a hollow ring outline, not a filled donut
     local outer = CreateCircle(center, outerRadius, numPoints)
     local inner = CreateCircle(center, innerRadius, numPoints)
-    
+
     -- Reverse inner circle for proper winding
     local reversedInner = {}
     for i = #inner, 1, -1 do
         table.insert(reversedInner, inner[i])
     end
-    
+
     -- Combine: outer circle + connection + reversed inner circle + connection back
     local ring = {}
-    
+
     -- Add outer circle
     for _, p in ipairs(outer) do
         table.insert(ring, p)
     end
-    
+
     -- Connect to inner circle
     table.insert(ring, reversedInner[1])
-    
+
     -- Add reversed inner circle
     for _, p in ipairs(reversedInner) do
         table.insert(ring, p)
     end
-    
+
     -- Close the ring
     table.insert(ring, outer[1])
-    
+
     return ring
 end
 
@@ -8841,38 +10057,38 @@ function CreateCross(center, size, thickness, rotation)
         _HarnessInternal.log.error("CreateCross requires center point", "Shapes.CreateCross")
         return nil
     end
-    
+
     center = ToVec2(center)
-    size = size or 1000          -- Default 1km size
-    thickness = thickness or 200  -- Default 200m thickness
+    size = size or 1000 -- Default 1km size
+    thickness = thickness or 200 -- Default 200m thickness
     rotation = rotation or 0
-    
+
     local halfSize = size / 2
     local halfThick = thickness / 2
-    
+
     -- Define cross shape points (12 points for the outline)
     local points = {
-        Vec2(-halfThick, -halfSize),    -- Bottom of vertical bar
+        Vec2(-halfThick, -halfSize), -- Bottom of vertical bar
         Vec2(halfThick, -halfSize),
         Vec2(halfThick, -halfThick),
-        Vec2(halfSize, -halfThick),     -- Right of horizontal bar
+        Vec2(halfSize, -halfThick), -- Right of horizontal bar
         Vec2(halfSize, halfThick),
         Vec2(halfThick, halfThick),
-        Vec2(halfThick, halfSize),      -- Top of vertical bar
+        Vec2(halfThick, halfSize), -- Top of vertical bar
         Vec2(-halfThick, halfSize),
         Vec2(-halfThick, halfThick),
-        Vec2(-halfSize, halfThick),     -- Left of horizontal bar
+        Vec2(-halfSize, halfThick), -- Left of horizontal bar
         Vec2(-halfSize, -halfThick),
-        Vec2(-halfThick, -halfThick)
+        Vec2(-halfThick, -halfThick),
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -8886,9 +10102,9 @@ function ShapeToVec3(shape, altitude)
         _HarnessInternal.log.error("ShapeToVec3 requires valid shape", "Shapes.ShapeToVec3")
         return nil
     end
-    
+
     altitude = altitude or 0
-    
+
     local result = {}
     for _, p in ipairs(shape) do
         if IsVec2(p) then
@@ -8899,7 +10115,7 @@ function ShapeToVec3(shape, altitude)
             table.insert(result, Vec3(p.x, altitude, p.z))
         end
     end
-    
+
     return result
 end
 -- ==== END: src\shapes.lua ====
@@ -8923,35 +10139,38 @@ function CreateLaserSpot(source, target, offset, code)
         _HarnessInternal.log.error("CreateLaserSpot requires source unit/weapon", "CreateLaserSpot")
         return nil
     end
-    
+
     if not code or type(code) ~= "number" then
         _HarnessInternal.log.error("CreateLaserSpot requires numeric laser code", "CreateLaserSpot")
         return nil
     end
-    
+
     if code < 1111 or code > 1788 then
         _HarnessInternal.log.error("Laser code must be between 1111-1788", "CreateLaserSpot")
         return nil
     end
-    
+
     local spotType = {
         type = Spot.LaserSpotType.LASER,
         point = target,
-        offset = offset
+        offset = offset,
     }
-    
+
     local success, spot = pcall(Spot.createLaser, source, spotType, code)
     if not success then
-        _HarnessInternal.log.error("Failed to create laser spot: " .. tostring(spot), "CreateLaserSpot")
+        _HarnessInternal.log.error(
+            "Failed to create laser spot: " .. tostring(spot),
+            "CreateLaserSpot"
+        )
         return nil
     end
-    
+
     _HarnessInternal.log.info("Created laser spot with code " .. code, "CreateLaserSpot")
     return spot
 end
 
 --- Create an IR pointer spot
----@param source table Unit that creates the spot  
+---@param source table Unit that creates the spot
 ---@param target table Target position (Vec3)
 ---@return table? spot Created spot object or nil on error
 ---@usage local spot = CreateIRSpot(aircraft, targetPos)
@@ -8960,18 +10179,18 @@ function CreateIRSpot(source, target)
         _HarnessInternal.log.error("CreateIRSpot requires source unit", "CreateIRSpot")
         return nil
     end
-    
+
     if not target or not IsVec3(target) then
         _HarnessInternal.log.error("CreateIRSpot requires Vec3 target position", "CreateIRSpot")
         return nil
     end
-    
+
     local success, spot = pcall(Spot.createInfraRed, source, target)
     if not success then
         _HarnessInternal.log.error("Failed to create IR spot: " .. tostring(spot), "CreateIRSpot")
         return nil
     end
-    
+
     _HarnessInternal.log.info("Created IR spot", "CreateIRSpot")
     return spot
 end
@@ -8985,13 +10204,15 @@ function DestroySpot(spot)
         _HarnessInternal.log.error("DestroySpot requires spot object", "DestroySpot")
         return false
     end
-    
-    local success, result = pcall(function() spot:destroy() end)
+
+    local success, result = pcall(function()
+        spot:destroy()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to destroy spot: " .. tostring(result), "DestroySpot")
         return false
     end
-    
+
     _HarnessInternal.log.info("Destroyed spot", "DestroySpot")
     return true
 end
@@ -9005,13 +10226,15 @@ function GetSpotPoint(spot)
         _HarnessInternal.log.error("GetSpotPoint requires spot object", "GetSpotPoint")
         return nil
     end
-    
-    local success, point = pcall(function() return spot:getPoint() end)
+
+    local success, point = pcall(function()
+        return spot:getPoint()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get spot point: " .. tostring(point), "GetSpotPoint")
         return nil
     end
-    
+
     return point
 end
 
@@ -9025,18 +10248,20 @@ function SetSpotPoint(spot, point)
         _HarnessInternal.log.error("SetSpotPoint requires spot object", "SetSpotPoint")
         return false
     end
-    
+
     if not point or not IsVec3(point) then
         _HarnessInternal.log.error("SetSpotPoint requires Vec3 position", "SetSpotPoint")
         return false
     end
-    
-    local success, result = pcall(function() spot:setPoint(point) end)
+
+    local success, result = pcall(function()
+        spot:setPoint(point)
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to set spot point: " .. tostring(result), "SetSpotPoint")
         return false
     end
-    
+
     return true
 end
 
@@ -9049,13 +10274,15 @@ function GetLaserCode(spot)
         _HarnessInternal.log.error("GetLaserCode requires spot object", "GetLaserCode")
         return nil
     end
-    
-    local success, code = pcall(function() return spot:getCode() end)
+
+    local success, code = pcall(function()
+        return spot:getCode()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get laser code: " .. tostring(code), "GetLaserCode")
         return nil
     end
-    
+
     return code
 end
 
@@ -9069,23 +10296,25 @@ function SetLaserCode(spot, code)
         _HarnessInternal.log.error("SetLaserCode requires spot object", "SetLaserCode")
         return false
     end
-    
+
     if not code or type(code) ~= "number" then
         _HarnessInternal.log.error("SetLaserCode requires numeric laser code", "SetLaserCode")
         return false
     end
-    
+
     if code < 1111 or code > 1788 then
         _HarnessInternal.log.error("Laser code must be between 1111-1788", "SetLaserCode")
         return false
     end
-    
-    local success, result = pcall(function() spot:setCode(code) end)
+
+    local success, result = pcall(function()
+        spot:setCode(code)
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to set laser code: " .. tostring(result), "SetLaserCode")
         return false
     end
-    
+
     _HarnessInternal.log.info("Set laser code to " .. code, "SetLaserCode")
     return true
 end
@@ -9098,12 +10327,14 @@ function SpotExists(spot)
     if not spot then
         return false
     end
-    
-    local success, exists = pcall(function() return spot:isExist() end)
+
+    local success, exists = pcall(function()
+        return spot:isExist()
+    end)
     if not success then
         return false
     end
-    
+
     return exists == true
 end
 
@@ -9116,13 +10347,18 @@ function GetSpotCategory(spot)
         _HarnessInternal.log.error("GetSpotCategory requires spot object", "GetSpotCategory")
         return nil
     end
-    
-    local success, category = pcall(function() return spot:getCategory() end)
+
+    local success, category = pcall(function()
+        return spot:getCategory()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get spot category: " .. tostring(category), "GetSpotCategory")
+        _HarnessInternal.log.error(
+            "Failed to get spot category: " .. tostring(category),
+            "GetSpotCategory"
+        )
         return nil
     end
-    
+
     return category
 end
 -- ==== END: src\spot.lua ====
@@ -9144,20 +10380,23 @@ function GetTerrainHeight(position)
         _HarnessInternal.log.error("GetTerrainHeight requires position", "GetTerrainHeight")
         return 0
     end
-    
+
     local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-    
+
     if not IsVec2(vec2) then
         _HarnessInternal.log.error("GetTerrainHeight requires Vec2 or Vec3", "GetTerrainHeight")
         return 0
     end
-    
+
     local success, height = pcall(land.getHeight, vec2)
     if not success then
-        _HarnessInternal.log.error("Failed to get terrain height: " .. tostring(height), "GetTerrainHeight")
+        _HarnessInternal.log.error(
+            "Failed to get terrain height: " .. tostring(height),
+            "GetTerrainHeight"
+        )
         return 0
     end
-    
+
     return height or 0
 end
 
@@ -9170,7 +10409,7 @@ function GetAGL(position)
         _HarnessInternal.log.error("GetAGL requires Vec3 position", "GetAGL")
         return 0
     end
-    
+
     local groundHeight = GetTerrainHeight(position)
     return position.y - groundHeight
 end
@@ -9185,7 +10424,7 @@ function SetAGL(position, agl)
         _HarnessInternal.log.error("SetAGL requires Vec3 and number", "SetAGL")
         return Vec3()
     end
-    
+
     local groundHeight = GetTerrainHeight(position)
     return Vec3(position.x, groundHeight + agl, position.z)
 end
@@ -9200,13 +10439,13 @@ function HasLOS(from, to)
         _HarnessInternal.log.error("HasLOS requires two valid Vec3", "HasLOS")
         return false
     end
-    
+
     local success, visible = pcall(land.isVisible, from, to)
     if not success then
         _HarnessInternal.log.error("Failed to check LOS: " .. tostring(visible), "HasLOS")
         return false
     end
-    
+
     return visible
 end
 
@@ -9219,20 +10458,23 @@ function GetSurfaceType(position)
         _HarnessInternal.log.error("GetSurfaceType requires position", "GetSurfaceType")
         return nil
     end
-    
+
     local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-    
+
     if not IsVec2(vec2) then
         _HarnessInternal.log.error("GetSurfaceType requires Vec2 or Vec3", "GetSurfaceType")
         return nil
     end
-    
+
     local success, surfaceType = pcall(land.getSurfaceType, vec2)
     if not success then
-        _HarnessInternal.log.error("Failed to get surface type: " .. tostring(surfaceType), "GetSurfaceType")
+        _HarnessInternal.log.error(
+            "Failed to get surface type: " .. tostring(surfaceType),
+            "GetSurfaceType"
+        )
         return nil
     end
-    
+
     return surfaceType
 end
 
@@ -9245,7 +10487,7 @@ function IsOverWater(position)
     if not surfaceType then
         return false
     end
-    
+
     -- land.SurfaceType.WATER = 3, SHALLOW_WATER = 2
     return surfaceType == 2 or surfaceType == 3
 end
@@ -9259,7 +10501,7 @@ function IsOverLand(position)
     if not surfaceType then
         return false
     end
-    
+
     -- land.SurfaceType.LAND = 1, ROAD = 4, RUNWAY = 5
     return surfaceType == 1 or surfaceType == 4 or surfaceType == 5
 end
@@ -9272,16 +10514,22 @@ end
 ---@usage local hit = GetTerrainIntersection(origin, direction, 10000)
 function GetTerrainIntersection(origin, direction, maxDistance)
     if not IsVec3(origin) or not IsVec3(direction) or type(maxDistance) ~= "number" then
-        _HarnessInternal.log.error("GetTerrainIntersection requires origin Vec3, direction Vec3, and maxDistance", "GetTerrainIntersection")
+        _HarnessInternal.log.error(
+            "GetTerrainIntersection requires origin Vec3, direction Vec3, and maxDistance",
+            "GetTerrainIntersection"
+        )
         return nil
     end
-    
+
     local success, intersection = pcall(land.getIP, origin, direction, maxDistance)
     if not success then
-        _HarnessInternal.log.error("Failed to get terrain intersection: " .. tostring(intersection), "GetTerrainIntersection")
+        _HarnessInternal.log.error(
+            "Failed to get terrain intersection: " .. tostring(intersection),
+            "GetTerrainIntersection"
+        )
         return nil
     end
-    
+
     return intersection
 end
 
@@ -9295,13 +10543,16 @@ function GetTerrainProfile(from, to)
         _HarnessInternal.log.error("GetTerrainProfile requires two valid Vec3", "GetTerrainProfile")
         return {}
     end
-    
+
     local success, profile = pcall(land.profile, from, to)
     if not success then
-        _HarnessInternal.log.error("Failed to get terrain profile: " .. tostring(profile), "GetTerrainProfile")
+        _HarnessInternal.log.error(
+            "Failed to get terrain profile: " .. tostring(profile),
+            "GetTerrainProfile"
+        )
         return {}
     end
-    
+
     return profile or {}
 end
 
@@ -9315,22 +10566,28 @@ function GetClosestRoadPoint(position, roadType)
         _HarnessInternal.log.error("GetClosestRoadPoint requires position", "GetClosestRoadPoint")
         return nil
     end
-    
+
     local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-    
+
     if not IsVec2(vec2) then
-        _HarnessInternal.log.error("GetClosestRoadPoint requires Vec2 or Vec3", "GetClosestRoadPoint")
+        _HarnessInternal.log.error(
+            "GetClosestRoadPoint requires Vec2 or Vec3",
+            "GetClosestRoadPoint"
+        )
         return nil
     end
-    
+
     roadType = roadType or "roads"
-    
+
     local success, point = pcall(land.getClosestPointOnRoads, roadType, vec2.x, vec2.z)
     if not success then
-        _HarnessInternal.log.error("Failed to get closest road point: " .. tostring(point), "GetClosestRoadPoint")
+        _HarnessInternal.log.error(
+            "Failed to get closest road point: " .. tostring(point),
+            "GetClosestRoadPoint"
+        )
         return nil
     end
-    
+
     return point
 end
 
@@ -9345,27 +10602,28 @@ function FindRoadPath(from, to, roadType)
         _HarnessInternal.log.error("FindRoadPath requires from and to positions", "FindRoadPath")
         return {}
     end
-    
+
     local fromVec2 = IsVec3(from) and Vec2(from.x, from.z) or from
     local toVec2 = IsVec3(to) and Vec2(to.x, to.z) or to
-    
+
     if not IsVec2(fromVec2) or not IsVec2(toVec2) then
         _HarnessInternal.log.error("FindRoadPath requires Vec2 or Vec3 positions", "FindRoadPath")
         return {}
     end
-    
+
     -- Note: For rails, the parameter should be "rails" not "railroads"
     roadType = roadType or "roads"
     if roadType == "railroads" then
         roadType = "rails"
     end
-    
-    local success, path = pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.z, toVec2.x, toVec2.z)
+
+    local success, path =
+        pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.z, toVec2.x, toVec2.z)
     if not success then
         _HarnessInternal.log.error("Failed to find road path: " .. tostring(path), "FindRoadPath")
         return {}
     end
-    
+
     return path or {}
 end
 -- ==== END: src\terrain.lua ====
@@ -9381,13 +10639,13 @@ end
 -- Internal helpers for colors/fills
 local function _normalizeColor(c)
     if type(c) ~= "table" then
-        return {r = 1, g = 1, b = 1, a = 1}
+        return { r = 1, g = 1, b = 1, a = 1 }
     end
     return {
         r = c.r or c[1] or 1,
         g = c.g or c[2] or 1,
         b = c.b or c[3] or 1,
-        a = c.a or c[4] or 1
+        a = c.a or c[4] or 1,
     }
 end
 
@@ -9397,24 +10655,24 @@ local function _defaultFill(color, fill)
             r = fill.r or fill[1] or 1,
             g = fill.g or fill[2] or 1,
             b = fill.b or fill[3] or 1,
-            a = fill.a or fill[4] or 0.25
+            a = fill.a or fill[4] or 0.25,
         }
     end
     local c = _normalizeColor(color)
     local a = c.a or 1
-    return {r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25))}
+    return { r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25)) }
 end
 
 -- Convert color table to array form {r,g,b,a} for DCS APIs
 local function _toArrayColor(color)
     if type(color) ~= "table" then
-        return {1, 1, 1, 1}
+        return { 1, 1, 1, 1 }
     end
     local r = color.r or color[1] or 1
     local g = color.g or color[2] or 1
     local b = color.b or color[3] or 1
     local a = color.a or color[4] or 1
-    return {r, g, b, a}
+    return { r, g, b, a }
 end
 
 --- Displays text message to all players
@@ -9437,7 +10695,10 @@ function OutText(text, displayTime, clearView)
 
     local success, result = pcall(trigger.action.outText, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display text: " .. tostring(result), "Trigger.OutText")
+        _HarnessInternal.log.error(
+            "Failed to display text: " .. tostring(result),
+            "Trigger.OutText"
+        )
         return nil
     end
 
@@ -9453,12 +10714,18 @@ end
 ---@usage OutTextForCoalition(coalition.side.BLUE, "Blue team message", 20)
 function OutTextForCoalition(coalitionId, text, displayTime, clearView)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("OutTextForCoalition requires valid coalition ID", "Trigger.OutTextForCoalition")
+        _HarnessInternal.log.error(
+            "OutTextForCoalition requires valid coalition ID",
+            "Trigger.OutTextForCoalition"
+        )
         return nil
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("OutTextForCoalition requires valid text string", "Trigger.OutTextForCoalition")
+        _HarnessInternal.log.error(
+            "OutTextForCoalition requires valid text string",
+            "Trigger.OutTextForCoalition"
+        )
         return nil
     end
 
@@ -9468,9 +10735,13 @@ function OutTextForCoalition(coalitionId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outTextForCoalition, coalitionId, text, displayTime, clearView)
+    local success, result =
+        pcall(trigger.action.outTextForCoalition, coalitionId, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display coalition text: " .. tostring(result), "Trigger.OutTextForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to display coalition text: " .. tostring(result),
+            "Trigger.OutTextForCoalition"
+        )
         return nil
     end
 
@@ -9486,12 +10757,18 @@ end
 ---@usage OutTextForGroup(1001, "Group message", 15)
 function OutTextForGroup(groupId, text, displayTime, clearView)
     if not groupId or type(groupId) ~= "number" then
-        _HarnessInternal.log.error("OutTextForGroup requires valid group ID", "Trigger.OutTextForGroup")
+        _HarnessInternal.log.error(
+            "OutTextForGroup requires valid group ID",
+            "Trigger.OutTextForGroup"
+        )
         return nil
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("OutTextForGroup requires valid text string", "Trigger.OutTextForGroup")
+        _HarnessInternal.log.error(
+            "OutTextForGroup requires valid text string",
+            "Trigger.OutTextForGroup"
+        )
         return nil
     end
 
@@ -9501,9 +10778,13 @@ function OutTextForGroup(groupId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outTextForGroup, groupId, text, displayTime, clearView)
+    local success, result =
+        pcall(trigger.action.outTextForGroup, groupId, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display group text: " .. tostring(result), "Trigger.OutTextForGroup")
+        _HarnessInternal.log.error(
+            "Failed to display group text: " .. tostring(result),
+            "Trigger.OutTextForGroup"
+        )
         return nil
     end
 
@@ -9519,12 +10800,18 @@ end
 ---@usage OutTextForUnit(2001, "Unit message", 10)
 function OutTextForUnit(unitId, text, displayTime, clearView)
     if not unitId or type(unitId) ~= "number" then
-        _HarnessInternal.log.error("OutTextForUnit requires valid unit ID", "Trigger.OutTextForUnit")
+        _HarnessInternal.log.error(
+            "OutTextForUnit requires valid unit ID",
+            "Trigger.OutTextForUnit"
+        )
         return nil
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("OutTextForUnit requires valid text string", "Trigger.OutTextForUnit")
+        _HarnessInternal.log.error(
+            "OutTextForUnit requires valid text string",
+            "Trigger.OutTextForUnit"
+        )
         return nil
     end
 
@@ -9534,9 +10821,13 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outTextForUnit, unitId, text, displayTime, clearView)
+    local success, result =
+        pcall(trigger.action.outTextForUnit, unitId, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display unit text: " .. tostring(result), "Trigger.OutTextForUnit")
+        _HarnessInternal.log.error(
+            "Failed to display unit text: " .. tostring(result),
+            "Trigger.OutTextForUnit"
+        )
         return nil
     end
 
@@ -9571,18 +10862,28 @@ end
 ---@usage OutSoundForCoalition(coalition.side.RED, "sounds/warning.ogg")
 function OutSoundForCoalition(coalitionId, soundFile, soundType)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("OutSoundForCoalition requires valid coalition ID", "Trigger.OutSoundForCoalition")
+        _HarnessInternal.log.error(
+            "OutSoundForCoalition requires valid coalition ID",
+            "Trigger.OutSoundForCoalition"
+        )
         return nil
     end
 
     if not soundFile or type(soundFile) ~= "string" then
-        _HarnessInternal.log.error("OutSoundForCoalition requires valid sound file path", "Trigger.OutSoundForCoalition")
+        _HarnessInternal.log.error(
+            "OutSoundForCoalition requires valid sound file path",
+            "Trigger.OutSoundForCoalition"
+        )
         return nil
     end
 
-    local success, result = pcall(trigger.action.outSoundForCoalition, coalitionId, soundFile, soundType)
+    local success, result =
+        pcall(trigger.action.outSoundForCoalition, coalitionId, soundFile, soundType)
     if not success then
-        _HarnessInternal.log.error("Failed to play coalition sound: " .. tostring(result), "Trigger.OutSoundForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to play coalition sound: " .. tostring(result),
+            "Trigger.OutSoundForCoalition"
+        )
         return nil
     end
 
@@ -9596,7 +10897,10 @@ end
 ---@usage Explosion({x=1000, y=100, z=2000}, 500)
 function Explosion(pos, power)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("Explosion requires valid position with x, y, z", "Trigger.Explosion")
+        _HarnessInternal.log.error(
+            "Explosion requires valid position with x, y, z",
+            "Trigger.Explosion"
+        )
         return nil
     end
 
@@ -9607,7 +10911,10 @@ function Explosion(pos, power)
 
     local success, result = pcall(trigger.action.explosion, pos, power)
     if not success then
-        _HarnessInternal.log.error("Failed to create explosion: " .. tostring(result), "Trigger.Explosion")
+        _HarnessInternal.log.error(
+            "Failed to create explosion: " .. tostring(result),
+            "Trigger.Explosion"
+        )
         return nil
     end
 
@@ -9650,18 +10957,27 @@ end
 ---@usage EffectSmokeBig({x=1000, y=0, z=2000}, trigger.effectPresets.BigSmoke)
 function EffectSmokeBig(pos, smokePreset, density, name)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("EffectSmokeBig requires valid position with x, y, z", "Trigger.EffectSmokeBig")
+        _HarnessInternal.log.error(
+            "EffectSmokeBig requires valid position with x, y, z",
+            "Trigger.EffectSmokeBig"
+        )
         return nil
     end
 
     if not smokePreset or type(smokePreset) ~= "number" then
-        _HarnessInternal.log.error("EffectSmokeBig requires valid smoke preset enum", "Trigger.EffectSmokeBig")
+        _HarnessInternal.log.error(
+            "EffectSmokeBig requires valid smoke preset enum",
+            "Trigger.EffectSmokeBig"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.effectSmokeBig, pos, smokePreset, density, name)
     if not success then
-        _HarnessInternal.log.error("Failed to create big smoke effect: " .. tostring(result), "Trigger.EffectSmokeBig")
+        _HarnessInternal.log.error(
+            "Failed to create big smoke effect: " .. tostring(result),
+            "Trigger.EffectSmokeBig"
+        )
         return nil
     end
 
@@ -9674,13 +10990,19 @@ end
 ---@usage EffectSmokeStop("smoke1")
 function EffectSmokeStop(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("EffectSmokeStop requires valid smoke effect name", "Trigger.EffectSmokeStop")
+        _HarnessInternal.log.error(
+            "EffectSmokeStop requires valid smoke effect name",
+            "Trigger.EffectSmokeStop"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.effectSmokeStop, name)
     if not success then
-        _HarnessInternal.log.error("Failed to stop smoke effect: " .. tostring(result), "Trigger.EffectSmokeStop")
+        _HarnessInternal.log.error(
+            "Failed to stop smoke effect: " .. tostring(result),
+            "Trigger.EffectSmokeStop"
+        )
         return nil
     end
 
@@ -9694,7 +11016,10 @@ end
 ---@usage IlluminationBomb({x=1000, y=500, z=2000}, 2000000)
 function IlluminationBomb(pos, power)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("IlluminationBomb requires valid position with x, y, z", "Trigger.IlluminationBomb")
+        _HarnessInternal.log.error(
+            "IlluminationBomb requires valid position with x, y, z",
+            "Trigger.IlluminationBomb"
+        )
         return nil
     end
 
@@ -9704,7 +11029,10 @@ function IlluminationBomb(pos, power)
 
     local success, result = pcall(trigger.action.illuminationBomb, pos, power)
     if not success then
-        _HarnessInternal.log.error("Failed to create illumination bomb: " .. tostring(result), "Trigger.IlluminationBomb")
+        _HarnessInternal.log.error(
+            "Failed to create illumination bomb: " .. tostring(result),
+            "Trigger.IlluminationBomb"
+        )
         return nil
     end
 
@@ -9719,12 +11047,18 @@ end
 ---@usage SignalFlare({x=1000, y=100, z=2000}, trigger.flareColor.Red, math.rad(45))
 function SignalFlare(pos, flareColor, azimuth)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("SignalFlare requires valid position with x, y, z", "Trigger.SignalFlare")
+        _HarnessInternal.log.error(
+            "SignalFlare requires valid position with x, y, z",
+            "Trigger.SignalFlare"
+        )
         return nil
     end
 
     if not flareColor or type(flareColor) ~= "number" then
-        _HarnessInternal.log.error("SignalFlare requires valid flare color enum", "Trigger.SignalFlare")
+        _HarnessInternal.log.error(
+            "SignalFlare requires valid flare color enum",
+            "Trigger.SignalFlare"
+        )
         return nil
     end
 
@@ -9734,7 +11068,10 @@ function SignalFlare(pos, flareColor, azimuth)
 
     local success, result = pcall(trigger.action.signalFlare, pos, flareColor, azimuth)
     if not success then
-        _HarnessInternal.log.error("Failed to create signal flare: " .. tostring(result), "Trigger.SignalFlare")
+        _HarnessInternal.log.error(
+            "Failed to create signal flare: " .. tostring(result),
+            "Trigger.SignalFlare"
+        )
         return nil
     end
 
@@ -9753,12 +11090,18 @@ end
 ---@usage RadioTransmission("sounds/message.ogg", {x=1000, y=100, z=2000}, 0, true, 124000000, 100, "radio1")
 function RadioTransmission(filename, pos, modulation, loop, frequency, power, name)
     if not filename or type(filename) ~= "string" then
-        _HarnessInternal.log.error("RadioTransmission requires valid filename", "Trigger.RadioTransmission")
+        _HarnessInternal.log.error(
+            "RadioTransmission requires valid filename",
+            "Trigger.RadioTransmission"
+        )
         return nil
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("RadioTransmission requires valid position with x, y, z", "Trigger.RadioTransmission")
+        _HarnessInternal.log.error(
+            "RadioTransmission requires valid position with x, y, z",
+            "Trigger.RadioTransmission"
+        )
         return nil
     end
 
@@ -9774,9 +11117,21 @@ function RadioTransmission(filename, pos, modulation, loop, frequency, power, na
         power = 100
     end
 
-    local success, result = pcall(trigger.action.radioTransmission, filename, pos, modulation, loop, frequency, power, name)
+    local success, result = pcall(
+        trigger.action.radioTransmission,
+        filename,
+        pos,
+        modulation,
+        loop,
+        frequency,
+        power,
+        name
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to start radio transmission: " .. tostring(result), "Trigger.RadioTransmission")
+        _HarnessInternal.log.error(
+            "Failed to start radio transmission: " .. tostring(result),
+            "Trigger.RadioTransmission"
+        )
         return nil
     end
 
@@ -9789,13 +11144,19 @@ end
 ---@usage StopRadioTransmission("radio1")
 function StopRadioTransmission(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("StopRadioTransmission requires valid transmission name", "Trigger.StopRadioTransmission")
+        _HarnessInternal.log.error(
+            "StopRadioTransmission requires valid transmission name",
+            "Trigger.StopRadioTransmission"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.stopRadioTransmission, name)
     if not success then
-        _HarnessInternal.log.error("Failed to stop radio transmission: " .. tostring(result), "Trigger.StopRadioTransmission")
+        _HarnessInternal.log.error(
+            "Failed to stop radio transmission: " .. tostring(result),
+            "Trigger.StopRadioTransmission"
+        )
         return nil
     end
 
@@ -9809,18 +11170,27 @@ end
 ---@usage SetMarkupRadius(1001, 5000)
 function SetMarkupRadius(markId, radius)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupRadius requires valid mark ID", "Trigger.SetMarkupRadius")
+        _HarnessInternal.log.error(
+            "SetMarkupRadius requires valid mark ID",
+            "Trigger.SetMarkupRadius"
+        )
         return nil
     end
 
     if not radius or type(radius) ~= "number" or radius <= 0 then
-        _HarnessInternal.log.error("SetMarkupRadius requires valid radius", "Trigger.SetMarkupRadius")
+        _HarnessInternal.log.error(
+            "SetMarkupRadius requires valid radius",
+            "Trigger.SetMarkupRadius"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupRadius, markId, radius)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup radius: " .. tostring(result), "Trigger.SetMarkupRadius")
+        _HarnessInternal.log.error(
+            "Failed to set markup radius: " .. tostring(result),
+            "Trigger.SetMarkupRadius"
+        )
         return nil
     end
 
@@ -9839,13 +11209,19 @@ function SetMarkupText(markId, text)
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("SetMarkupText requires valid text string", "Trigger.SetMarkupText")
+        _HarnessInternal.log.error(
+            "SetMarkupText requires valid text string",
+            "Trigger.SetMarkupText"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupText, markId, text)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup text: " .. tostring(result), "Trigger.SetMarkupText")
+        _HarnessInternal.log.error(
+            "Failed to set markup text: " .. tostring(result),
+            "Trigger.SetMarkupText"
+        )
         return nil
     end
 
@@ -9859,18 +11235,27 @@ end
 ---@usage SetMarkupColor(1001, {r=1, g=0, b=0, a=1})
 function SetMarkupColor(markId, color)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupColor requires valid mark ID", "Trigger.SetMarkupColor")
+        _HarnessInternal.log.error(
+            "SetMarkupColor requires valid mark ID",
+            "Trigger.SetMarkupColor"
+        )
         return nil
     end
 
     if not color or type(color) ~= "table" then
-        _HarnessInternal.log.error("SetMarkupColor requires valid color table", "Trigger.SetMarkupColor")
+        _HarnessInternal.log.error(
+            "SetMarkupColor requires valid color table",
+            "Trigger.SetMarkupColor"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupColor, markId, color)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup color: " .. tostring(result), "Trigger.SetMarkupColor")
+        _HarnessInternal.log.error(
+            "Failed to set markup color: " .. tostring(result),
+            "Trigger.SetMarkupColor"
+        )
         return nil
     end
 
@@ -9884,18 +11269,27 @@ end
 ---@usage SetMarkupColorFill(1001, {r=0, g=1, b=0, a=0.5})
 function SetMarkupColorFill(markId, colorFill)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupColorFill requires valid mark ID", "Trigger.SetMarkupColorFill")
+        _HarnessInternal.log.error(
+            "SetMarkupColorFill requires valid mark ID",
+            "Trigger.SetMarkupColorFill"
+        )
         return nil
     end
 
     if not colorFill or type(colorFill) ~= "table" then
-        _HarnessInternal.log.error("SetMarkupColorFill requires valid color fill table", "Trigger.SetMarkupColorFill")
+        _HarnessInternal.log.error(
+            "SetMarkupColorFill requires valid color fill table",
+            "Trigger.SetMarkupColorFill"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupColorFill, markId, colorFill)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup color fill: " .. tostring(result), "Trigger.SetMarkupColorFill")
+        _HarnessInternal.log.error(
+            "Failed to set markup color fill: " .. tostring(result),
+            "Trigger.SetMarkupColorFill"
+        )
         return nil
     end
 
@@ -9909,18 +11303,27 @@ end
 ---@usage SetMarkupFontSize(1001, 18)
 function SetMarkupFontSize(markId, fontSize)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupFontSize requires valid mark ID", "Trigger.SetMarkupFontSize")
+        _HarnessInternal.log.error(
+            "SetMarkupFontSize requires valid mark ID",
+            "Trigger.SetMarkupFontSize"
+        )
         return nil
     end
 
     if not fontSize or type(fontSize) ~= "number" or fontSize <= 0 then
-        _HarnessInternal.log.error("SetMarkupFontSize requires valid font size", "Trigger.SetMarkupFontSize")
+        _HarnessInternal.log.error(
+            "SetMarkupFontSize requires valid font size",
+            "Trigger.SetMarkupFontSize"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupFontSize, markId, fontSize)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup font size: " .. tostring(result), "Trigger.SetMarkupFontSize")
+        _HarnessInternal.log.error(
+            "Failed to set markup font size: " .. tostring(result),
+            "Trigger.SetMarkupFontSize"
+        )
         return nil
     end
 
@@ -9939,7 +11342,10 @@ function RemoveMark(markId)
 
     local success, result = pcall(trigger.action.removeMark, markId)
     if not success then
-        _HarnessInternal.log.error("Failed to remove mark: " .. tostring(result), "Trigger.RemoveMark")
+        _HarnessInternal.log.error(
+            "Failed to remove mark: " .. tostring(result),
+            "Trigger.RemoveMark"
+        )
         return nil
     end
 
@@ -9965,13 +11371,19 @@ function MarkToAll(markId, text, pos, readOnly, message)
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("MarkToAll requires valid position with x, y, z", "Trigger.MarkToAll")
+        _HarnessInternal.log.error(
+            "MarkToAll requires valid position with x, y, z",
+            "Trigger.MarkToAll"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.markToAll, markId, text, pos, readOnly, message)
     if not success then
-        _HarnessInternal.log.error("Failed to create mark for all: " .. tostring(result), "Trigger.MarkToAll")
+        _HarnessInternal.log.error(
+            "Failed to create mark for all: " .. tostring(result),
+            "Trigger.MarkToAll"
+        )
         return nil
     end
 
@@ -9989,12 +11401,18 @@ end
 ---@usage MarkToCoalition(1001, "Enemy Base", {x=1000, y=0, z=2000}, coalition.side.RED, true)
 function MarkToCoalition(markId, text, pos, coalitionId, readOnly, message)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("MarkToCoalition requires valid mark ID", "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "MarkToCoalition requires valid mark ID",
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("MarkToCoalition requires valid coalition ID", "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "MarkToCoalition requires valid coalition ID",
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
@@ -10003,13 +11421,20 @@ function MarkToCoalition(markId, text, pos, coalitionId, readOnly, message)
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("MarkToCoalition requires valid position with x, y, z", "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "MarkToCoalition requires valid position with x, y, z",
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
-    local success, result = pcall(trigger.action.markToCoalition, markId, text, pos, coalitionId, readOnly, message)
+    local success, result =
+        pcall(trigger.action.markToCoalition, markId, text, pos, coalitionId, readOnly, message)
     if not success then
-        _HarnessInternal.log.error("Failed to create mark for coalition: " .. tostring(result), "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "Failed to create mark for coalition: " .. tostring(result),
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
@@ -10041,13 +11466,20 @@ function MarkToGroup(markId, text, pos, groupId, readOnly, message)
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("MarkToGroup requires valid position with x, y, z", "Trigger.MarkToGroup")
+        _HarnessInternal.log.error(
+            "MarkToGroup requires valid position with x, y, z",
+            "Trigger.MarkToGroup"
+        )
         return nil
     end
 
-    local success, result = pcall(trigger.action.markToGroup, markId, text, pos, groupId, readOnly, message)
+    local success, result =
+        pcall(trigger.action.markToGroup, markId, text, pos, groupId, readOnly, message)
     if not success then
-        _HarnessInternal.log.error("Failed to create mark for group: " .. tostring(result), "Trigger.MarkToGroup")
+        _HarnessInternal.log.error(
+            "Failed to create mark for group: " .. tostring(result),
+            "Trigger.MarkToGroup"
+        )
         return nil
     end
 
@@ -10064,12 +11496,25 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage LineToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function LineToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd, lineTypeOrColor, readOnlyOrLineType, messageOrReadOnly)
+function LineToAll(
+    coalitionOrId,
+    startOrIdOrStart,
+    endOrStartOrEnd,
+    colorOrEnd,
+    lineTypeOrColor,
+    readOnlyOrLineType,
+    messageOrReadOnly
+)
     -- Backward-compatible signature handling:
     -- Old: (id, startPos, endPos, color, lineType, readOnly, message)
     -- New (DCS): (coalition, id, startPos, endPos, color, lineType, readOnly, message)
     local coalitionArg, idArg, startPos, endPos, color, lineType, readOnly, message
-    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+    if
+        type(startOrIdOrStart) == "table"
+        and startOrIdOrStart.x
+        and startOrIdOrStart.y
+        and startOrIdOrStart.z
+    then
         -- Old signature without coalition
         coalitionArg = -1
         idArg = coalitionOrId
@@ -10096,21 +11541,46 @@ function LineToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd,
         return nil
     end
 
-    if not startPos or type(startPos) ~= "table" or not startPos.x or not startPos.y or not startPos.z then
-        _HarnessInternal.log.error("LineToAll requires valid start position with x, y, z", "Trigger.LineToAll")
+    if
+        not startPos
+        or type(startPos) ~= "table"
+        or not startPos.x
+        or not startPos.y
+        or not startPos.z
+    then
+        _HarnessInternal.log.error(
+            "LineToAll requires valid start position with x, y, z",
+            "Trigger.LineToAll"
+        )
         return nil
     end
 
     if not endPos or type(endPos) ~= "table" or not endPos.x or not endPos.y or not endPos.z then
-        _HarnessInternal.log.error("LineToAll requires valid end position with x, y, z", "Trigger.LineToAll")
+        _HarnessInternal.log.error(
+            "LineToAll requires valid end position with x, y, z",
+            "Trigger.LineToAll"
+        )
         return nil
     end
 
     color = _normalizeColor(color)
     local colorArr = _toArrayColor(color)
-    local success, result = pcall(trigger.action.lineToAll, coalitionArg, idArg, startPos, endPos, colorArr, lineType, readOnly, message)
+    local success, result = pcall(
+        trigger.action.lineToAll,
+        coalitionArg,
+        idArg,
+        startPos,
+        endPos,
+        colorArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create line for all: " .. tostring(result), "Trigger.LineToAll")
+        _HarnessInternal.log.error(
+            "Failed to create line for all: " .. tostring(result),
+            "Trigger.LineToAll"
+        )
         return nil
     end
 
@@ -10128,11 +11598,26 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage CircleToAll(1001, {x=1000, y=0, z=2000}, 500, {r=1, g=0, b=0, a=1}, {r=1, g=0, b=0, a=0.3})
-function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, colorOrRadiusOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function CircleToAll(
+    coalitionOrId,
+    centerOrIdOrCenter,
+    radiusOrCenterOrRadius,
+    colorOrRadiusOrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, center, radius, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, center, radius, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, center, radius, color, fillColor, lineType, readOnly, message
-    if type(centerOrIdOrCenter) == "table" and centerOrIdOrCenter.x and centerOrIdOrCenter.y and centerOrIdOrCenter.z and type(radiusOrCenterOrRadius) == "number" then
+    if
+        type(centerOrIdOrCenter) == "table"
+        and centerOrIdOrCenter.x
+        and centerOrIdOrCenter.y
+        and centerOrIdOrCenter.z
+        and type(radiusOrCenterOrRadius) == "number"
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         center = centerOrIdOrCenter
@@ -10160,7 +11645,10 @@ function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, 
     end
 
     if not center or type(center) ~= "table" or not center.x or not center.y or not center.z then
-        _HarnessInternal.log.error("CircleToAll requires valid center position with x, y, z", "Trigger.CircleToAll")
+        _HarnessInternal.log.error(
+            "CircleToAll requires valid center position with x, y, z",
+            "Trigger.CircleToAll"
+        )
         return nil
     end
 
@@ -10173,9 +11661,23 @@ function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, 
     fillColor = _defaultFill(color, fillColor)
     local colorArr = _toArrayColor(color)
     local fillArr = _toArrayColor(fillColor)
-    local success, result = pcall(trigger.action.circleToAll, coalitionArg, idArg, center, radius, colorArr, fillArr, lineType, readOnly, message)
+    local success, result = pcall(
+        trigger.action.circleToAll,
+        coalitionArg,
+        idArg,
+        center,
+        radius,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create circle for all: " .. tostring(result), "Trigger.CircleToAll")
+        _HarnessInternal.log.error(
+            "Failed to create circle for all: " .. tostring(result),
+            "Trigger.CircleToAll"
+        )
         return nil
     end
 
@@ -10193,11 +11695,25 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage RectToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=0, g=1, b=0, a=1})
-function RectToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function RectToAll(
+    coalitionOrId,
+    startOrIdOrStart,
+    endOrStartOrEnd,
+    colorOrEndOrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
-    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+    if
+        type(startOrIdOrStart) == "table"
+        and startOrIdOrStart.x
+        and startOrIdOrStart.y
+        and startOrIdOrStart.z
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         startPos = startOrIdOrStart
@@ -10224,21 +11740,47 @@ function RectToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndO
         return nil
     end
 
-    if not startPos or type(startPos) ~= "table" or not startPos.x or not startPos.y or not startPos.z then
-        _HarnessInternal.log.error("RectToAll requires valid start position with x, y, z", "Trigger.RectToAll")
+    if
+        not startPos
+        or type(startPos) ~= "table"
+        or not startPos.x
+        or not startPos.y
+        or not startPos.z
+    then
+        _HarnessInternal.log.error(
+            "RectToAll requires valid start position with x, y, z",
+            "Trigger.RectToAll"
+        )
         return nil
     end
 
     if not endPos or type(endPos) ~= "table" or not endPos.x or not endPos.y or not endPos.z then
-        _HarnessInternal.log.error("RectToAll requires valid end position with x, y, z", "Trigger.RectToAll")
+        _HarnessInternal.log.error(
+            "RectToAll requires valid end position with x, y, z",
+            "Trigger.RectToAll"
+        )
         return nil
     end
 
-    local colorArr = _toArrayColor(color or {1,1,1,1})
-    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
-    local success, result = pcall(trigger.action.rectToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local success, result = pcall(
+        trigger.action.rectToAll,
+        coalitionArg,
+        idArg,
+        startPos,
+        endPos,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create rectangle for all: " .. tostring(result), "Trigger.RectToAll")
+        _HarnessInternal.log.error(
+            "Failed to create rectangle for all: " .. tostring(result),
+            "Trigger.RectToAll"
+        )
         return nil
     end
 
@@ -10258,20 +11800,45 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage QuadToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=2000}, {x=2000, y=0, z=3000}, {x=1000, y=0, z=3000})
-function QuadToAll(coalitionOrId, p1OrIdOrP1, p2OrP1OrP2, p3OrP2OrP3, p4OrP3OrP4, colorOrP4OrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function QuadToAll(
+    coalitionOrId,
+    p1OrIdOrP1,
+    p2OrP1OrP2,
+    p3OrP2OrP3,
+    p4OrP3OrP4,
+    colorOrP4OrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message
     if type(p1OrIdOrP1) == "table" and p1OrIdOrP1.x and p1OrIdOrP1.y and p1OrIdOrP1.z then
         coalitionArg = -1
         idArg = coalitionOrId
-        p1 = p1OrIdOrP1; p2 = p2OrP1OrP2; p3 = p3OrP2OrP3; p4 = p4OrP3OrP4
-        color = colorOrP4OrColor; fillColor = fillColorOrColorOrFill; lineType = lineTypeOrFillOrLine; readOnly = readOnlyOrLineOrReadOnly; message = messageOrReadOnly
+        p1 = p1OrIdOrP1
+        p2 = p2OrP1OrP2
+        p3 = p3OrP2OrP3
+        p4 = p4OrP3OrP4
+        color = colorOrP4OrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
     else
         coalitionArg = coalitionOrId
         idArg = p1OrIdOrP1
-        p1 = p2OrP1OrP2; p2 = p3OrP2OrP3; p3 = p4OrP3OrP4; p4 = colorOrP4OrColor
-        color = fillColorOrColorOrFill; fillColor = lineTypeOrFillOrLine; lineType = readOnlyOrLineOrReadOnly; readOnly = messageOrReadOnly; message = nil
+        p1 = p2OrP1OrP2
+        p2 = p3OrP2OrP3
+        p3 = p4OrP3OrP4
+        p4 = colorOrP4OrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
     end
 
     if not idArg or type(idArg) ~= "number" then
@@ -10280,27 +11847,55 @@ function QuadToAll(coalitionOrId, p1OrIdOrP1, p2OrP1OrP2, p3OrP2OrP3, p4OrP3OrP4
     end
 
     if not p1 or type(p1) ~= "table" or not p1.x or not p1.y or not p1.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point1 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point1 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
     if not p2 or type(p2) ~= "table" or not p2.x or not p2.y or not p2.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point2 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point2 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
     if not p3 or type(p3) ~= "table" or not p3.x or not p3.y or not p3.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point3 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point3 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
     if not p4 or type(p4) ~= "table" or not p4.x or not p4.y or not p4.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point4 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point4 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
 
-    local colorArr = _toArrayColor(color or {1,1,1,1})
-    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
-    local success, result = pcall(trigger.action.quadToAll, coalitionArg, idArg, p1, p2, p3, p4, colorArr, fillArr, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local success, result = pcall(
+        trigger.action.quadToAll,
+        coalitionArg,
+        idArg,
+        p1,
+        p2,
+        p3,
+        p4,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create quad for all: " .. tostring(result), "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "Failed to create quad for all: " .. tostring(result),
+            "Trigger.QuadToAll"
+        )
         return nil
     end
 
@@ -10318,11 +11913,26 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage TextToAll(1001, "Objective", {x=1000, y=0, z=2000}, {r=1, g=1, b=1, a=1}, nil, 14)
-function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrColor, fillColorOrColorOrFill, fontSizeOrFillOrFont, readOnlyOrFontOrReadOnly, messageOrReadOnly)
+function TextToAll(
+    coalitionOrId,
+    textOrIdOrText,
+    posOrTextOrPos,
+    colorOrPosOrColor,
+    fillColorOrColorOrFill,
+    fontSizeOrFillOrFont,
+    readOnlyOrFontOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, text, pos, color, fillColor, fontSize, readOnly, message)
     -- New: (coalition, id, text, pos, color, fillColor, fontSize, readOnly, message)
     local coalitionArg, idArg, text, pos, color, fillColor, fontSize, readOnly, message
-    if type(textOrIdOrText) == "string" and type(posOrTextOrPos) == "table" and posOrTextOrPos.x and posOrTextOrPos.y and posOrTextOrPos.z then
+    if
+        type(textOrIdOrText) == "string"
+        and type(posOrTextOrPos) == "table"
+        and posOrTextOrPos.x
+        and posOrTextOrPos.y
+        and posOrTextOrPos.z
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         text = textOrIdOrText
@@ -10355,7 +11965,10 @@ function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrCo
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("TextToAll requires valid position with x, y, z", "Trigger.TextToAll")
+        _HarnessInternal.log.error(
+            "TextToAll requires valid position with x, y, z",
+            "Trigger.TextToAll"
+        )
         return nil
     end
 
@@ -10364,9 +11977,22 @@ function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrCo
     local colorArr = _toArrayColor(color)
     local fillArr = _toArrayColor(fillColor)
     -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
-    local success, result = pcall(trigger.action.textToAll, coalitionArg, idArg, pos, colorArr, fillArr, fontSize, readOnly, text)
+    local success, result = pcall(
+        trigger.action.textToAll,
+        coalitionArg,
+        idArg,
+        pos,
+        colorArr,
+        fillArr,
+        fontSize,
+        readOnly,
+        text
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create text for all: " .. tostring(result), "Trigger.TextToAll")
+        _HarnessInternal.log.error(
+            "Failed to create text for all: " .. tostring(result),
+            "Trigger.TextToAll"
+        )
         return nil
     end
 
@@ -10384,11 +12010,25 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage ArrowToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function ArrowToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function ArrowToAll(
+    coalitionOrId,
+    startOrIdOrStart,
+    endOrStartOrEnd,
+    colorOrEndOrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
-    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+    if
+        type(startOrIdOrStart) == "table"
+        and startOrIdOrStart.x
+        and startOrIdOrStart.y
+        and startOrIdOrStart.z
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         startPos = startOrIdOrStart
@@ -10415,21 +12055,47 @@ function ArrowToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd
         return nil
     end
 
-    if not startPos or type(startPos) ~= "table" or not startPos.x or not startPos.y or not startPos.z then
-        _HarnessInternal.log.error("ArrowToAll requires valid start position with x, y, z", "Trigger.ArrowToAll")
+    if
+        not startPos
+        or type(startPos) ~= "table"
+        or not startPos.x
+        or not startPos.y
+        or not startPos.z
+    then
+        _HarnessInternal.log.error(
+            "ArrowToAll requires valid start position with x, y, z",
+            "Trigger.ArrowToAll"
+        )
         return nil
     end
 
     if not endPos or type(endPos) ~= "table" or not endPos.x or not endPos.y or not endPos.z then
-        _HarnessInternal.log.error("ArrowToAll requires valid end position with x, y, z", "Trigger.ArrowToAll")
+        _HarnessInternal.log.error(
+            "ArrowToAll requires valid end position with x, y, z",
+            "Trigger.ArrowToAll"
+        )
         return nil
     end
 
-    local colorArr = _toArrayColor(color or {1,1,1,1})
-    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
-    local success, result = pcall(trigger.action.arrowToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local success, result = pcall(
+        trigger.action.arrowToAll,
+        coalitionArg,
+        idArg,
+        startPos,
+        endPos,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create arrow for all: " .. tostring(result), "Trigger.ArrowToAll")
+        _HarnessInternal.log.error(
+            "Failed to create arrow for all: " .. tostring(result),
+            "Trigger.ArrowToAll"
+        )
         return nil
     end
 
@@ -10454,7 +12120,10 @@ function SetAITask(group, actionIndex)
 
     local success, result = pcall(trigger.action.setAITask, group, actionIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to set AI task: " .. tostring(result), "Trigger.SetAITask")
+        _HarnessInternal.log.error(
+            "Failed to set AI task: " .. tostring(result),
+            "Trigger.SetAITask"
+        )
         return nil
     end
 
@@ -10479,7 +12148,10 @@ function PushAITask(group, actionIndex)
 
     local success, result = pcall(trigger.action.pushAITask, group, actionIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to push AI task: " .. tostring(result), "Trigger.PushAITask")
+        _HarnessInternal.log.error(
+            "Failed to push AI task: " .. tostring(result),
+            "Trigger.PushAITask"
+        )
         return nil
     end
 
@@ -10492,13 +12164,19 @@ end
 ---@usage TriggerActivateGroup(group)
 function TriggerActivateGroup(group)
     if not group then
-        _HarnessInternal.log.error("TriggerActivateGroup requires valid group", "Trigger.TriggerActivateGroup")
+        _HarnessInternal.log.error(
+            "TriggerActivateGroup requires valid group",
+            "Trigger.TriggerActivateGroup"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.activateGroup, group)
     if not success then
-        _HarnessInternal.log.error("Failed to activate group: " .. tostring(result), "Trigger.TriggerActivateGroup")
+        _HarnessInternal.log.error(
+            "Failed to activate group: " .. tostring(result),
+            "Trigger.TriggerActivateGroup"
+        )
         return nil
     end
 
@@ -10511,13 +12189,19 @@ end
 ---@usage TriggerDeactivateGroup(group)
 function TriggerDeactivateGroup(group)
     if not group then
-        _HarnessInternal.log.error("TriggerDeactivateGroup requires valid group", "Trigger.TriggerDeactivateGroup")
+        _HarnessInternal.log.error(
+            "TriggerDeactivateGroup requires valid group",
+            "Trigger.TriggerDeactivateGroup"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.deactivateGroup, group)
     if not success then
-        _HarnessInternal.log.error("Failed to deactivate group: " .. tostring(result), "Trigger.TriggerDeactivateGroup")
+        _HarnessInternal.log.error(
+            "Failed to deactivate group: " .. tostring(result),
+            "Trigger.TriggerDeactivateGroup"
+        )
         return nil
     end
 
@@ -10536,7 +12220,10 @@ function SetGroupAIOn(group)
 
     local success, result = pcall(trigger.action.setGroupAIOn, group)
     if not success then
-        _HarnessInternal.log.error("Failed to set group AI on: " .. tostring(result), "Trigger.SetGroupAIOn")
+        _HarnessInternal.log.error(
+            "Failed to set group AI on: " .. tostring(result),
+            "Trigger.SetGroupAIOn"
+        )
         return nil
     end
 
@@ -10555,7 +12242,10 @@ function SetGroupAIOff(group)
 
     local success, result = pcall(trigger.action.setGroupAIOff, group)
     if not success then
-        _HarnessInternal.log.error("Failed to set group AI off: " .. tostring(result), "Trigger.SetGroupAIOff")
+        _HarnessInternal.log.error(
+            "Failed to set group AI off: " .. tostring(result),
+            "Trigger.SetGroupAIOff"
+        )
         return nil
     end
 
@@ -10568,13 +12258,19 @@ end
 ---@usage GroupStopMoving(group)
 function GroupStopMoving(group)
     if not group then
-        _HarnessInternal.log.error("GroupStopMoving requires valid group", "Trigger.GroupStopMoving")
+        _HarnessInternal.log.error(
+            "GroupStopMoving requires valid group",
+            "Trigger.GroupStopMoving"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.groupStopMoving, group)
     if not success then
-        _HarnessInternal.log.error("Failed to stop group moving: " .. tostring(result), "Trigger.GroupStopMoving")
+        _HarnessInternal.log.error(
+            "Failed to stop group moving: " .. tostring(result),
+            "Trigger.GroupStopMoving"
+        )
         return nil
     end
 
@@ -10587,13 +12283,19 @@ end
 ---@usage GroupContinueMoving(group)
 function GroupContinueMoving(group)
     if not group then
-        _HarnessInternal.log.error("GroupContinueMoving requires valid group", "Trigger.GroupContinueMoving")
+        _HarnessInternal.log.error(
+            "GroupContinueMoving requires valid group",
+            "Trigger.GroupContinueMoving"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.groupContinueMoving, group)
     if not success then
-        _HarnessInternal.log.error("Failed to continue group moving: " .. tostring(result), "Trigger.GroupContinueMoving")
+        _HarnessInternal.log.error(
+            "Failed to continue group moving: " .. tostring(result),
+            "Trigger.GroupContinueMoving"
+        )
         return nil
     end
 
@@ -10612,7 +12314,10 @@ end
 function MarkupToAll(shapeId, coalition, id, point1, ...)
     -- Validate shapeId
     if not shapeId or type(shapeId) ~= "number" or shapeId < 1 or shapeId > 7 then
-        _HarnessInternal.log.error("MarkupToAll requires valid shape ID (1-7)", "Trigger.MarkupToAll")
+        _HarnessInternal.log.error(
+            "MarkupToAll requires valid shape ID (1-7)",
+            "Trigger.MarkupToAll"
+        )
         return nil
     end
 
@@ -10630,13 +12335,16 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
 
     -- Validate point1
     if not point1 or type(point1) ~= "table" or not point1.x or not point1.y or not point1.z then
-        _HarnessInternal.log.error("MarkupToAll requires valid first point with x, y, z", "Trigger.MarkupToAll")
+        _HarnessInternal.log.error(
+            "MarkupToAll requires valid first point with x, y, z",
+            "Trigger.MarkupToAll"
+        )
         return nil
     end
 
-    local varargs = {...}
-    local params = {shapeId, coalition, id, point1}
-    
+    local varargs = { ... }
+    local params = { shapeId, coalition, id, point1 }
+
     -- Add all variadic arguments to params
     for i = 1, #varargs do
         table.insert(params, varargs[i])
@@ -10646,9 +12354,12 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
     local success, result = pcall(function()
         return trigger.action.markupToAll(unpack(params))
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to create markup shape: " .. tostring(result), "Trigger.MarkupToAll")
+        _HarnessInternal.log.error(
+            "Failed to create markup shape: " .. tostring(result),
+            "Trigger.MarkupToAll"
+        )
         return nil
     end
 
@@ -10673,12 +12384,14 @@ function GetUnit(unitName)
         _HarnessInternal.log.error("GetUnit requires string unit name", "GetUnit")
         return nil
     end
-    
+
     -- Check cache first
     local cached = _HarnessInternal.cache.units[unitName]
     if cached then
         -- Verify unit still exists
-        local success, exists = pcall(function() return cached:isExist() end)
+        local success, exists = pcall(function()
+            return cached:isExist()
+        end)
         if success and exists then
             _HarnessInternal.cache.stats.hits = _HarnessInternal.cache.stats.hits + 1
             return cached
@@ -10687,23 +12400,23 @@ function GetUnit(unitName)
             RemoveUnitFromCache(unitName)
         end
     end
-    
+
     -- Get from DCS API
     local success, unit = pcall(Unit.getByName, unitName)
     if not success then
         _HarnessInternal.log.error("Failed to get unit: " .. tostring(unit), "GetUnit")
         return nil
     end
-    
+
     if not unit then
         _HarnessInternal.log.debug("Unit not found: " .. unitName, "GetUnit")
         return nil
     end
-    
+
     -- Add to cache
     _HarnessInternal.cache.units[unitName] = unit
     _HarnessInternal.cache.stats.misses = _HarnessInternal.cache.stats.misses + 1
-    
+
     return unit
 end
 
@@ -10716,13 +12429,16 @@ function UnitExists(unitName)
     if not unit then
         return false
     end
-    
+
     local success, exists = pcall(unit.isExist, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to check unit existence: " .. tostring(exists), "UnitExists")
+        _HarnessInternal.log.error(
+            "Failed to check unit existence: " .. tostring(exists),
+            "UnitExists"
+        )
         return false
     end
-    
+
     return exists
 end
 
@@ -10732,7 +12448,7 @@ end
 ---@usage local pos = GetUnitPosition("Player") or GetUnitPosition(unitObject)
 function GetUnitPosition(unitOrName)
     local unit
-    
+
     -- Handle both unit objects and unit names
     if type(unitOrName) == "string" then
         unit = GetUnit(unitOrName)
@@ -10742,16 +12458,22 @@ function GetUnitPosition(unitOrName)
     elseif type(unitOrName) == "table" and unitOrName.getPosition then
         unit = unitOrName
     else
-        _HarnessInternal.log.error("GetUnitPosition requires unit name or unit object", "GetUnitPosition")
+        _HarnessInternal.log.error(
+            "GetUnitPosition requires unit name or unit object",
+            "GetUnitPosition"
+        )
         return nil
     end
-    
+
     local success, position = pcall(unit.getPosition, unit)
     if not success or not position or not position.p then
-        _HarnessInternal.log.error("Failed to get unit position: " .. tostring(position), "GetUnitPosition")
+        _HarnessInternal.log.error(
+            "Failed to get unit position: " .. tostring(position),
+            "GetUnitPosition"
+        )
         return nil
     end
-    
+
     return position.p
 end
 
@@ -10764,23 +12486,26 @@ function GetUnitHeading(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, position = pcall(unit.getPosition, unit)
     if not success or not position then
-        _HarnessInternal.log.error("Failed to get unit position for heading: " .. tostring(position), "GetUnitHeading")
+        _HarnessInternal.log.error(
+            "Failed to get unit position for heading: " .. tostring(position),
+            "GetUnitHeading"
+        )
         return nil
     end
-    
+
     -- Extract heading from orientation matrix
     -- position.x is the forward vector, so heading is atan2(forward.z, forward.x)
     local heading = math.atan2(position.x.z, position.x.x)
     heading = math.deg(heading)
-    
+
     -- Normalize to 0-360
     if heading < 0 then
         heading = heading + 360
     end
-    
+
     return heading
 end
 
@@ -10793,13 +12518,16 @@ function GetUnitVelocity(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, velocity = pcall(unit.getVelocity, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit velocity: " .. tostring(velocity), "GetUnitVelocity")
+        _HarnessInternal.log.error(
+            "Failed to get unit velocity: " .. tostring(velocity),
+            "GetUnitVelocity"
+        )
         return nil
     end
-    
+
     return velocity
 end
 
@@ -10812,13 +12540,13 @@ function GetUnitType(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, typeName = pcall(unit.getTypeName, unit)
     if not success then
         _HarnessInternal.log.error("Failed to get unit type: " .. tostring(typeName), "GetUnitType")
         return nil
     end
-    
+
     return typeName
 end
 
@@ -10828,26 +12556,32 @@ end
 ---@usage local coalition = GetUnitCoalition("Player") or GetUnitCoalition(unitObject)
 function GetUnitCoalition(unitOrName)
     local unit
-    
+
     -- Handle both unit objects and unit names
     if type(unitOrName) == "string" then
         unit = GetUnit(unitOrName)
         if not unit then
-            return 0  -- Return 0 instead of nil for consistency
+            return 0 -- Return 0 instead of nil for consistency
         end
     elseif type(unitOrName) == "table" and unitOrName.getCoalition then
         unit = unitOrName
     else
-        _HarnessInternal.log.error("GetUnitCoalition requires unit name or unit object", "GetUnitCoalition")
+        _HarnessInternal.log.error(
+            "GetUnitCoalition requires unit name or unit object",
+            "GetUnitCoalition"
+        )
         return 0
     end
-    
+
     local success, coalition = pcall(unit.getCoalition, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit coalition: " .. tostring(coalition), "GetUnitCoalition")
+        _HarnessInternal.log.error(
+            "Failed to get unit coalition: " .. tostring(coalition),
+            "GetUnitCoalition"
+        )
         return 0
     end
-    
+
     return coalition or 0
 end
 
@@ -10860,13 +12594,16 @@ function GetUnitCountry(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, country = pcall(unit.getCountry, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit country: " .. tostring(country), "GetUnitCountry")
+        _HarnessInternal.log.error(
+            "Failed to get unit country: " .. tostring(country),
+            "GetUnitCountry"
+        )
         return nil
     end
-    
+
     return country
 end
 
@@ -10879,13 +12616,13 @@ function GetUnitGroup(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, group = pcall(unit.getGroup, unit)
     if not success then
         _HarnessInternal.log.error("Failed to get unit group: " .. tostring(group), "GetUnitGroup")
         return nil
     end
-    
+
     return group
 end
 
@@ -10898,13 +12635,16 @@ function GetUnitPlayerName(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, playerName = pcall(unit.getPlayerName, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit player name: " .. tostring(playerName), "GetUnitPlayerName")
+        _HarnessInternal.log.error(
+            "Failed to get unit player name: " .. tostring(playerName),
+            "GetUnitPlayerName"
+        )
         return nil
     end
-    
+
     return playerName
 end
 
@@ -10917,13 +12657,13 @@ function GetUnitLife(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, life = pcall(unit.getLife, unit)
     if not success then
         _HarnessInternal.log.error("Failed to get unit life: " .. tostring(life), "GetUnitLife")
         return nil
     end
-    
+
     return life
 end
 
@@ -10936,13 +12676,16 @@ function GetUnitLife0(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, life0 = pcall(unit.getLife0, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit max life: " .. tostring(life0), "GetUnitLife0")
+        _HarnessInternal.log.error(
+            "Failed to get unit max life: " .. tostring(life0),
+            "GetUnitLife0"
+        )
         return nil
     end
-    
+
     return life0
 end
 
@@ -10955,13 +12698,13 @@ function GetUnitFuel(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, fuel = pcall(unit.getFuel, unit)
     if not success then
         _HarnessInternal.log.error("Failed to get unit fuel: " .. tostring(fuel), "GetUnitFuel")
         return nil
     end
-    
+
     return fuel
 end
 
@@ -10974,13 +12717,16 @@ function IsUnitInAir(unitName)
     if not unit then
         return false
     end
-    
+
     local success, inAir = pcall(unit.inAir, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to check if unit in air: " .. tostring(inAir), "IsUnitInAir")
+        _HarnessInternal.log.error(
+            "Failed to check if unit in air: " .. tostring(inAir),
+            "IsUnitInAir"
+        )
         return false
     end
-    
+
     return inAir
 end
 
@@ -10993,13 +12739,13 @@ function GetUnitAmmo(unitName)
     if not unit then
         return nil
     end
-    
+
     local success, ammo = pcall(unit.getAmmo, unit)
     if not success then
         _HarnessInternal.log.error("Failed to get unit ammo: " .. tostring(ammo), "GetUnitAmmo")
         return nil
     end
-    
+
     return ammo
 end
 
@@ -11014,13 +12760,15 @@ function GetUnitID(unit)
         _HarnessInternal.log.error("GetUnitID requires unit", "GetUnitID")
         return nil
     end
-    
-    local success, id = pcall(function() return unit:getID() end)
+
+    local success, id = pcall(function()
+        return unit:getID()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get unit ID: " .. tostring(id), "GetUnitID")
         return nil
     end
-    
+
     return id
 end
 
@@ -11033,13 +12781,18 @@ function GetUnitNumber(unit)
         _HarnessInternal.log.error("GetUnitNumber requires unit", "GetUnitNumber")
         return nil
     end
-    
-    local success, number = pcall(function() return unit:getNumber() end)
+
+    local success, number = pcall(function()
+        return unit:getNumber()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit number: " .. tostring(number), "GetUnitNumber")
+        _HarnessInternal.log.error(
+            "Failed to get unit number: " .. tostring(number),
+            "GetUnitNumber"
+        )
         return nil
     end
-    
+
     return number
 end
 
@@ -11052,13 +12805,18 @@ function GetUnitCallsign(unit)
         _HarnessInternal.log.error("GetUnitCallsign requires unit", "GetUnitCallsign")
         return nil
     end
-    
-    local success, callsign = pcall(function() return unit:getCallsign() end)
+
+    local success, callsign = pcall(function()
+        return unit:getCallsign()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit callsign: " .. tostring(callsign), "GetUnitCallsign")
+        _HarnessInternal.log.error(
+            "Failed to get unit callsign: " .. tostring(callsign),
+            "GetUnitCallsign"
+        )
         return nil
     end
-    
+
     return callsign
 end
 
@@ -11071,13 +12829,18 @@ function GetUnitObjectID(unit)
         _HarnessInternal.log.error("GetUnitObjectID requires unit", "GetUnitObjectID")
         return nil
     end
-    
-    local success, objectId = pcall(function() return unit:getObjectID() end)
+
+    local success, objectId = pcall(function()
+        return unit:getObjectID()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit object ID: " .. tostring(objectId), "GetUnitObjectID")
+        _HarnessInternal.log.error(
+            "Failed to get unit object ID: " .. tostring(objectId),
+            "GetUnitObjectID"
+        )
         return nil
     end
-    
+
     return objectId
 end
 
@@ -11090,13 +12853,18 @@ function GetUnitCategoryEx(unit)
         _HarnessInternal.log.error("GetUnitCategoryEx requires unit", "GetUnitCategoryEx")
         return nil
     end
-    
-    local success, category = pcall(function() return unit:getCategoryEx() end)
+
+    local success, category = pcall(function()
+        return unit:getCategoryEx()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit category ex: " .. tostring(category), "GetUnitCategoryEx")
+        _HarnessInternal.log.error(
+            "Failed to get unit category ex: " .. tostring(category),
+            "GetUnitCategoryEx"
+        )
         return nil
     end
-    
+
     return category
 end
 
@@ -11109,13 +12877,15 @@ function GetUnitDesc(unit)
         _HarnessInternal.log.error("GetUnitDesc requires unit", "GetUnitDesc")
         return nil
     end
-    
-    local success, desc = pcall(function() return unit:getDesc() end)
+
+    local success, desc = pcall(function()
+        return unit:getDesc()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get unit desc: " .. tostring(desc), "GetUnitDesc")
         return nil
     end
-    
+
     return desc
 end
 
@@ -11128,13 +12898,18 @@ function GetUnitForcesName(unit)
         _HarnessInternal.log.error("GetUnitForcesName requires unit", "GetUnitForcesName")
         return nil
     end
-    
-    local success, forcesName = pcall(function() return unit:getForcesName() end)
+
+    local success, forcesName = pcall(function()
+        return unit:getForcesName()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit forces name: " .. tostring(forcesName), "GetUnitForcesName")
+        _HarnessInternal.log.error(
+            "Failed to get unit forces name: " .. tostring(forcesName),
+            "GetUnitForcesName"
+        )
         return nil
     end
-    
+
     return forcesName
 end
 
@@ -11147,13 +12922,18 @@ function IsUnitActive(unit)
         _HarnessInternal.log.error("IsUnitActive requires unit", "IsUnitActive")
         return false
     end
-    
-    local success, active = pcall(function() return unit:isActive() end)
+
+    local success, active = pcall(function()
+        return unit:isActive()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check unit active: " .. tostring(active), "IsUnitActive")
+        _HarnessInternal.log.error(
+            "Failed to check unit active: " .. tostring(active),
+            "IsUnitActive"
+        )
         return false
     end
-    
+
     return active == true
 end
 
@@ -11166,13 +12946,15 @@ function GetUnitController(unit)
         _HarnessInternal.log.error("GetUnitController requires unit", "GetUnitController")
         return nil
     end
-    
+
     -- Try to get unit name for cache key
     local unitName = nil
-    local success, name = pcall(function() return unit:getName() end)
+    local success, name = pcall(function()
+        return unit:getName()
+    end)
     if success and name then
         unitName = name
-        
+
         -- Check cache first
         local cacheKey = "unit:" .. unitName
         local cached = _HarnessInternal.cache.getController(cacheKey)
@@ -11180,19 +12962,24 @@ function GetUnitController(unit)
             return cached
         end
     end
-    
+
     -- Get controller from DCS API
-    local success, controller = pcall(function() return unit:getController() end)
+    local success, controller = pcall(function()
+        return unit:getController()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit controller: " .. tostring(controller), "GetUnitController")
+        _HarnessInternal.log.error(
+            "Failed to get unit controller: " .. tostring(controller),
+            "GetUnitController"
+        )
         return nil
     end
-    
+
     -- Add to cache if we have a name
     if controller and unitName then
         _HarnessInternal.cache.addController("unit:" .. unitName, controller)
     end
-    
+
     return controller
 end
 
@@ -11207,13 +12994,18 @@ function GetUnitSensors(unit)
         _HarnessInternal.log.error("GetUnitSensors requires unit", "GetUnitSensors")
         return nil
     end
-    
-    local success, sensors = pcall(function() return unit:getSensors() end)
+
+    local success, sensors = pcall(function()
+        return unit:getSensors()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit sensors: " .. tostring(sensors), "GetUnitSensors")
+        _HarnessInternal.log.error(
+            "Failed to get unit sensors: " .. tostring(sensors),
+            "GetUnitSensors"
+        )
         return nil
     end
-    
+
     return sensors
 end
 
@@ -11228,13 +13020,18 @@ function UnitHasSensors(unit, sensorType, subCategory)
         _HarnessInternal.log.error("UnitHasSensors requires unit", "UnitHasSensors")
         return false
     end
-    
-    local success, hasSensors = pcall(function() return unit:hasSensors(sensorType, subCategory) end)
+
+    local success, hasSensors = pcall(function()
+        return unit:hasSensors(sensorType, subCategory)
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check unit sensors: " .. tostring(hasSensors), "UnitHasSensors")
+        _HarnessInternal.log.error(
+            "Failed to check unit sensors: " .. tostring(hasSensors),
+            "UnitHasSensors"
+        )
         return false
     end
-    
+
     return hasSensors == true
 end
 
@@ -11248,13 +13045,15 @@ function GetUnitRadar(unit)
         _HarnessInternal.log.error("GetUnitRadar requires unit", "GetUnitRadar")
         return false, nil
     end
-    
-    local success, active, target = pcall(function() return unit:getRadar() end)
+
+    local success, active, target = pcall(function()
+        return unit:getRadar()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get unit radar: " .. tostring(active), "GetUnitRadar")
         return false, nil
     end
-    
+
     return active, target
 end
 
@@ -11268,18 +13067,26 @@ function EnableUnitEmissions(unit, enabled)
         _HarnessInternal.log.error("EnableUnitEmissions requires unit", "EnableUnitEmissions")
         return false
     end
-    
+
     if type(enabled) ~= "boolean" then
-        _HarnessInternal.log.error("EnableUnitEmissions requires boolean enabled", "EnableUnitEmissions")
+        _HarnessInternal.log.error(
+            "EnableUnitEmissions requires boolean enabled",
+            "EnableUnitEmissions"
+        )
         return false
     end
-    
-    local success, result = pcall(function() unit:enableEmission(enabled) end)
+
+    local success, result = pcall(function()
+        unit:enableEmission(enabled)
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to set unit emissions: " .. tostring(result), "EnableUnitEmissions")
+        _HarnessInternal.log.error(
+            "Failed to set unit emissions: " .. tostring(result),
+            "EnableUnitEmissions"
+        )
         return false
     end
-    
+
     _HarnessInternal.log.info("Set unit emissions: " .. tostring(enabled), "EnableUnitEmissions")
     return true
 end
@@ -11295,13 +13102,18 @@ function GetUnitNearestCargos(unit)
         _HarnessInternal.log.error("GetUnitNearestCargos requires unit", "GetUnitNearestCargos")
         return {}
     end
-    
-    local success, cargos = pcall(function() return unit:getNearestCargos() end)
+
+    local success, cargos = pcall(function()
+        return unit:getNearestCargos()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get nearest cargos: " .. tostring(cargos), "GetUnitNearestCargos")
+        _HarnessInternal.log.error(
+            "Failed to get nearest cargos: " .. tostring(cargos),
+            "GetUnitNearestCargos"
+        )
         return {}
     end
-    
+
     return cargos or {}
 end
 
@@ -11314,13 +13126,18 @@ function GetUnitCargosOnBoard(unit)
         _HarnessInternal.log.error("GetUnitCargosOnBoard requires unit", "GetUnitCargosOnBoard")
         return {}
     end
-    
-    local success, cargos = pcall(function() return unit:getCargosOnBoard() end)
+
+    local success, cargos = pcall(function()
+        return unit:getCargosOnBoard()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get cargos on board: " .. tostring(cargos), "GetUnitCargosOnBoard")
+        _HarnessInternal.log.error(
+            "Failed to get cargos on board: " .. tostring(cargos),
+            "GetUnitCargosOnBoard"
+        )
         return {}
     end
-    
+
     return cargos or {}
 end
 
@@ -11333,13 +13150,18 @@ function GetUnitDescentCapacity(unit)
         _HarnessInternal.log.error("GetUnitDescentCapacity requires unit", "GetUnitDescentCapacity")
         return nil
     end
-    
-    local success, capacity = pcall(function() return unit:getDescentCapacity() end)
+
+    local success, capacity = pcall(function()
+        return unit:getDescentCapacity()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get descent capacity: " .. tostring(capacity), "GetUnitDescentCapacity")
+        _HarnessInternal.log.error(
+            "Failed to get descent capacity: " .. tostring(capacity),
+            "GetUnitDescentCapacity"
+        )
         return nil
     end
-    
+
     return capacity
 end
 
@@ -11352,13 +13174,18 @@ function GetUnitDescentOnBoard(unit)
         _HarnessInternal.log.error("GetUnitDescentOnBoard requires unit", "GetUnitDescentOnBoard")
         return nil
     end
-    
-    local success, troops = pcall(function() return unit:getDescentOnBoard() end)
+
+    local success, troops = pcall(function()
+        return unit:getDescentOnBoard()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get descent on board: " .. tostring(troops), "GetUnitDescentOnBoard")
+        _HarnessInternal.log.error(
+            "Failed to get descent on board: " .. tostring(troops),
+            "GetUnitDescentOnBoard"
+        )
         return nil
     end
-    
+
     return troops
 end
 
@@ -11372,18 +13199,20 @@ function LoadUnitCargo(unit, cargo)
         _HarnessInternal.log.error("LoadUnitCargo requires unit", "LoadUnitCargo")
         return false
     end
-    
+
     if not cargo then
         _HarnessInternal.log.error("LoadUnitCargo requires cargo", "LoadUnitCargo")
         return false
     end
-    
-    local success, result = pcall(function() unit:LoadOnBoard(cargo) end)
+
+    local success, result = pcall(function()
+        unit:LoadOnBoard(cargo)
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to load cargo: " .. tostring(result), "LoadUnitCargo")
         return false
     end
-    
+
     _HarnessInternal.log.info("Loaded cargo on unit", "LoadUnitCargo")
     return true
 end
@@ -11398,13 +13227,18 @@ function UnloadUnitCargo(unit, cargo)
         _HarnessInternal.log.error("UnloadUnitCargo requires unit", "UnloadUnitCargo")
         return false
     end
-    
-    local success, result = pcall(function() unit:UnloadCargo(cargo) end)
+
+    local success, result = pcall(function()
+        unit:UnloadCargo(cargo)
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to unload cargo: " .. tostring(result), "UnloadUnitCargo")
+        _HarnessInternal.log.error(
+            "Failed to unload cargo: " .. tostring(result),
+            "UnloadUnitCargo"
+        )
         return false
     end
-    
+
     _HarnessInternal.log.info("Unloaded cargo from unit", "UnloadUnitCargo")
     return true
 end
@@ -11418,13 +13252,15 @@ function OpenUnitRamp(unit)
         _HarnessInternal.log.error("OpenUnitRamp requires unit", "OpenUnitRamp")
         return false
     end
-    
-    local success, result = pcall(function() unit:openRamp() end)
+
+    local success, result = pcall(function()
+        unit:openRamp()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to open ramp: " .. tostring(result), "OpenUnitRamp")
         return false
     end
-    
+
     _HarnessInternal.log.info("Opened unit ramp", "OpenUnitRamp")
     return true
 end
@@ -11438,13 +13274,18 @@ function CheckUnitRampOpen(unit)
         _HarnessInternal.log.error("CheckUnitRampOpen requires unit", "CheckUnitRampOpen")
         return nil
     end
-    
-    local success, isOpen = pcall(function() return unit:checkOpenRamp() end)
+
+    local success, isOpen = pcall(function()
+        return unit:checkOpenRamp()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check ramp: " .. tostring(isOpen), "CheckUnitRampOpen")
+        _HarnessInternal.log.error(
+            "Failed to check ramp: " .. tostring(isOpen),
+            "CheckUnitRampOpen"
+        )
         return nil
     end
-    
+
     return isOpen
 end
 
@@ -11457,13 +13298,15 @@ function DisembarkUnit(unit)
         _HarnessInternal.log.error("DisembarkUnit requires unit", "DisembarkUnit")
         return false
     end
-    
-    local success, result = pcall(function() unit:disembarking() end)
+
+    local success, result = pcall(function()
+        unit:disembarking()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to disembark: " .. tostring(result), "DisembarkUnit")
         return false
     end
-    
+
     _HarnessInternal.log.info("Started disembarking", "DisembarkUnit")
     return true
 end
@@ -11474,16 +13317,24 @@ end
 ---@usage MarkUnitDisembarkingTask(transportUnit)
 function MarkUnitDisembarkingTask(unit)
     if not unit then
-        _HarnessInternal.log.error("MarkUnitDisembarkingTask requires unit", "MarkUnitDisembarkingTask")
+        _HarnessInternal.log.error(
+            "MarkUnitDisembarkingTask requires unit",
+            "MarkUnitDisembarkingTask"
+        )
         return false
     end
-    
-    local success, result = pcall(function() unit:markDisembarkingTask() end)
+
+    local success, result = pcall(function()
+        unit:markDisembarkingTask()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to mark disembarking: " .. tostring(result), "MarkUnitDisembarkingTask")
+        _HarnessInternal.log.error(
+            "Failed to mark disembarking: " .. tostring(result),
+            "MarkUnitDisembarkingTask"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -11496,13 +13347,18 @@ function IsUnitEmbarking(unit)
         _HarnessInternal.log.error("IsUnitEmbarking requires unit", "IsUnitEmbarking")
         return nil
     end
-    
-    local success, embarking = pcall(function() return unit:embarking() end)
+
+    local success, embarking = pcall(function()
+        return unit:embarking()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check embarking: " .. tostring(embarking), "IsUnitEmbarking")
+        _HarnessInternal.log.error(
+            "Failed to check embarking: " .. tostring(embarking),
+            "IsUnitEmbarking"
+        )
         return nil
     end
-    
+
     return embarking
 end
 
@@ -11517,13 +13373,18 @@ function GetUnitAirbase(unit)
         _HarnessInternal.log.error("GetUnitAirbase requires unit", "GetUnitAirbase")
         return nil
     end
-    
-    local success, airbase = pcall(function() return unit:getAirbase() end)
+
+    local success, airbase = pcall(function()
+        return unit:getAirbase()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit airbase: " .. tostring(airbase), "GetUnitAirbase")
+        _HarnessInternal.log.error(
+            "Failed to get unit airbase: " .. tostring(airbase),
+            "GetUnitAirbase"
+        )
         return nil
     end
-    
+
     return airbase
 end
 
@@ -11536,13 +13397,18 @@ function UnitCanShipLanding(unit)
         _HarnessInternal.log.error("UnitCanShipLanding requires unit", "UnitCanShipLanding")
         return nil
     end
-    
-    local success, canLand = pcall(function() return unit:canShipLanding() end)
+
+    local success, canLand = pcall(function()
+        return unit:canShipLanding()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check ship landing: " .. tostring(canLand), "UnitCanShipLanding")
+        _HarnessInternal.log.error(
+            "Failed to check ship landing: " .. tostring(canLand),
+            "UnitCanShipLanding"
+        )
         return nil
     end
-    
+
     return canLand
 end
 
@@ -11555,13 +13421,18 @@ function UnitHasCarrier(unit)
         _HarnessInternal.log.error("UnitHasCarrier requires unit", "UnitHasCarrier")
         return nil
     end
-    
-    local success, hasCarrier = pcall(function() return unit:hasCarrier() end)
+
+    local success, hasCarrier = pcall(function()
+        return unit:hasCarrier()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to check carrier: " .. tostring(hasCarrier), "UnitHasCarrier")
+        _HarnessInternal.log.error(
+            "Failed to check carrier: " .. tostring(hasCarrier),
+            "UnitHasCarrier"
+        )
         return nil
     end
-    
+
     return hasCarrier
 end
 
@@ -11571,16 +13442,24 @@ end
 ---@usage local cargos = GetUnitNearestCargosForAircraft(unit)
 function GetUnitNearestCargosForAircraft(unit)
     if not unit then
-        _HarnessInternal.log.error("GetUnitNearestCargosForAircraft requires unit", "GetUnitNearestCargosForAircraft")
+        _HarnessInternal.log.error(
+            "GetUnitNearestCargosForAircraft requires unit",
+            "GetUnitNearestCargosForAircraft"
+        )
         return {}
     end
-    
-    local success, cargos = pcall(function() return unit:getNearestCargosForAircraft() end)
+
+    local success, cargos = pcall(function()
+        return unit:getNearestCargosForAircraft()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get aircraft cargos: " .. tostring(cargos), "GetUnitNearestCargosForAircraft")
+        _HarnessInternal.log.error(
+            "Failed to get aircraft cargos: " .. tostring(cargos),
+            "GetUnitNearestCargosForAircraft"
+        )
         return {}
     end
-    
+
     return cargos or {}
 end
 
@@ -11593,13 +13472,18 @@ function GetUnitFuelLowState(unit)
         _HarnessInternal.log.error("GetUnitFuelLowState requires unit", "GetUnitFuelLowState")
         return nil
     end
-    
-    local success, threshold = pcall(function() return unit:getFuelLowState() end)
+
+    local success, threshold = pcall(function()
+        return unit:getFuelLowState()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get fuel low state: " .. tostring(threshold), "GetUnitFuelLowState")
+        _HarnessInternal.log.error(
+            "Failed to get fuel low state: " .. tostring(threshold),
+            "GetUnitFuelLowState"
+        )
         return nil
     end
-    
+
     return threshold
 end
 
@@ -11612,13 +13496,18 @@ function ShowUnitCarrierMenu(unit)
         _HarnessInternal.log.error("ShowUnitCarrierMenu requires unit", "ShowUnitCarrierMenu")
         return false
     end
-    
-    local success, result = pcall(function() unit:OldCarrierMenuShow() end)
+
+    local success, result = pcall(function()
+        unit:OldCarrierMenuShow()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to show carrier menu: " .. tostring(result), "ShowUnitCarrierMenu")
+        _HarnessInternal.log.error(
+            "Failed to show carrier menu: " .. tostring(result),
+            "ShowUnitCarrierMenu"
+        )
         return false
     end
-    
+
     return true
 end
 
@@ -11634,18 +13523,26 @@ function GetUnitDrawArgument(unit, arg)
         _HarnessInternal.log.error("GetUnitDrawArgument requires unit", "GetUnitDrawArgument")
         return nil
     end
-    
+
     if not arg or type(arg) ~= "number" then
-        _HarnessInternal.log.error("GetUnitDrawArgument requires numeric argument", "GetUnitDrawArgument")
+        _HarnessInternal.log.error(
+            "GetUnitDrawArgument requires numeric argument",
+            "GetUnitDrawArgument"
+        )
         return nil
     end
-    
-    local success, value = pcall(function() return unit:getDrawArgumentValue(arg) end)
+
+    local success, value = pcall(function()
+        return unit:getDrawArgumentValue(arg)
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get draw argument: " .. tostring(value), "GetUnitDrawArgument")
+        _HarnessInternal.log.error(
+            "Failed to get draw argument: " .. tostring(value),
+            "GetUnitDrawArgument"
+        )
         return nil
     end
-    
+
     return value
 end
 
@@ -11658,13 +13555,18 @@ function GetUnitCommunicator(unit)
         _HarnessInternal.log.error("GetUnitCommunicator requires unit", "GetUnitCommunicator")
         return nil
     end
-    
-    local success, communicator = pcall(function() return unit:getCommunicator() end)
+
+    local success, communicator = pcall(function()
+        return unit:getCommunicator()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get communicator: " .. tostring(communicator), "GetUnitCommunicator")
+        _HarnessInternal.log.error(
+            "Failed to get communicator: " .. tostring(communicator),
+            "GetUnitCommunicator"
+        )
         return nil
     end
-    
+
     return communicator
 end
 
@@ -11677,13 +13579,15 @@ function GetUnitSeats(unit)
         _HarnessInternal.log.error("GetUnitSeats requires unit", "GetUnitSeats")
         return nil
     end
-    
-    local success, seats = pcall(function() return unit:getSeats() end)
+
+    local success, seats = pcall(function()
+        return unit:getSeats()
+    end)
     if not success then
         _HarnessInternal.log.error("Failed to get seats: " .. tostring(seats), "GetUnitSeats")
         return nil
     end
-    
+
     return seats
 end
 -- ==== END: src\unit.lua ====
@@ -11706,32 +13610,35 @@ end
 --- @usage local pt = LineSegmentIntersection2D({x=0,z=0}, {x=10,z=10}, {x=0,z=10}, {x=10,z=0})
 function LineSegmentIntersection2D(p1, p2, p3, p4)
     if not p1 or not p2 or not p3 or not p4 then
-        _HarnessInternal.log.error("LineSegmentIntersection2D requires four valid points", "VectorOps.LineSegmentIntersection2D")
+        _HarnessInternal.log.error(
+            "LineSegmentIntersection2D requires four valid points",
+            "VectorOps.LineSegmentIntersection2D"
+        )
         return nil
     end
-    
+
     local x1, y1 = p1.x, p1.z
     local x2, y2 = p2.x, p2.z
     local x3, y3 = p3.x, p3.z
     local x4, y4 = p4.x, p4.z
-    
+
     local denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-    
+
     if math.abs(denom) < 1e-10 then
         return nil -- Lines are parallel
     end
-    
+
     local t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
     local u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
-    
+
     if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
         return {
             x = x1 + t * (x2 - x1),
             y = p1.y or 0,
-            z = y1 + t * (y2 - y1)
+            z = y1 + t * (y2 - y1),
         }
     end
-    
+
     return nil
 end
 
@@ -11742,32 +13649,35 @@ end
 --- @usage local intersections = FindPolygonIntersections(shape1, shape2)
 function FindPolygonIntersections(poly1, poly2)
     if not poly1 or not poly2 or type(poly1) ~= "table" or type(poly2) ~= "table" then
-        _HarnessInternal.log.error("FindPolygonIntersections requires two valid polygons", "VectorOps.FindPolygonIntersections")
+        _HarnessInternal.log.error(
+            "FindPolygonIntersections requires two valid polygons",
+            "VectorOps.FindPolygonIntersections"
+        )
         return {}
     end
-    
+
     local intersections = {}
-    
+
     -- Check each edge of poly1 against each edge of poly2
     for i = 1, #poly1 do
         local p1 = poly1[i]
         local p2 = poly1[(i % #poly1) + 1]
-        
+
         for j = 1, #poly2 do
             local p3 = poly2[j]
             local p4 = poly2[(j % #poly2) + 1]
-            
+
             local intersection = LineSegmentIntersection2D(p1, p2, p3, p4)
             if intersection then
                 table.insert(intersections, {
                     point = intersection,
-                    edge1 = {i, (i % #poly1) + 1},
-                    edge2 = {j, (j % #poly2) + 1}
+                    edge1 = { i, (i % #poly1) + 1 },
+                    edge2 = { j, (j % #poly2) + 1 },
                 })
             end
         end
     end
-    
+
     return intersections
 end
 
@@ -11779,19 +13689,22 @@ end
 --- @usage local merged = MergePolygons(shape1, shape2, false)
 function MergePolygons(poly1, poly2, keepInterior)
     if not poly1 or not poly2 or type(poly1) ~= "table" or type(poly2) ~= "table" then
-        _HarnessInternal.log.error("MergePolygons requires two valid polygons", "VectorOps.MergePolygons")
+        _HarnessInternal.log.error(
+            "MergePolygons requires two valid polygons",
+            "VectorOps.MergePolygons"
+        )
         return nil
     end
-    
+
     -- If keepInterior is false, we want to remove interior points (union operation)
     -- If keepInterior is true, we keep all points
-    
+
     local merged = {}
     local used = {}
-    
+
     -- First, find all intersection points
     local intersections = FindPolygonIntersections(poly1, poly2)
-    
+
     -- Add all vertices from poly1 that are outside poly2 (for union)
     for i, point in ipairs(poly1) do
         if keepInterior or not PointInPolygon2D(point, poly2) then
@@ -11799,19 +13712,19 @@ function MergePolygons(poly1, poly2, keepInterior)
             used[point] = true
         end
     end
-    
+
     -- Add all vertices from poly2 that are outside poly1 (for union)
     for i, point in ipairs(poly2) do
         if not used[point] and (keepInterior or not PointInPolygon2D(point, poly1)) then
             table.insert(merged, point)
         end
     end
-    
+
     -- Add intersection points
     for _, intersection in ipairs(intersections) do
         table.insert(merged, intersection.point)
     end
-    
+
     -- Sort points by angle from centroid to create proper polygon
     if #merged > 2 then
         local centroid = PolygonCentroid2D(merged)
@@ -11821,12 +13734,12 @@ function MergePolygons(poly1, poly2, keepInterior)
             return angle_a < angle_b
         end)
     end
-    
+
     -- If not keeping interior, compute convex hull to get outer boundary
     if not keepInterior and #merged > 2 then
         merged = ConvexHull2D(merged)
     end
-    
+
     return merged
 end
 
@@ -11847,34 +13760,37 @@ end
 --- @usage local overlap = IntersectPolygons(shape1, shape2)
 function IntersectPolygons(poly1, poly2)
     if not poly1 or not poly2 or type(poly1) ~= "table" or type(poly2) ~= "table" then
-        _HarnessInternal.log.error("IntersectPolygons requires two valid polygons", "VectorOps.IntersectPolygons")
+        _HarnessInternal.log.error(
+            "IntersectPolygons requires two valid polygons",
+            "VectorOps.IntersectPolygons"
+        )
         return nil
     end
-    
+
     local intersection = {}
-    
+
     -- Find all intersection points
     local intersections = FindPolygonIntersections(poly1, poly2)
-    
+
     -- Add intersection points
     for _, inter in ipairs(intersections) do
         table.insert(intersection, inter.point)
     end
-    
+
     -- Add vertices of poly1 that are inside poly2
     for _, point in ipairs(poly1) do
         if PointInPolygon2D(point, poly2) then
             table.insert(intersection, point)
         end
     end
-    
+
     -- Add vertices of poly2 that are inside poly1
     for _, point in ipairs(poly2) do
         if PointInPolygon2D(point, poly1) then
             table.insert(intersection, point)
         end
     end
-    
+
     -- Sort points by angle from centroid
     if #intersection > 2 then
         local centroid = PolygonCentroid2D(intersection)
@@ -11884,7 +13800,7 @@ function IntersectPolygons(poly1, poly2)
             return angle_a < angle_b
         end)
     end
-    
+
     return intersection
 end
 
@@ -11895,25 +13811,28 @@ end
 --- @usage local diff = DifferencePolygons(shape1, shape2)
 function DifferencePolygons(poly1, poly2)
     if not poly1 or not poly2 or type(poly1) ~= "table" or type(poly2) ~= "table" then
-        _HarnessInternal.log.error("DifferencePolygons requires two valid polygons", "VectorOps.DifferencePolygons")
+        _HarnessInternal.log.error(
+            "DifferencePolygons requires two valid polygons",
+            "VectorOps.DifferencePolygons"
+        )
         return nil
     end
-    
+
     local difference = {}
-    
+
     -- Add vertices of poly1 that are outside poly2
     for _, point in ipairs(poly1) do
         if not PointInPolygon2D(point, poly2) then
             table.insert(difference, point)
         end
     end
-    
+
     -- Add intersection points
     local intersections = FindPolygonIntersections(poly1, poly2)
     for _, inter in ipairs(intersections) do
         table.insert(difference, inter.point)
     end
-    
+
     -- Sort points by angle from centroid
     if #difference > 2 then
         local centroid = PolygonCentroid2D(difference)
@@ -11923,7 +13842,7 @@ function DifferencePolygons(poly1, poly2)
             return angle_a < angle_b
         end)
     end
-    
+
     return difference
 end
 
@@ -11934,21 +13853,24 @@ end
 --- @usage local simple = SimplifyPolygon(complexShape, 10)
 function SimplifyPolygon(polygon, tolerance)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("SimplifyPolygon requires valid polygon with at least 3 points", "VectorOps.SimplifyPolygon")
+        _HarnessInternal.log.error(
+            "SimplifyPolygon requires valid polygon with at least 3 points",
+            "VectorOps.SimplifyPolygon"
+        )
         return polygon or {}
     end
-    
+
     tolerance = tolerance or 1.0
-    
+
     -- Douglas-Peucker algorithm
     local function douglasPeucker(points, start, endIdx, tolerance)
         if endIdx <= start + 1 then
             return {}
         end
-        
+
         local maxDist = 0
         local maxIndex = 0
-        
+
         -- Find the point with maximum distance from line
         for i = start + 1, endIdx - 1 do
             local dist = PerpendicularDistance2D(points[i], points[start], points[endIdx])
@@ -11957,14 +13879,14 @@ function SimplifyPolygon(polygon, tolerance)
                 maxIndex = i
             end
         end
-        
+
         -- If max distance is greater than tolerance, recursively simplify
         local result = {}
         if maxDist > tolerance then
             -- Recursive call
             local left = douglasPeucker(points, start, maxIndex, tolerance)
             local right = douglasPeucker(points, maxIndex, endIdx, tolerance)
-            
+
             -- Build the result
             for _, p in ipairs(left) do
                 table.insert(result, p)
@@ -11974,17 +13896,17 @@ function SimplifyPolygon(polygon, tolerance)
                 table.insert(result, p)
             end
         end
-        
+
         return result
     end
-    
-    local simplified = {polygon[1]}
+
+    local simplified = { polygon[1] }
     local middle = douglasPeucker(polygon, 1, #polygon, tolerance)
     for _, p in ipairs(middle) do
         table.insert(simplified, p)
     end
     table.insert(simplified, polygon[#polygon])
-    
+
     return simplified
 end
 
@@ -11996,20 +13918,23 @@ end
 --- @usage local dist = PerpendicularDistance2D({x=5,z=5}, {x=0,z=0}, {x=10,z=0})
 function PerpendicularDistance2D(point, lineStart, lineEnd)
     if not point or not lineStart or not lineEnd then
-        _HarnessInternal.log.error("PerpendicularDistance2D requires valid points", "VectorOps.PerpendicularDistance2D")
+        _HarnessInternal.log.error(
+            "PerpendicularDistance2D requires valid points",
+            "VectorOps.PerpendicularDistance2D"
+        )
         return 0
     end
-    
+
     local dx = lineEnd.x - lineStart.x
     local dz = lineEnd.z - lineStart.z
-    
+
     if math.abs(dx) < 1e-6 and math.abs(dz) < 1e-6 then
         -- Line start and end are the same
         return Distance2D(point, lineStart)
     end
-    
+
     local t = ((point.x - lineStart.x) * dx + (point.z - lineStart.z) * dz) / (dx * dx + dz * dz)
-    
+
     if t < 0 then
         return Distance2D(point, lineStart)
     elseif t > 1 then
@@ -12018,7 +13943,7 @@ function PerpendicularDistance2D(point, lineStart, lineEnd)
         local projection = {
             x = lineStart.x + t * dx,
             y = point.y or 0,
-            z = lineStart.z + t * dz
+            z = lineStart.z + t * dz,
         }
         return Distance2D(point, projection)
     end
@@ -12031,55 +13956,58 @@ end
 --- @usage local expanded = OffsetPolygon(shape, 100)
 function OffsetPolygon(polygon, distance)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("OffsetPolygon requires valid polygon with at least 3 points", "VectorOps.OffsetPolygon")
+        _HarnessInternal.log.error(
+            "OffsetPolygon requires valid polygon with at least 3 points",
+            "VectorOps.OffsetPolygon"
+        )
         return nil
     end
-    
+
     local offset = {}
     local n = #polygon
-    
+
     for i = 1, n do
         local prev = polygon[((i - 2) % n) + 1]
         local curr = polygon[i]
         local next = polygon[(i % n) + 1]
-        
+
         -- Calculate edge vectors
-        local v1 = {x = curr.x - prev.x, z = curr.z - prev.z}
-        local v2 = {x = next.x - curr.x, z = next.z - curr.z}
-        
+        local v1 = { x = curr.x - prev.x, z = curr.z - prev.z }
+        local v2 = { x = next.x - curr.x, z = next.z - curr.z }
+
         -- Normalize
         local len1 = math.sqrt(v1.x * v1.x + v1.z * v1.z)
         local len2 = math.sqrt(v2.x * v2.x + v2.z * v2.z)
-        
+
         if len1 > 1e-6 and len2 > 1e-6 then
             v1.x, v1.z = v1.x / len1, v1.z / len1
             v2.x, v2.z = v2.x / len2, v2.z / len2
-            
+
             -- Calculate normals (perpendicular)
-            local n1 = {x = -v1.z, z = v1.x}
-            local n2 = {x = -v2.z, z = v2.x}
-            
+            local n1 = { x = -v1.z, z = v1.x }
+            local n2 = { x = -v2.z, z = v2.x }
+
             -- Calculate miter
-            local miter = {x = n1.x + n2.x, z = n1.z + n2.z}
+            local miter = { x = n1.x + n2.x, z = n1.z + n2.z }
             local miterLen = math.sqrt(miter.x * miter.x + miter.z * miter.z)
-            
+
             if miterLen > 1e-6 then
                 -- Calculate miter length
                 local dot = v1.x * v2.x + v1.z * v2.z
                 local miterScale = 1 / (1 + dot)
-                
+
                 -- Apply offset
                 table.insert(offset, {
                     x = curr.x + miter.x * distance * miterScale / miterLen,
                     y = curr.y or 0,
-                    z = curr.z + miter.z * distance * miterScale / miterLen
+                    z = curr.z + miter.z * distance * miterScale / miterLen,
                 })
             else
                 -- Fallback for sharp angles
                 table.insert(offset, {
                     x = curr.x + n1.x * distance,
                     y = curr.y or 0,
-                    z = curr.z + n1.z * distance
+                    z = curr.z + n1.z * distance,
                 })
             end
         else
@@ -12087,7 +14015,7 @@ function OffsetPolygon(polygon, distance)
             table.insert(offset, curr)
         end
     end
-    
+
     return offset
 end
 
@@ -12099,34 +14027,41 @@ end
 function ClipPolygonToPolygon(subject, clip)
     -- Sutherland-Hodgman algorithm
     if not subject or not clip or type(subject) ~= "table" or type(clip) ~= "table" then
-        _HarnessInternal.log.error("ClipPolygonToPolygon requires two valid polygons", "VectorOps.ClipPolygonToPolygon")
+        _HarnessInternal.log.error(
+            "ClipPolygonToPolygon requires two valid polygons",
+            "VectorOps.ClipPolygonToPolygon"
+        )
         return nil
     end
-    
+
     local function inside(p, edge_start, edge_end)
-        return (edge_end.x - edge_start.x) * (p.z - edge_start.z) - 
-               (edge_end.z - edge_start.z) * (p.x - edge_start.x) >= 0
+        return (edge_end.x - edge_start.x) * (p.z - edge_start.z)
+                - (edge_end.z - edge_start.z) * (p.x - edge_start.x)
+            >= 0
     end
-    
+
     local output = subject
-    
+
     for i = 1, #clip do
-        if #output == 0 then break end
-        
+        if #output == 0 then
+            break
+        end
+
         local input = output
         output = {}
-        
+
         local edge_start = clip[i]
         local edge_end = clip[(i % #clip) + 1]
-        
+
         for j = 1, #input do
             local current = input[j]
             local previous = input[((j - 2) % #input) + 1]
-            
+
             if inside(current, edge_start, edge_end) then
                 if not inside(previous, edge_start, edge_end) then
                     -- Entering the inside
-                    local intersection = LineSegmentIntersection2D(previous, current, edge_start, edge_end)
+                    local intersection =
+                        LineSegmentIntersection2D(previous, current, edge_start, edge_end)
                     if intersection then
                         table.insert(output, intersection)
                     end
@@ -12134,14 +14069,15 @@ function ClipPolygonToPolygon(subject, clip)
                 table.insert(output, current)
             elseif inside(previous, edge_start, edge_end) then
                 -- Leaving the inside
-                local intersection = LineSegmentIntersection2D(previous, current, edge_start, edge_end)
+                local intersection =
+                    LineSegmentIntersection2D(previous, current, edge_start, edge_end)
                 if intersection then
                     table.insert(output, intersection)
                 end
             end
         end
     end
-    
+
     return output
 end
 
@@ -12151,34 +14087,37 @@ end
 --- @usage local triangles = TriangulatePolygon(shape)
 function TriangulatePolygon(polygon)
     if not polygon or type(polygon) ~= "table" or #polygon < 3 then
-        _HarnessInternal.log.error("TriangulatePolygon requires valid polygon with at least 3 points", "VectorOps.TriangulatePolygon")
+        _HarnessInternal.log.error(
+            "TriangulatePolygon requires valid polygon with at least 3 points",
+            "VectorOps.TriangulatePolygon"
+        )
         return {}
     end
-    
+
     -- Simple ear clipping algorithm
     local triangles = {}
     local vertices = {}
-    
+
     -- Copy vertices
     for i, v in ipairs(polygon) do
-        table.insert(vertices, {x = v.x, y = v.y or 0, z = v.z, index = i})
+        table.insert(vertices, { x = v.x, y = v.y or 0, z = v.z, index = i })
     end
-    
+
     local function isEar(vertices, i)
         local n = #vertices
         local prev = ((i - 2) % n) + 1
         local next = (i % n) + 1
-        
+
         local p1 = vertices[prev]
         local p2 = vertices[i]
         local p3 = vertices[next]
-        
+
         -- Check if angle is convex
         local cross = (p2.x - p1.x) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.x - p1.x)
         if cross <= 0 then
             return false
         end
-        
+
         -- Check if any other vertex is inside the triangle
         for j = 1, n do
             if j ~= prev and j ~= i and j ~= next then
@@ -12187,49 +14126,49 @@ function TriangulatePolygon(polygon)
                 end
             end
         end
-        
+
         return true
     end
-    
+
     while #vertices > 3 do
         local found = false
-        
+
         for i = 1, #vertices do
             if isEar(vertices, i) then
                 local n = #vertices
                 local prev = ((i - 2) % n) + 1
                 local next = (i % n) + 1
-                
+
                 table.insert(triangles, {
                     vertices[prev],
                     vertices[i],
-                    vertices[next]
+                    vertices[next],
                 })
-                
+
                 table.remove(vertices, i)
                 found = true
                 break
             end
         end
-        
+
         if not found then
             -- Fallback: just create a fan from first vertex
             for i = 2, #vertices - 1 do
                 table.insert(triangles, {
                     vertices[1],
                     vertices[i],
-                    vertices[i + 1]
+                    vertices[i + 1],
                 })
             end
             break
         end
     end
-    
+
     -- Add the last triangle
     if #vertices == 3 then
         table.insert(triangles, vertices)
     end
-    
+
     return triangles
 end
 
@@ -12244,14 +14183,14 @@ function PointInTriangle2D(p, a, b, c)
     local function sign(p1, p2, p3)
         return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z)
     end
-    
+
     local d1 = sign(p, a, b)
     local d2 = sign(p, b, c)
     local d3 = sign(p, c, a)
-    
+
     local has_neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
     local has_pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
-    
+
     return not (has_neg and has_pos)
 end
 -- ==== END: src\vectorops.lua ====
@@ -12278,7 +14217,10 @@ function GetWeaponTypeName(weapon)
 
     local success, result = pcall(weapon.getTypeName, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon type name: " .. tostring(result), "Weapon.GetTypeName")
+        _HarnessInternal.log.error(
+            "Failed to get weapon type name: " .. tostring(result),
+            "Weapon.GetTypeName"
+        )
         return nil
     end
 
@@ -12297,7 +14239,10 @@ function GetWeaponDesc(weapon)
 
     local success, result = pcall(weapon.getDesc, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon description: " .. tostring(result), "Weapon.GetDesc")
+        _HarnessInternal.log.error(
+            "Failed to get weapon description: " .. tostring(result),
+            "Weapon.GetDesc"
+        )
         return nil
     end
 
@@ -12316,7 +14261,10 @@ function GetWeaponLauncher(weapon)
 
     local success, result = pcall(weapon.getLauncher, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon launcher: " .. tostring(result), "Weapon.GetLauncher")
+        _HarnessInternal.log.error(
+            "Failed to get weapon launcher: " .. tostring(result),
+            "Weapon.GetLauncher"
+        )
         return nil
     end
 
@@ -12335,7 +14283,10 @@ function GetWeaponTarget(weapon)
 
     local success, result = pcall(weapon.getTarget, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon target: " .. tostring(result), "Weapon.GetTarget")
+        _HarnessInternal.log.error(
+            "Failed to get weapon target: " .. tostring(result),
+            "Weapon.GetTarget"
+        )
         return nil
     end
 
@@ -12354,7 +14305,10 @@ function GetWeaponCategory(weapon)
 
     local success, result = pcall(weapon.getCategory, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon category: " .. tostring(result), "Weapon.GetCategory")
+        _HarnessInternal.log.error(
+            "Failed to get weapon category: " .. tostring(result),
+            "Weapon.GetCategory"
+        )
         return nil
     end
 
@@ -12373,7 +14327,10 @@ function IsWeaponExist(weapon)
 
     local success, result = pcall(weapon.isExist, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to check weapon existence: " .. tostring(result), "Weapon.IsExist")
+        _HarnessInternal.log.error(
+            "Failed to check weapon existence: " .. tostring(result),
+            "Weapon.IsExist"
+        )
         return nil
     end
 
@@ -12386,13 +14343,19 @@ end
 ---@usage local coalition = GetWeaponCoalition(weapon)
 function GetWeaponCoalition(weapon)
     if not weapon then
-        _HarnessInternal.log.error("GetWeaponCoalition requires valid weapon", "Weapon.GetCoalition")
+        _HarnessInternal.log.error(
+            "GetWeaponCoalition requires valid weapon",
+            "Weapon.GetCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(weapon.getCoalition, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon coalition: " .. tostring(result), "Weapon.GetCoalition")
+        _HarnessInternal.log.error(
+            "Failed to get weapon coalition: " .. tostring(result),
+            "Weapon.GetCoalition"
+        )
         return nil
     end
 
@@ -12411,7 +14374,10 @@ function GetWeaponCountry(weapon)
 
     local success, result = pcall(weapon.getCountry, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon country: " .. tostring(result), "Weapon.GetCountry")
+        _HarnessInternal.log.error(
+            "Failed to get weapon country: " .. tostring(result),
+            "Weapon.GetCountry"
+        )
         return nil
     end
 
@@ -12430,7 +14396,10 @@ function GetWeaponPoint(weapon)
 
     local success, result = pcall(weapon.getPoint, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon point: " .. tostring(result), "Weapon.GetPoint")
+        _HarnessInternal.log.error(
+            "Failed to get weapon point: " .. tostring(result),
+            "Weapon.GetPoint"
+        )
         return nil
     end
 
@@ -12449,7 +14418,10 @@ function GetWeaponPosition(weapon)
 
     local success, result = pcall(weapon.getPosition, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon position: " .. tostring(result), "Weapon.GetPosition")
+        _HarnessInternal.log.error(
+            "Failed to get weapon position: " .. tostring(result),
+            "Weapon.GetPosition"
+        )
         return nil
     end
 
@@ -12468,7 +14440,10 @@ function GetWeaponVelocity(weapon)
 
     local success, result = pcall(weapon.getVelocity, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon velocity: " .. tostring(result), "Weapon.GetVelocity")
+        _HarnessInternal.log.error(
+            "Failed to get weapon velocity: " .. tostring(result),
+            "Weapon.GetVelocity"
+        )
         return nil
     end
 
@@ -12487,7 +14462,10 @@ function GetWeaponName(weapon)
 
     local success, result = pcall(weapon.getName, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon name: " .. tostring(result), "Weapon.GetName")
+        _HarnessInternal.log.error(
+            "Failed to get weapon name: " .. tostring(result),
+            "Weapon.GetName"
+        )
         return nil
     end
 
@@ -12506,7 +14484,10 @@ function DestroyWeapon(weapon)
 
     local success, result = pcall(weapon.destroy, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy weapon: " .. tostring(result), "Weapon.Destroy")
+        _HarnessInternal.log.error(
+            "Failed to destroy weapon: " .. tostring(result),
+            "Weapon.Destroy"
+        )
         return nil
     end
 
@@ -12519,13 +14500,19 @@ end
 ---@usage local catName = GetWeaponCategoryName(weapon)
 function GetWeaponCategoryName(weapon)
     if not weapon then
-        _HarnessInternal.log.error("GetWeaponCategoryName requires valid weapon", "Weapon.GetCategoryName")
+        _HarnessInternal.log.error(
+            "GetWeaponCategoryName requires valid weapon",
+            "Weapon.GetCategoryName"
+        )
         return nil
     end
 
     local success, result = pcall(weapon.getCategoryName, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon category name: " .. tostring(result), "Weapon.GetCategoryName")
+        _HarnessInternal.log.error(
+            "Failed to get weapon category name: " .. tostring(result),
+            "Weapon.GetCategoryName"
+        )
         return nil
     end
 
@@ -12544,7 +14531,10 @@ function IsWeaponActive(weapon)
 
     local success, result = pcall(weapon.isActive, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to check if weapon is active: " .. tostring(result), "Weapon.IsActive")
+        _HarnessInternal.log.error(
+            "Failed to check if weapon is active: " .. tostring(result),
+            "Weapon.IsActive"
+        )
         return nil
     end
 
@@ -12568,18 +14558,27 @@ end
 ---@usage AddWorldEventHandler({onEvent = function(self, event) ... end})
 function AddWorldEventHandler(handler)
     if not handler or type(handler) ~= "table" then
-        _HarnessInternal.log.error("AddWorldEventHandler requires valid handler table", "World.AddEventHandler")
+        _HarnessInternal.log.error(
+            "AddWorldEventHandler requires valid handler table",
+            "World.AddEventHandler"
+        )
         return nil
     end
 
     if not handler.onEvent or type(handler.onEvent) ~= "function" then
-        _HarnessInternal.log.error("AddWorldEventHandler handler must have onEvent function", "World.AddEventHandler")
+        _HarnessInternal.log.error(
+            "AddWorldEventHandler handler must have onEvent function",
+            "World.AddEventHandler"
+        )
         return nil
     end
 
     local success, result = pcall(world.addEventHandler, handler)
     if not success then
-        _HarnessInternal.log.error("Failed to add event handler: " .. tostring(result), "World.AddEventHandler")
+        _HarnessInternal.log.error(
+            "Failed to add event handler: " .. tostring(result),
+            "World.AddEventHandler"
+        )
         return nil
     end
 
@@ -12592,13 +14591,19 @@ end
 ---@usage RemoveWorldEventHandler(myHandler)
 function RemoveWorldEventHandler(handler)
     if not handler or type(handler) ~= "table" then
-        _HarnessInternal.log.error("RemoveWorldEventHandler requires valid handler table", "World.RemoveEventHandler")
+        _HarnessInternal.log.error(
+            "RemoveWorldEventHandler requires valid handler table",
+            "World.RemoveEventHandler"
+        )
         return nil
     end
 
     local success, result = pcall(world.removeEventHandler, handler)
     if not success then
-        _HarnessInternal.log.error("Failed to remove event handler: " .. tostring(result), "World.RemoveEventHandler")
+        _HarnessInternal.log.error(
+            "Failed to remove event handler: " .. tostring(result),
+            "World.RemoveEventHandler"
+        )
         return nil
     end
 
@@ -12624,7 +14629,10 @@ end
 function GetWorldAirbases()
     local success, result = pcall(world.getAirbases)
     if not success then
-        _HarnessInternal.log.error("Failed to get world airbases: " .. tostring(result), "World.GetAirbases")
+        _HarnessInternal.log.error(
+            "Failed to get world airbases: " .. tostring(result),
+            "World.GetAirbases"
+        )
         return nil
     end
 
@@ -12639,18 +14647,27 @@ end
 ---@usage local objects = SearchWorldObjects(Object.Category.UNIT, sphereVolume)
 function SearchWorldObjects(category, volume, objectFilter)
     if category and type(category) ~= "number" then
-        _HarnessInternal.log.error("SearchWorldObjects category must be a number if provided", "World.SearchObjects")
+        _HarnessInternal.log.error(
+            "SearchWorldObjects category must be a number if provided",
+            "World.SearchObjects"
+        )
         return nil
     end
 
     if volume and type(volume) ~= "table" then
-        _HarnessInternal.log.error("SearchWorldObjects volume must be a table if provided", "World.SearchObjects")
+        _HarnessInternal.log.error(
+            "SearchWorldObjects volume must be a table if provided",
+            "World.SearchObjects"
+        )
         return nil
     end
 
     local success, result = pcall(world.searchObjects, category, volume, objectFilter)
     if not success then
-        _HarnessInternal.log.error("Failed to search world objects: " .. tostring(result), "World.SearchObjects")
+        _HarnessInternal.log.error(
+            "Failed to search world objects: " .. tostring(result),
+            "World.SearchObjects"
+        )
         return nil
     end
 
@@ -12663,7 +14680,10 @@ end
 function GetMarkPanels()
     local success, result = pcall(world.getMarkPanels)
     if not success then
-        _HarnessInternal.log.error("Failed to get mark panels: " .. tostring(result), "World.GetMarkPanels")
+        _HarnessInternal.log.error(
+            "Failed to get mark panels: " .. tostring(result),
+            "World.GetMarkPanels"
+        )
         return nil
     end
 
@@ -12677,18 +14697,27 @@ end
 ---@usage local panelId = AddMarkingPanel("Target Zone", {x=1000, z=2000})
 function AddMarkingPanel(name, pos)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("AddMarkingPanel requires valid name string", "World.AddMarkingPanel")
+        _HarnessInternal.log.error(
+            "AddMarkingPanel requires valid name string",
+            "World.AddMarkingPanel"
+        )
         return nil
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.z then
-        _HarnessInternal.log.error("AddMarkingPanel requires valid position with x, z", "World.AddMarkingPanel")
+        _HarnessInternal.log.error(
+            "AddMarkingPanel requires valid position with x, z",
+            "World.AddMarkingPanel"
+        )
         return nil
     end
 
     local success, result = pcall(world.addMarkingPanel, name, pos)
     if not success then
-        _HarnessInternal.log.error("Failed to add marking panel: " .. tostring(result), "World.AddMarkingPanel")
+        _HarnessInternal.log.error(
+            "Failed to add marking panel: " .. tostring(result),
+            "World.AddMarkingPanel"
+        )
         return nil
     end
 
@@ -12701,13 +14730,19 @@ end
 ---@usage RemoveMarkingPanel(panelId)
 function RemoveMarkingPanel(id)
     if not id then
-        _HarnessInternal.log.error("RemoveMarkingPanel requires valid panel ID", "World.RemoveMarkingPanel")
+        _HarnessInternal.log.error(
+            "RemoveMarkingPanel requires valid panel ID",
+            "World.RemoveMarkingPanel"
+        )
         return nil
     end
 
     local success, result = pcall(world.removeMarkingPanel, id)
     if not success then
-        _HarnessInternal.log.error("Failed to remove marking panel: " .. tostring(result), "World.RemoveMarkingPanel")
+        _HarnessInternal.log.error(
+            "Failed to remove marking panel: " .. tostring(result),
+            "World.RemoveMarkingPanel"
+        )
         return nil
     end
 
@@ -12726,7 +14761,10 @@ function OnWorldEvent(event)
 
     local success, result = pcall(world.onEvent, event)
     if not success then
-        _HarnessInternal.log.error("Failed to process world event: " .. tostring(result), "World.OnEvent")
+        _HarnessInternal.log.error(
+            "Failed to process world event: " .. tostring(result),
+            "World.OnEvent"
+        )
         return nil
     end
 
@@ -12739,7 +14777,10 @@ end
 function GetWorldWeather()
     local success, result = pcall(world.getWeather)
     if not success then
-        _HarnessInternal.log.error("Failed to get world weather: " .. tostring(result), "World.GetWeather")
+        _HarnessInternal.log.error(
+            "Failed to get world weather: " .. tostring(result),
+            "World.GetWeather"
+        )
         return nil
     end
 
@@ -12752,13 +14793,19 @@ end
 ---@usage local removed = RemoveWorldJunk(sphereVolume)
 function RemoveWorldJunk(searchVolume)
     if not searchVolume or type(searchVolume) ~= "table" then
-        _HarnessInternal.log.error("RemoveWorldJunk requires valid search volume", "World.RemoveJunk")
+        _HarnessInternal.log.error(
+            "RemoveWorldJunk requires valid search volume",
+            "World.RemoveJunk"
+        )
         return nil
     end
 
     local success, result = pcall(world.removeJunk, searchVolume)
     if not success then
-        _HarnessInternal.log.error("Failed to remove world junk: " .. tostring(result), "World.RemoveJunk")
+        _HarnessInternal.log.error(
+            "Failed to remove world junk: " .. tostring(result),
+            "World.RemoveJunk"
+        )
         return nil
     end
 
@@ -12771,17 +14818,20 @@ end
 ---@usage local handler = CreateWorldEventHandler({S_EVENT_SHOT = function(event) ... end})
 function CreateWorldEventHandler(handlers)
     if not handlers or type(handlers) ~= "table" then
-        _HarnessInternal.log.error("CreateWorldEventHandler requires valid handlers table", "World.CreateEventHandler")
+        _HarnessInternal.log.error(
+            "CreateWorldEventHandler requires valid handlers table",
+            "World.CreateEventHandler"
+        )
         return nil
     end
 
     local eventHandler = {}
-    
+
     eventHandler.onEvent = function(self, event)
         if not event or not event.id then
             return
         end
-        
+
         local eventName = nil
         for name, id in pairs(world.event) do
             if id == event.id then
@@ -12789,15 +14839,18 @@ function CreateWorldEventHandler(handlers)
                 break
             end
         end
-        
+
         if eventName and handlers[eventName] then
             local success, result = pcall(handlers[eventName], event)
             if not success then
-                _HarnessInternal.log.error("Event handler error for " .. eventName .. ": " .. tostring(result), "World.EventHandler")
+                _HarnessInternal.log.error(
+                    "Event handler error for " .. eventName .. ": " .. tostring(result),
+                    "World.EventHandler"
+                )
             end
         end
     end
-    
+
     return eventHandler
 end
 
@@ -12808,12 +14861,15 @@ function GetWorldEventTypes()
     local success, result = pcall(function()
         return world.event
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to get world event types: " .. tostring(result), "World.GetEventTypes")
+        _HarnessInternal.log.error(
+            "Failed to get world event types: " .. tostring(result),
+            "World.GetEventTypes"
+        )
         return nil
     end
-    
+
     return result
 end
 
@@ -12824,12 +14880,15 @@ function GetWorldVolumeTypes()
     local success, result = pcall(function()
         return world.VolumeType
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to get world volume types: " .. tostring(result), "World.GetVolumeTypes")
+        _HarnessInternal.log.error(
+            "Failed to get world volume types: " .. tostring(result),
+            "World.GetVolumeTypes"
+        )
         return nil
     end
-    
+
     return result
 end
 
@@ -12840,18 +14899,24 @@ end
 ---@usage local volume = CreateWorldSearchVolume(world.VolumeType.SPHERE, {point={x=0,y=0,z=0}, radius=1000})
 function CreateWorldSearchVolume(volumeType, params)
     if not volumeType or type(volumeType) ~= "number" then
-        _HarnessInternal.log.error("CreateWorldSearchVolume requires valid volume type", "World.CreateSearchVolume")
+        _HarnessInternal.log.error(
+            "CreateWorldSearchVolume requires valid volume type",
+            "World.CreateSearchVolume"
+        )
         return nil
     end
 
     if not params or type(params) ~= "table" then
-        _HarnessInternal.log.error("CreateWorldSearchVolume requires valid parameters table", "World.CreateSearchVolume")
+        _HarnessInternal.log.error(
+            "CreateWorldSearchVolume requires valid parameters table",
+            "World.CreateSearchVolume"
+        )
         return nil
     end
 
     local volume = {
         id = volumeType,
-        params = params
+        params = params,
     }
 
     return volume
@@ -12864,18 +14929,24 @@ end
 ---@usage local sphere = CreateSphereVolume({x=1000, y=100, z=2000}, 500)
 function CreateSphereVolume(center, radius)
     if not center or type(center) ~= "table" or not center.x or not center.y or not center.z then
-        _HarnessInternal.log.error("CreateSphereVolume requires valid center position", "World.CreateSphereVolume")
+        _HarnessInternal.log.error(
+            "CreateSphereVolume requires valid center position",
+            "World.CreateSphereVolume"
+        )
         return nil
     end
 
     if not radius or type(radius) ~= "number" or radius <= 0 then
-        _HarnessInternal.log.error("CreateSphereVolume requires valid radius", "World.CreateSphereVolume")
+        _HarnessInternal.log.error(
+            "CreateSphereVolume requires valid radius",
+            "World.CreateSphereVolume"
+        )
         return nil
     end
 
     return CreateWorldSearchVolume(world.VolumeType.SPHERE, {
         point = center,
-        radius = radius
+        radius = radius,
     })
 end
 
@@ -12886,18 +14957,24 @@ end
 ---@usage local box = CreateBoxVolume({x=0, y=0, z=0}, {x=1000, y=500, z=1000})
 function CreateBoxVolume(min, max)
     if not min or type(min) ~= "table" or not min.x or not min.y or not min.z then
-        _HarnessInternal.log.error("CreateBoxVolume requires valid min position", "World.CreateBoxVolume")
+        _HarnessInternal.log.error(
+            "CreateBoxVolume requires valid min position",
+            "World.CreateBoxVolume"
+        )
         return nil
     end
 
     if not max or type(max) ~= "table" or not max.x or not max.y or not max.z then
-        _HarnessInternal.log.error("CreateBoxVolume requires valid max position", "World.CreateBoxVolume")
+        _HarnessInternal.log.error(
+            "CreateBoxVolume requires valid max position",
+            "World.CreateBoxVolume"
+        )
         return nil
     end
 
     return CreateWorldSearchVolume(world.VolumeType.BOX, {
         min = min,
-        max = max
+        max = max,
     })
 end
 
@@ -12910,22 +14987,34 @@ end
 ---@usage local pyramid = CreatePyramidVolume({x=0, y=100, z=0}, 5000, math.rad(30), math.rad(20))
 function CreatePyramidVolume(pos, length, halfAngleHor, halfAngleVer)
     if not pos or type(pos) ~= "table" then
-        _HarnessInternal.log.error("CreatePyramidVolume requires valid position", "World.CreatePyramidVolume")
+        _HarnessInternal.log.error(
+            "CreatePyramidVolume requires valid position",
+            "World.CreatePyramidVolume"
+        )
         return nil
     end
 
     if not length or type(length) ~= "number" or length <= 0 then
-        _HarnessInternal.log.error("CreatePyramidVolume requires valid length", "World.CreatePyramidVolume")
+        _HarnessInternal.log.error(
+            "CreatePyramidVolume requires valid length",
+            "World.CreatePyramidVolume"
+        )
         return nil
     end
 
     if not halfAngleHor or type(halfAngleHor) ~= "number" then
-        _HarnessInternal.log.error("CreatePyramidVolume requires valid horizontal half angle", "World.CreatePyramidVolume")
+        _HarnessInternal.log.error(
+            "CreatePyramidVolume requires valid horizontal half angle",
+            "World.CreatePyramidVolume"
+        )
         return nil
     end
 
     if not halfAngleVer or type(halfAngleVer) ~= "number" then
-        _HarnessInternal.log.error("CreatePyramidVolume requires valid vertical half angle", "World.CreatePyramidVolume")
+        _HarnessInternal.log.error(
+            "CreatePyramidVolume requires valid vertical half angle",
+            "World.CreatePyramidVolume"
+        )
         return nil
     end
 
@@ -12933,7 +15022,7 @@ function CreatePyramidVolume(pos, length, halfAngleHor, halfAngleVer)
         pos = pos,
         length = length,
         halfAngleHor = halfAngleHor,
-        halfAngleVer = halfAngleVer
+        halfAngleVer = halfAngleVer,
     })
 end
 
@@ -12944,18 +15033,24 @@ end
 ---@usage local segment = CreateSegmentVolume({x=0, y=100, z=0}, {x=1000, y=100, z=1000})
 function CreateSegmentVolume(from, to)
     if not from or type(from) ~= "table" or not from.x or not from.y or not from.z then
-        _HarnessInternal.log.error("CreateSegmentVolume requires valid from position", "World.CreateSegmentVolume")
+        _HarnessInternal.log.error(
+            "CreateSegmentVolume requires valid from position",
+            "World.CreateSegmentVolume"
+        )
         return nil
     end
 
     if not to or type(to) ~= "table" or not to.x or not to.y or not to.z then
-        _HarnessInternal.log.error("CreateSegmentVolume requires valid to position", "World.CreateSegmentVolume")
+        _HarnessInternal.log.error(
+            "CreateSegmentVolume requires valid to position",
+            "World.CreateSegmentVolume"
+        )
         return nil
     end
 
     return CreateWorldSearchVolume(world.VolumeType.SEGMENT, {
         from = from,
-        to = to
+        to = to,
     })
 end
 -- ==== END: src\world.lua ====
@@ -12978,12 +15073,15 @@ function GetDrawings()
         end
         return nil
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to get drawings: " .. tostring(result), "Drawing.GetDrawings")
+        _HarnessInternal.log.error(
+            "Failed to get drawings: " .. tostring(result),
+            "Drawing.GetDrawings"
+        )
         return nil
     end
-    
+
     return result
 end
 
@@ -12994,91 +15092,85 @@ function ProcessDrawingGeometry(drawing)
     if not drawing or type(drawing) ~= "table" then
         return nil
     end
-    
+
     local geometry = {
         name = drawing.name,
         type = drawing.primitiveType,
         visible = drawing.visible,
         layerName = drawing.layerName,
         mapX = drawing.mapX,
-        mapY = drawing.mapY
+        mapY = drawing.mapY,
     }
-    
+
     -- Convert mapX, mapY to DCS coordinate system (x, z)
     if geometry.mapX and geometry.mapY then
         geometry.x = geometry.mapX
         geometry.z = geometry.mapY
         geometry.y = 0 -- Default ground level
     end
-    
+
     -- Process based on primitive type
     if drawing.primitiveType == "Line" then
         geometry.lineMode = drawing.lineMode
         geometry.closed = drawing.closed
         geometry.points = {}
-        
+
         if drawing.points then
             for i, point in ipairs(drawing.points) do
                 table.insert(geometry.points, {
                     x = (drawing.mapX or 0) + (point.x or 0),
                     y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0)
+                    z = (drawing.mapY or 0) + (point.y or 0),
                 })
             end
         end
-        
     elseif drawing.primitiveType == "Polygon" then
         geometry.polygonMode = drawing.polygonMode
-        
+
         if drawing.polygonMode == "circle" then
             geometry.radius = drawing.radius
-            geometry.center = {x = geometry.x, y = 0, z = geometry.z}
-            
+            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
         elseif drawing.polygonMode == "rect" then
             geometry.width = drawing.width
             geometry.height = drawing.height
             geometry.angle = drawing.angle or 0
-            geometry.center = {x = geometry.x, y = 0, z = geometry.z}
-            
+            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
         elseif drawing.polygonMode == "oval" then
             geometry.r1 = drawing.r1
             geometry.r2 = drawing.r2
             geometry.angle = drawing.angle or 0
-            geometry.center = {x = geometry.x, y = 0, z = geometry.z}
-            
+            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
         elseif drawing.polygonMode == "arrow" then
             geometry.length = drawing.length
             geometry.angle = drawing.angle or 0
             geometry.points = {}
-            
+
             if drawing.points then
                 for i, point in ipairs(drawing.points) do
                     table.insert(geometry.points, {
                         x = (drawing.mapX or 0) + (point.x or 0),
                         y = 0,
-                        z = (drawing.mapY or 0) + (point.y or 0)
+                        z = (drawing.mapY or 0) + (point.y or 0),
                     })
                 end
             end
-            
         elseif drawing.polygonMode == "free" and drawing.points then
             geometry.points = {}
             for i, point in ipairs(drawing.points) do
                 table.insert(geometry.points, {
                     x = (drawing.mapX or 0) + (point.x or 0),
                     y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0)
+                    z = (drawing.mapY or 0) + (point.y or 0),
                 })
             end
         end
-        
     elseif drawing.primitiveType == "Icon" then
         geometry.file = drawing.file
         geometry.scale = drawing.scale or 1
         geometry.angle = drawing.angle or 0
-        geometry.position = {x = geometry.x, y = 0, z = geometry.z}
+        geometry.position = { x = geometry.x, y = 0, z = geometry.z }
     end
-    
+
     -- Store color information if available
     if drawing.colorString then
         geometry.color = drawing.colorString
@@ -13086,7 +15178,7 @@ function ProcessDrawingGeometry(drawing)
     if drawing.fillColorString then
         geometry.fillColor = drawing.fillColorString
     end
-    
+
     return geometry
 end
 
@@ -13096,21 +15188,21 @@ function InitializeDrawingCache()
     if not _HarnessInternal.cache then
         _HarnessInternal.cache = {}
     end
-    
+
     _HarnessInternal.cache.drawings = {
         all = {},
         byName = {},
         byType = {},
-        byLayer = {}
+        byLayer = {},
     }
-    
+
     -- Get mission drawings
     local missionDrawings = GetDrawings()
     if not missionDrawings then
         _HarnessInternal.log.warning("No drawings found in mission", "Drawing.InitializeCache")
         return true
     end
-    
+
     -- Process each layer
     if missionDrawings.layers then
         for _, layer in pairs(missionDrawings.layers) do
@@ -13120,34 +15212,43 @@ function InitializeDrawingCache()
                     if geometry then
                         -- Store in all
                         table.insert(_HarnessInternal.cache.drawings.all, geometry)
-                        
+
                         -- Index by name
                         if geometry.name then
                             _HarnessInternal.cache.drawings.byName[geometry.name] = geometry
                         end
-                        
+
                         -- Index by type
                         if geometry.type then
                             if not _HarnessInternal.cache.drawings.byType[geometry.type] then
                                 _HarnessInternal.cache.drawings.byType[geometry.type] = {}
                             end
-                            table.insert(_HarnessInternal.cache.drawings.byType[geometry.type], geometry)
+                            table.insert(
+                                _HarnessInternal.cache.drawings.byType[geometry.type],
+                                geometry
+                            )
                         end
-                        
+
                         -- Index by layer
                         if geometry.layerName then
                             if not _HarnessInternal.cache.drawings.byLayer[geometry.layerName] then
                                 _HarnessInternal.cache.drawings.byLayer[geometry.layerName] = {}
                             end
-                            table.insert(_HarnessInternal.cache.drawings.byLayer[geometry.layerName], geometry)
+                            table.insert(
+                                _HarnessInternal.cache.drawings.byLayer[geometry.layerName],
+                                geometry
+                            )
                         end
                     end
                 end
             end
         end
     end
-    
-    _HarnessInternal.log.info("Drawing cache initialized with " .. #_HarnessInternal.cache.drawings.all .. " drawings", "Drawing.InitializeCache")
+
+    _HarnessInternal.log.info(
+        "Drawing cache initialized with " .. #_HarnessInternal.cache.drawings.all .. " drawings",
+        "Drawing.InitializeCache"
+    )
     return true
 end
 
@@ -13157,7 +15258,7 @@ function GetAllDrawings()
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.all or {}
 end
 
@@ -13169,11 +15270,11 @@ function GetDrawingByName(name)
         _HarnessInternal.log.error("GetDrawingByName requires valid name", "Drawing.GetByName")
         return nil
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.byName[name]
 end
 
@@ -13182,23 +15283,26 @@ end
 ---@return table Array of matching drawing geometries
 function FindDrawingsByName(pattern)
     if not pattern or type(pattern) ~= "string" then
-        _HarnessInternal.log.error("FindDrawingsByName requires valid pattern", "Drawing.FindByName")
+        _HarnessInternal.log.error(
+            "FindDrawingsByName requires valid pattern",
+            "Drawing.FindByName"
+        )
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     local results = {}
     local lowerPattern = string.lower(pattern)
-    
+
     for _, drawing in ipairs(_HarnessInternal.cache.drawings.all) do
         if drawing.name and string.find(string.lower(drawing.name), lowerPattern, 1, true) then
             table.insert(results, drawing)
         end
     end
-    
+
     return results
 end
 
@@ -13210,11 +15314,11 @@ function GetDrawingsByType(drawingType)
         _HarnessInternal.log.error("GetDrawingsByType requires valid type", "Drawing.GetByType")
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.byType[drawingType] or {}
 end
 
@@ -13223,14 +15327,17 @@ end
 ---@return table Array of drawing geometries in the specified layer
 function GetDrawingsByLayer(layerName)
     if not layerName or type(layerName) ~= "string" then
-        _HarnessInternal.log.error("GetDrawingsByLayer requires valid layer name", "Drawing.GetByLayer")
+        _HarnessInternal.log.error(
+            "GetDrawingsByLayer requires valid layer name",
+            "Drawing.GetByLayer"
+        )
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     return _HarnessInternal.cache.drawings.byLayer[layerName] or {}
 end
 
@@ -13242,58 +15349,66 @@ function IsPointInDrawing(drawing, point)
     if not drawing or not point then
         return false
     end
-    
+
     if drawing.type == "Polygon" then
         if drawing.polygonMode == "circle" and drawing.center and drawing.radius then
             local dx = point.x - drawing.center.x
             local dz = point.z - drawing.center.z
             return (dx * dx + dz * dz) <= (drawing.radius * drawing.radius)
-            
-        elseif drawing.polygonMode == "rect" and drawing.center and drawing.width and drawing.height then
+        elseif
+            drawing.polygonMode == "rect"
+            and drawing.center
+            and drawing.width
+            and drawing.height
+        then
             -- Simple axis-aligned check (ignoring rotation for now)
             local halfWidth = drawing.width / 2
             local halfHeight = drawing.height / 2
             local dx = math.abs(point.x - drawing.center.x)
             local dz = math.abs(point.z - drawing.center.z)
             return dx <= halfWidth and dz <= halfHeight
-            
         elseif drawing.points and #drawing.points >= 3 then
             -- Point-in-polygon test using ray casting algorithm
             local x, z = point.x, point.z
             local inside = false
             local j = #drawing.points
-            
+
             for i = 1, #drawing.points do
                 local xi, zi = drawing.points[i].x, drawing.points[i].z
                 local xj, zj = drawing.points[j].x, drawing.points[j].z
-                
+
                 if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
                     inside = not inside
                 end
                 j = i
             end
-            
+
             return inside
         end
-    elseif drawing.type == "Line" and drawing.closed and drawing.points and #drawing.points >= 3 then
+    elseif
+        drawing.type == "Line"
+        and drawing.closed
+        and drawing.points
+        and #drawing.points >= 3
+    then
         -- Closed lines form polygons, use same algorithm
         local x, z = point.x, point.z
         local inside = false
         local j = #drawing.points
-        
+
         for i = 1, #drawing.points do
             local xi, zi = drawing.points[i].x, drawing.points[i].z
             local xj, zj = drawing.points[j].x, drawing.points[j].z
-            
+
             if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
                 inside = not inside
             end
             j = i
         end
-        
+
         return inside
     end
-    
+
     return false
 end
 
@@ -13303,22 +15418,22 @@ end
 ---@return number radius Radius of bounding sphere
 local function CalculateBoundingSphere(points)
     if not points or #points == 0 then
-        return {x = 0, y = 0, z = 0}, 0
+        return { x = 0, y = 0, z = 0 }, 0
     end
-    
+
     -- Find centroid
     local sumX, sumZ = 0, 0
     for _, point in ipairs(points) do
         sumX = sumX + (point.x or 0)
         sumZ = sumZ + (point.z or 0)
     end
-    
+
     local center = {
         x = sumX / #points,
         y = 0,
-        z = sumZ / #points
+        z = sumZ / #points,
     }
-    
+
     -- Find maximum distance from center
     local maxDist = 0
     for _, point in ipairs(points) do
@@ -13329,7 +15444,7 @@ local function CalculateBoundingSphere(points)
             maxDist = dist
         end
     end
-    
+
     return center, maxDist
 end
 
@@ -13340,27 +15455,30 @@ end
 ---@usage local units = GetUnitsInDrawing("Target Area", coalition.side.RED)
 function GetUnitsInDrawing(drawingName, coalitionId)
     local unitsInDrawing = {}
-    
+
     -- Get drawing geometry
     local drawing = GetDrawingByName(drawingName)
     if not drawing then
         return {}
     end
-    
+
     -- Create search volume based on drawing type
     local searchVolume
     if drawing.type == "Polygon" then
         if drawing.polygonMode == "circle" and drawing.center and drawing.radius then
             -- For circular drawings, use sphere volume with 1.5x radius for search
             searchVolume = CreateSphereVolume(drawing.center, drawing.radius * 1.5)
-            
-        elseif drawing.polygonMode == "rect" and drawing.center and drawing.width and drawing.height then
+        elseif
+            drawing.polygonMode == "rect"
+            and drawing.center
+            and drawing.width
+            and drawing.height
+        then
             -- For rectangles, calculate bounding sphere with 1.5x radius
             local halfWidth = drawing.width / 2
             local halfHeight = drawing.height / 2
             local radius = math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight) * 1.5
             searchVolume = CreateSphereVolume(drawing.center, radius)
-            
         elseif drawing.points and #drawing.points >= 3 then
             -- For polygon drawings, calculate bounding sphere with 1.5x radius
             local center, radius = CalculateBoundingSphere(drawing.points)
@@ -13368,24 +15486,29 @@ function GetUnitsInDrawing(drawingName, coalitionId)
         else
             return {}
         end
-    elseif drawing.type == "Line" and drawing.closed and drawing.points and #drawing.points >= 3 then
+    elseif
+        drawing.type == "Line"
+        and drawing.closed
+        and drawing.points
+        and #drawing.points >= 3
+    then
         -- Closed lines form polygons
         local center, radius = CalculateBoundingSphere(drawing.points)
         searchVolume = CreateSphereVolume(center, radius * 1.5)
     else
         return {}
     end
-    
+
     if not searchVolume then
         return {}
     end
-    
+
     -- Handler function for found objects
     local function handleUnit(unit, data)
         if not unit then
             return true
         end
-        
+
         -- Check coalition filter
         if coalitionId then
             local unitCoalition = GetUnitCoalition(unit)
@@ -13393,25 +15516,25 @@ function GetUnitsInDrawing(drawingName, coalitionId)
                 return true
             end
         end
-        
+
         -- Get unit position for precise drawing check
         local pos = GetUnitPosition(unit)
         if pos then
-            local point = {x = pos.x, z = pos.z}
-            
+            local point = { x = pos.x, z = pos.z }
+
             -- Check if unit is actually in the drawing (not just the bounding sphere)
             if IsPointInDrawing(drawing, point) then
                 table.insert(unitsInDrawing, unit)
             end
         end
-        
+
         return true
     end
-    
+
     -- Search for units in the volume
     -- Object.Category.UNIT = 1 in DCS
     SearchWorldObjects(1, searchVolume, handleUnit)
-    
+
     return unitsInDrawing
 end
 
@@ -13422,23 +15545,26 @@ end
 ---@usage local drawings = GetDrawingsAtPoint({x=1000, z=2000})
 function GetDrawingsAtPoint(point, drawingType)
     if not point or type(point) ~= "table" or not point.x or not point.z then
-        _HarnessInternal.log.error("GetDrawingsAtPoint requires valid point with x, z", "Drawing.GetDrawingsAtPoint")
+        _HarnessInternal.log.error(
+            "GetDrawingsAtPoint requires valid point with x, z",
+            "Drawing.GetDrawingsAtPoint"
+        )
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.drawings then
         InitializeDrawingCache()
     end
-    
+
     local results = {}
     local drawings = drawingType and GetDrawingsByType(drawingType) or GetAllDrawings()
-    
+
     for _, drawing in ipairs(drawings) do
         if IsPointInDrawing(drawing, point) then
             table.insert(results, drawing)
         end
     end
-    
+
     return results
 end
 
@@ -13449,7 +15575,7 @@ function ClearDrawingCache()
             all = {},
             byName = {},
             byType = {},
-            byLayer = {}
+            byLayer = {},
         }
     end
 end
@@ -13478,7 +15604,7 @@ function GetZone(zoneName)
         _HarnessInternal.log.error("GetZone requires string zone name", "GetZone")
         return nil
     end
-    
+
     -- Check cache first
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         local cachedZone = _HarnessInternal.cache.triggerZones.byName[zoneName]
@@ -13486,28 +15612,28 @@ function GetZone(zoneName)
             -- Convert cached format to DCS API format
             if cachedZone.type == "circle" then
                 return {
-                    point = cachedZone.center or {x = 0, y = 0, z = 0},
-                    radius = cachedZone.radius or 0
+                    point = cachedZone.center or { x = 0, y = 0, z = 0 },
+                    radius = cachedZone.radius or 0,
                 }
             elseif cachedZone.type == "polygon" and cachedZone.points then
                 -- For polygon zones, return the first point as center with radius 0
                 -- This matches DCS behavior for polygon zones
                 return {
-                    point = cachedZone.points[1] or {x = 0, y = 0, z = 0},
+                    point = cachedZone.points[1] or { x = 0, y = 0, z = 0 },
                     radius = 0,
-                    vertices = cachedZone.points
+                    vertices = cachedZone.points,
                 }
             end
         end
     end
-    
+
     -- Fall back to API call
     local success, zone = pcall(trigger.misc.getZone, zoneName)
     if not success then
         _HarnessInternal.log.error("Failed to get zone: " .. tostring(zone), "GetZone")
         return nil
     end
-    
+
     return zone
 end
 
@@ -13520,7 +15646,7 @@ function GetZonePosition(zoneName)
     if not zone then
         return nil
     end
-    
+
     return Vec3(zone.point.x, zone.point.y, zone.point.z)
 end
 
@@ -13533,7 +15659,7 @@ function GetZoneRadius(zoneName)
     if not zone then
         return nil
     end
-    
+
     return zone.radius
 end
 
@@ -13547,30 +15673,30 @@ function IsInZone(position, zoneName)
         _HarnessInternal.log.error("IsInZone requires Vec3 position", "IsInZone")
         return false
     end
-    
+
     -- Try to use cached zone geometry first for polygon support
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         local cachedZone = _HarnessInternal.cache.triggerZones.byName[zoneName]
         if cachedZone then
-            return IsPointInZoneGeometry(cachedZone, {x = position.x, z = position.z})
+            return IsPointInZoneGeometry(cachedZone, { x = position.x, z = position.z })
         end
     end
-    
+
     -- Fall back to API zone (only works for circular zones)
     local zone = GetZone(zoneName)
     if not zone then
         return false
     end
-    
+
     -- Check if zone has vertices (polygon)
     if zone.vertices and #zone.vertices >= 3 then
         return IsInPolygonZone(position, zone.vertices)
     end
-    
+
     -- Standard circular zone check
     local zonePos = Vec3(zone.point.x, zone.point.y, zone.point.z)
     local distance = Distance2D(position, zonePos)
-    
+
     return distance <= zone.radius
 end
 
@@ -13584,7 +15710,7 @@ function IsUnitInZone(unitName, zoneName)
     if not position then
         return false
     end
-    
+
     return IsInZone(position, zoneName)
 end
 
@@ -13598,7 +15724,7 @@ function IsGroupInZone(groupName, zoneName)
     if not units then
         return false
     end
-    
+
     for _, unit in ipairs(units) do
         local success, unitName = pcall(unit.getName, unit)
         if success and unitName then
@@ -13607,7 +15733,7 @@ function IsGroupInZone(groupName, zoneName)
             end
         end
     end
-    
+
     return false
 end
 
@@ -13621,7 +15747,7 @@ function IsGroupCompletelyInZone(groupName, zoneName)
     if not units or #units == 0 then
         return false
     end
-    
+
     for _, unit in ipairs(units) do
         local success, unitName = pcall(unit.getName, unit)
         if success and unitName then
@@ -13630,7 +15756,7 @@ function IsGroupCompletelyInZone(groupName, zoneName)
             end
         end
     end
-    
+
     return true
 end
 
@@ -13640,22 +15766,22 @@ end
 ---@return number radius Radius of bounding sphere
 local function CalculateBoundingSphere(points)
     if not points or #points == 0 then
-        return {x = 0, y = 0, z = 0}, 0
+        return { x = 0, y = 0, z = 0 }, 0
     end
-    
+
     -- Find centroid
     local sumX, sumZ = 0, 0
     for _, point in ipairs(points) do
         sumX = sumX + (point.x or 0)
         sumZ = sumZ + (point.z or 0)
     end
-    
+
     local center = {
         x = sumX / #points,
         y = 0,
-        z = sumZ / #points
+        z = sumZ / #points,
     }
-    
+
     -- Find maximum distance from center
     local maxDist = 0
     for _, point in ipairs(points) do
@@ -13666,7 +15792,7 @@ local function CalculateBoundingSphere(points)
             maxDist = dist
         end
     end
-    
+
     return center, maxDist
 end
 
@@ -13677,30 +15803,30 @@ end
 ---@usage local units = GetUnitsInZone("LZ Alpha", coalition.side.BLUE)
 function GetUnitsInZone(zoneName, coalitionId)
     local unitsInZone = {}
-    
+
     -- Get zone geometry
     local zone = nil
-    
+
     -- Try to use cached zone geometry first for better performance
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         zone = _HarnessInternal.cache.triggerZones.byName[zoneName]
     end
-    
+
     -- Fall back to API zone
     if not zone then
         local apiZone = GetZone(zoneName)
         if not apiZone then
             return {}
         end
-        
+
         -- Convert API zone to our geometry format
         zone = {
             type = "circle",
             center = apiZone.point,
-            radius = apiZone.radius or 0
+            radius = apiZone.radius or 0,
         }
     end
-    
+
     -- Create search volume based on zone type
     local searchVolume
     if zone.type == "circle" and zone.center and zone.radius then
@@ -13713,17 +15839,17 @@ function GetUnitsInZone(zoneName, coalitionId)
     else
         return {}
     end
-    
+
     if not searchVolume then
         return {}
     end
-    
+
     -- Handler function for found objects
     local function handleUnit(unit, data)
         if not unit then
             return true
         end
-        
+
         -- Check coalition filter
         if coalitionId then
             local unitCoalition = GetUnitCoalition(unit)
@@ -13731,25 +15857,25 @@ function GetUnitsInZone(zoneName, coalitionId)
                 return true
             end
         end
-        
+
         -- Get unit position for precise zone check
         local pos = GetUnitPosition(unit)
         if pos then
-            local point = {x = pos.x, z = pos.z}
-            
+            local point = { x = pos.x, z = pos.z }
+
             -- Check if unit is actually in the zone (not just the bounding sphere)
             if IsPointInZoneGeometry(zone, point) then
                 table.insert(unitsInZone, unit)
             end
         end
-        
+
         return true
     end
-    
+
     -- Search for units in the volume
     -- Object.Category.UNIT = 1 in DCS
     SearchWorldObjects(1, searchVolume, handleUnit)
-    
+
     return unitsInZone
 end
 
@@ -13763,18 +15889,23 @@ function GetGroupsInZone(zoneName, coalitionId)
     if not zone then
         return {}
     end
-    
+
     local groupsInZone = {}
     local groupsAdded = {}
-    
+
     -- Get all groups for the coalition (or all coalitions if not specified)
-    local coalitions = coalitionId and {coalitionId} or {0, 1, 2}
-    
+    local coalitions = coalitionId and { coalitionId } or { 0, 1, 2 }
+
     for _, coal in ipairs(coalitions) do
         -- Check all categories
-        for _, category in ipairs({Group.Category.AIRPLANE, Group.Category.HELICOPTER, Group.Category.GROUND, Group.Category.SHIP}) do
+        for _, category in ipairs({
+            Group.Category.AIRPLANE,
+            Group.Category.HELICOPTER,
+            Group.Category.GROUND,
+            Group.Category.SHIP,
+        }) do
             local groups = GetCoalitionGroups(coal, category)
-            
+
             for _, group in ipairs(groups) do
                 local success, groupName = pcall(group.getName, group)
                 if success and groupName and not groupsAdded[groupName] then
@@ -13786,7 +15917,7 @@ function GetGroupsInZone(zoneName, coalitionId)
             end
         end
     end
-    
+
     return groupsInZone
 end
 
@@ -13801,20 +15932,20 @@ function RandomPointInZone(zoneName, inner, outer)
     if not zone then
         return nil
     end
-    
+
     inner = inner or 0
     outer = outer or zone.radius
-    
+
     -- Random angle
     local angle = math.random() * 2 * math.pi
-    
+
     -- Random distance between inner and outer radius
     local distance = inner + math.random() * (outer - inner)
-    
+
     -- Calculate position
     local x = zone.point.x + distance * math.cos(angle)
     local z = zone.point.z + distance * math.sin(angle)
-    
+
     return Vec3(x, zone.point.y, z)
 end
 
@@ -13825,25 +15956,28 @@ end
 ---@usage if IsInPolygonZone(pos, {v1, v2, v3, v4}) then ... end
 function IsInPolygonZone(point, vertices)
     if not IsVec3(point) or not vertices or type(vertices) ~= "table" then
-        _HarnessInternal.log.error("IsInPolygonZone requires Vec3 point and vertices table", "IsInPolygonZone")
+        _HarnessInternal.log.error(
+            "IsInPolygonZone requires Vec3 point and vertices table",
+            "IsInPolygonZone"
+        )
         return false
     end
-    
+
     -- Ray casting algorithm for point-in-polygon test
     local x, z = point.x, point.z
     local inside = false
     local j = #vertices
-    
+
     for i = 1, #vertices do
         local xi, zi = vertices[i].x, vertices[i].z
         local xj, zj = vertices[j].x, vertices[j].z
-        
+
         if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
             inside = not inside
         end
         j = i
     end
-    
+
     return inside
 end
 
@@ -13861,12 +15995,15 @@ function GetMissionZones()
         end
         return nil
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to get mission zones: " .. tostring(result), "Zone.GetMissionZones")
+        _HarnessInternal.log.error(
+            "Failed to get mission zones: " .. tostring(result),
+            "Zone.GetMissionZones"
+        )
         return nil
     end
-    
+
     return result
 end
 
@@ -13877,20 +16014,20 @@ function ProcessZoneGeometry(zone)
     if not zone or type(zone) ~= "table" then
         return nil
     end
-    
+
     -- Skip zones attached to units (they move)
     if zone.linkUnit then
         return nil
     end
-    
+
     local geometry = {
         name = zone.name,
         zoneId = zone.zoneId,
         hidden = zone.hidden,
         color = zone.color,
-        properties = zone.properties or {}
+        properties = zone.properties or {},
     }
-    
+
     -- Zone type: 0 = circular, 2 = quadpoint
     if zone.type == 0 then
         -- Circular zone
@@ -13898,15 +16035,14 @@ function ProcessZoneGeometry(zone)
         geometry.center = {
             x = zone.x or 0,
             y = 0,
-            z = zone.y or 0  -- Note: mission y is DCS z
+            z = zone.y or 0, -- Note: mission y is DCS z
         }
         geometry.radius = zone.radius or 0
-        
     elseif zone.type == 2 and zone.verticies then
         -- Quadpoint/polygon zone
         geometry.type = "polygon"
         geometry.points = {}
-        
+
         -- Check if vertices appear to be absolute or relative coordinates
         -- If any vertex coordinate is very large (>10000), assume absolute coordinates
         local useAbsolute = false
@@ -13916,25 +16052,25 @@ function ProcessZoneGeometry(zone)
                 break
             end
         end
-        
+
         -- Zone center position
         local centerX = zone.x or 0
-        local centerZ = zone.y or 0  -- Mission y is DCS z
-        
+        local centerZ = zone.y or 0 -- Mission y is DCS z
+
         for i, vertex in ipairs(zone.verticies) do
             if useAbsolute then
                 -- Vertices are absolute coordinates
                 table.insert(geometry.points, {
                     x = vertex.x or 0,
                     y = 0,
-                    z = vertex.y or 0  -- Note: mission y is DCS z
+                    z = vertex.y or 0, -- Note: mission y is DCS z
                 })
             else
                 -- Vertices are relative to center
                 table.insert(geometry.points, {
                     x = centerX + (vertex.x or 0),
                     y = 0,
-                    z = centerZ + (vertex.y or 0)  -- Note: mission y is DCS z
+                    z = centerZ + (vertex.y or 0), -- Note: mission y is DCS z
                 })
             end
         end
@@ -13942,7 +16078,7 @@ function ProcessZoneGeometry(zone)
         -- Unknown zone type
         return nil
     end
-    
+
     return geometry
 end
 
@@ -13952,38 +16088,38 @@ function InitializeZoneCache()
     if not _HarnessInternal.cache then
         _HarnessInternal.cache = {}
     end
-    
+
     _HarnessInternal.cache.triggerZones = {
         all = {},
         byName = {},
         byId = {},
-        byType = {}
+        byType = {},
     }
-    
+
     -- Get mission trigger zones
     local zones = GetMissionZones()
     if not zones then
         _HarnessInternal.log.warning("No zones found in mission", "Zone.InitializeCache")
         return true
     end
-    
+
     -- Process each zone
     for _, zone in pairs(zones) do
         local geometry = ProcessZoneGeometry(zone)
         if geometry then
             -- Store in all
             table.insert(_HarnessInternal.cache.triggerZones.all, geometry)
-            
+
             -- Index by name
             if geometry.name then
                 _HarnessInternal.cache.triggerZones.byName[geometry.name] = geometry
             end
-            
+
             -- Index by ID
             if geometry.zoneId then
                 _HarnessInternal.cache.triggerZones.byId[geometry.zoneId] = geometry
             end
-            
+
             -- Index by type
             if geometry.type then
                 if not _HarnessInternal.cache.triggerZones.byType[geometry.type] then
@@ -13993,8 +16129,11 @@ function InitializeZoneCache()
             end
         end
     end
-    
-    _HarnessInternal.log.info("Zone cache initialized with " .. #_HarnessInternal.cache.triggerZones.all .. " zones", "Zone.InitializeCache")
+
+    _HarnessInternal.log.info(
+        "Zone cache initialized with " .. #_HarnessInternal.cache.triggerZones.all .. " zones",
+        "Zone.InitializeCache"
+    )
     return true
 end
 
@@ -14004,7 +16143,7 @@ function GetAllZones()
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.all or {}
 end
 
@@ -14013,14 +16152,17 @@ end
 ---@return table? zone Trigger zone geometry or nil if not found
 function GetCachedZoneByName(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("GetCachedZoneByName requires valid name", "Zone.GetCachedByName")
+        _HarnessInternal.log.error(
+            "GetCachedZoneByName requires valid name",
+            "Zone.GetCachedByName"
+        )
         return nil
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.byName[name]
 end
 
@@ -14032,11 +16174,11 @@ function GetCachedZoneById(zoneId)
         _HarnessInternal.log.error("GetCachedZoneById requires valid ID", "Zone.GetCachedById")
         return nil
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.byId[zoneId]
 end
 
@@ -14048,20 +16190,20 @@ function FindZonesByName(pattern)
         _HarnessInternal.log.error("FindZonesByName requires valid pattern", "Zone.FindByName")
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     local results = {}
     local lowerPattern = string.lower(pattern)
-    
+
     for _, zone in ipairs(_HarnessInternal.cache.triggerZones.all) do
         if zone.name and string.find(string.lower(zone.name), lowerPattern, 1, true) then
             table.insert(results, zone)
         end
     end
-    
+
     return results
 end
 
@@ -14073,11 +16215,11 @@ function GetZonesByType(zoneType)
         _HarnessInternal.log.error("GetZonesByType requires valid type", "Zone.GetByType")
         return {}
     end
-    
+
     if not _HarnessInternal.cache or not _HarnessInternal.cache.triggerZones then
         InitializeZoneCache()
     end
-    
+
     return _HarnessInternal.cache.triggerZones.byType[zoneType] or {}
 end
 
@@ -14089,21 +16231,19 @@ function IsPointInZoneGeometry(zone, point)
     if not zone or not point then
         return false
     end
-    
+
     if zone.type == "circle" and zone.center and zone.radius then
         local dx = point.x - zone.center.x
         local dz = point.z - zone.center.z
         return (dx * dx + dz * dz) <= (zone.radius * zone.radius)
-        
     elseif zone.type == "polygon" and zone.points and #zone.points >= 3 then
         -- Convert 2D point to 3D for IsInPolygonZone
-        local point3d = {x = point.x, y = 0, z = point.z}
+        local point3d = { x = point.x, y = 0, z = point.z }
         return IsInPolygonZone(point3d, zone.points)
     end
-    
+
     return false
 end
-
 
 --- Clear trigger zone cache
 function ClearZoneCache()
@@ -14112,7 +16252,7 @@ function ClearZoneCache()
             all = {},
             byName = {},
             byId = {},
-            byType = {}
+            byType = {},
         }
     end
 end
@@ -14130,7 +16270,7 @@ end
 function InitializeShapeCache()
     local drawingSuccess = InitializeDrawingCache()
     local zoneSuccess = InitializeZoneCache()
-    
+
     _HarnessInternal.log.info("Shape cache initialization complete", "ShapeCache.Initialize")
     return drawingSuccess and zoneSuccess
 end
@@ -14140,7 +16280,7 @@ end
 function GetAllShapes()
     return {
         drawings = GetAllDrawings(),
-        triggerZones = GetAllZones()
+        triggerZones = GetAllZones(),
     }
 end
 
@@ -14149,13 +16289,16 @@ end
 ---@return table results Table with matching drawings and triggerZones
 function FindShapesByName(pattern)
     if not pattern or type(pattern) ~= "string" then
-        _HarnessInternal.log.error("FindShapesByName requires valid pattern", "ShapeCache.FindByName")
-        return {drawings = {}, triggerZones = {}}
+        _HarnessInternal.log.error(
+            "FindShapesByName requires valid pattern",
+            "ShapeCache.FindByName"
+        )
+        return { drawings = {}, triggerZones = {} }
     end
-    
+
     return {
         drawings = FindDrawingsByName(pattern),
-        triggerZones = FindZonesByName(pattern)
+        triggerZones = FindZonesByName(pattern),
     }
 end
 
@@ -14167,21 +16310,21 @@ function GetShapeByName(name)
         _HarnessInternal.log.error("GetShapeByName requires valid name", "ShapeCache.GetByName")
         return nil
     end
-    
+
     -- Check drawings first
     local drawing = GetDrawingByName(name)
     if drawing then
         drawing.shapeType = "drawing"
         return drawing
     end
-    
+
     -- Check trigger zones
     local zone = GetCachedZoneByName(name)
     if zone then
         zone.shapeType = "triggerZone"
         return zone
     end
-    
+
     return nil
 end
 
@@ -14191,12 +16334,15 @@ end
 ---@return table results Array of shapes containing the point
 function GetShapesAtPoint(point, shapeName)
     if not point or type(point) ~= "table" or not point.x or not point.z then
-        _HarnessInternal.log.error("GetShapesAtPoint requires valid point with x, z", "ShapeCache.GetShapesAtPoint")
+        _HarnessInternal.log.error(
+            "GetShapesAtPoint requires valid point with x, z",
+            "ShapeCache.GetShapesAtPoint"
+        )
         return {}
     end
-    
+
     local results = {}
-    
+
     if shapeName then
         -- Check specific shape
         local shape = GetShapeByName(shapeName)
@@ -14207,7 +16353,7 @@ function GetShapesAtPoint(point, shapeName)
             elseif shape.shapeType == "triggerZone" then
                 isInside = IsPointInZoneGeometry(shape, point)
             end
-            
+
             if isInside then
                 table.insert(results, shape)
             end
@@ -14215,7 +16361,7 @@ function GetShapesAtPoint(point, shapeName)
     else
         -- Check all shapes
         local allShapes = GetAllShapes()
-        
+
         -- Check drawings
         for _, drawing in ipairs(allShapes.drawings) do
             if IsPointInDrawing(drawing, point) then
@@ -14223,7 +16369,7 @@ function GetShapesAtPoint(point, shapeName)
                 table.insert(results, drawing)
             end
         end
-        
+
         -- Check trigger zones
         for _, zone in ipairs(allShapes.triggerZones) do
             if IsPointInZoneGeometry(zone, point) then
@@ -14232,7 +16378,7 @@ function GetShapesAtPoint(point, shapeName)
             end
         end
     end
-    
+
     return results
 end
 
@@ -14240,7 +16386,7 @@ end
 ---@return table circles Array of circular shapes
 function GetAllCircularShapes()
     local circles = {}
-    
+
     -- Get circular drawings
     local polygons = GetDrawingsByType("Polygon")
     for _, drawing in ipairs(polygons) do
@@ -14249,14 +16395,14 @@ function GetAllCircularShapes()
             table.insert(circles, drawing)
         end
     end
-    
+
     -- Get circular trigger zones
     local zones = GetZonesByType("circle")
     for _, zone in ipairs(zones) do
         zone.shapeType = "triggerZone"
         table.insert(circles, zone)
     end
-    
+
     return circles
 end
 
@@ -14264,7 +16410,7 @@ end
 ---@return table polygons Array of polygon shapes
 function GetAllPolygonShapes()
     local polygons = {}
-    
+
     -- Get polygon drawings
     local drawings = GetDrawingsByType("Polygon")
     for _, drawing in ipairs(drawings) do
@@ -14273,7 +16419,7 @@ function GetAllPolygonShapes()
             table.insert(polygons, drawing)
         end
     end
-    
+
     -- Get all lines that are closed (forming polygons)
     local lines = GetDrawingsByType("Line")
     for _, line in ipairs(lines) do
@@ -14282,14 +16428,14 @@ function GetAllPolygonShapes()
             table.insert(polygons, line)
         end
     end
-    
+
     -- Get polygon trigger zones
     local zones = GetZonesByType("polygon")
     for _, zone in ipairs(zones) do
         zone.shapeType = "triggerZone"
         table.insert(polygons, zone)
     end
-    
+
     return polygons
 end
 
@@ -14298,26 +16444,29 @@ end
 ---@return table Array of units inside the shape
 function GetUnitsInShape(shapeName)
     if not shapeName or type(shapeName) ~= "string" then
-        _HarnessInternal.log.error("GetUnitsInShape requires valid shape name", "ShapeCache.GetUnitsInShape")
+        _HarnessInternal.log.error(
+            "GetUnitsInShape requires valid shape name",
+            "ShapeCache.GetUnitsInShape"
+        )
         return {}
     end
-    
+
     local shape = GetShapeByName(shapeName)
     if not shape then
         _HarnessInternal.log.warning("Shape not found: " .. shapeName, "ShapeCache.GetUnitsInShape")
         return {}
     end
-    
+
     -- If it's a trigger zone, use GetUnitsInZone with the name
     if shape.shapeType == "triggerZone" then
         return GetUnitsInZone(shapeName)
     end
-    
+
     -- If it's a drawing, use GetUnitsInDrawing
     if shape.shapeType == "drawing" then
         return GetUnitsInDrawing(shapeName)
     end
-    
+
     -- Fallback - shouldn't reach here
     return {}
 end
@@ -14329,26 +16478,26 @@ function GetShapeStatistics()
     local stats = {
         drawings = {
             total = #allShapes.drawings,
-            byType = {}
+            byType = {},
         },
         triggerZones = {
             total = #allShapes.triggerZones,
-            byType = {}
-        }
+            byType = {},
+        },
     }
-    
+
     -- Count drawings by type
     for _, drawing in ipairs(allShapes.drawings) do
         local dtype = drawing.type or "unknown"
         stats.drawings.byType[dtype] = (stats.drawings.byType[dtype] or 0) + 1
     end
-    
+
     -- Count zones by type
     for _, zone in ipairs(allShapes.triggerZones) do
         local ztype = zone.type or "unknown"
         stats.triggerZones.byType[ztype] = (stats.triggerZones.byType[ztype] or 0) + 1
     end
-    
+
     return stats
 end
 
@@ -14365,11 +16514,11 @@ function AutoInitializeShapeCache()
     local success, hasMission = pcall(function()
         return env and env.mission ~= nil
     end)
-    
+
     if success and hasMission then
         return InitializeShapeCache()
     end
-    
+
     return false
 end
 -- ==== END: src\shapecache.lua ====

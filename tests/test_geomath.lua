@@ -149,11 +149,16 @@ function TestGeoMath:testCircleLineIntersection2D()
 end
 
 function TestGeoMath:testPolygonAreaCentroid2D()
-    local square = { { x = 0, y = 0, z = 0 }, { x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 2 }, {
-        x = 0,
-        y = 0,
-        z = 2,
-    } }
+    local square = {
+        { x = 0, y = 0, z = 0 },
+        { x = 2, y = 0, z = 0 },
+        { x = 2, y = 0, z = 2 },
+        {
+            x = 0,
+            y = 0,
+            z = 2,
+        },
+    }
     local area = PolygonArea2D(square)
     lu.assertNotNil(area)
     lu.assertAlmostEquals(area, 4, 1e-6)
@@ -164,15 +169,21 @@ function TestGeoMath:testPolygonAreaCentroid2D()
 end
 
 function TestGeoMath:testConvexHull2D()
-    local pts = { { x = 0, y = 0, z = 0 }, { x = 2, y = 0, z = 0 }, { x = 2, y = 0, z = 2 }, {
-        x = 0,
-        y = 0,
-        z = 2,
-    }, {
-        x = 1,
-        y = 0,
-        z = 1,
-    } }
+    local pts = {
+        { x = 0, y = 0, z = 0 },
+        { x = 2, y = 0, z = 0 },
+        { x = 2, y = 0, z = 2 },
+        {
+            x = 0,
+            y = 0,
+            z = 2,
+        },
+        {
+            x = 1,
+            y = 0,
+            z = 1,
+        },
+    }
     local hull = ConvexHull2D(pts)
     lu.assertNotNil(hull)
     lu.assertTrue(#hull >= 4)

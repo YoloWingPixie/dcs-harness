@@ -20,18 +20,27 @@ require("logger")
 ---@usage SetControllerTask(controller, {id="Mission", params={...}})
 function SetControllerTask(controller, task)
     if not controller then
-        _HarnessInternal.log.error("SetControllerTask requires valid controller", "Controller.SetTask")
+        _HarnessInternal.log.error(
+            "SetControllerTask requires valid controller",
+            "Controller.SetTask"
+        )
         return nil
     end
 
     if not task or type(task) ~= "table" then
-        _HarnessInternal.log.error("SetControllerTask requires valid task table", "Controller.SetTask")
+        _HarnessInternal.log.error(
+            "SetControllerTask requires valid task table",
+            "Controller.SetTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setTask, controller, task)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller task: " .. tostring(result), "Controller.SetTask")
+        _HarnessInternal.log.error(
+            "Failed to set controller task: " .. tostring(result),
+            "Controller.SetTask"
+        )
         return nil
     end
 
@@ -44,13 +53,19 @@ end
 ---@usage ResetControllerTask(controller)
 function ResetControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("ResetControllerTask requires valid controller", "Controller.ResetTask")
+        _HarnessInternal.log.error(
+            "ResetControllerTask requires valid controller",
+            "Controller.ResetTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.resetTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to reset controller task: " .. tostring(result), "Controller.ResetTask")
+        _HarnessInternal.log.error(
+            "Failed to reset controller task: " .. tostring(result),
+            "Controller.ResetTask"
+        )
         return nil
     end
 
@@ -64,18 +79,27 @@ end
 ---@usage PushControllerTask(controller, {id="EngageTargets", params={...}})
 function PushControllerTask(controller, task)
     if not controller then
-        _HarnessInternal.log.error("PushControllerTask requires valid controller", "Controller.PushTask")
+        _HarnessInternal.log.error(
+            "PushControllerTask requires valid controller",
+            "Controller.PushTask"
+        )
         return nil
     end
 
     if not task or type(task) ~= "table" then
-        _HarnessInternal.log.error("PushControllerTask requires valid task table", "Controller.PushTask")
+        _HarnessInternal.log.error(
+            "PushControllerTask requires valid task table",
+            "Controller.PushTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.pushTask, controller, task)
     if not success then
-        _HarnessInternal.log.error("Failed to push controller task: " .. tostring(result), "Controller.PushTask")
+        _HarnessInternal.log.error(
+            "Failed to push controller task: " .. tostring(result),
+            "Controller.PushTask"
+        )
         return nil
     end
 
@@ -88,13 +112,19 @@ end
 ---@usage PopControllerTask(controller)
 function PopControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("PopControllerTask requires valid controller", "Controller.PopTask")
+        _HarnessInternal.log.error(
+            "PopControllerTask requires valid controller",
+            "Controller.PopTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.popTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to pop controller task: " .. tostring(result), "Controller.PopTask")
+        _HarnessInternal.log.error(
+            "Failed to pop controller task: " .. tostring(result),
+            "Controller.PopTask"
+        )
         return nil
     end
 
@@ -107,13 +137,19 @@ end
 ---@usage local hasTasks = hasControllerTask(controller)
 function HasControllerTask(controller)
     if not controller then
-        _HarnessInternal.log.error("HasControllerTask requires valid controller", "Controller.HasTask")
+        _HarnessInternal.log.error(
+            "HasControllerTask requires valid controller",
+            "Controller.HasTask"
+        )
         return nil
     end
 
     local success, result = pcall(controller.hasTask, controller)
     if not success then
-        _HarnessInternal.log.error("Failed to check controller task: " .. tostring(result), "Controller.HasTask")
+        _HarnessInternal.log.error(
+            "Failed to check controller task: " .. tostring(result),
+            "Controller.HasTask"
+        )
         return nil
     end
 
@@ -127,18 +163,27 @@ end
 ---@usage SetControllerCommand(controller, {id="Script", params={...}})
 function SetControllerCommand(controller, command)
     if not controller then
-        _HarnessInternal.log.error("SetControllerCommand requires valid controller", "Controller.SetCommand")
+        _HarnessInternal.log.error(
+            "SetControllerCommand requires valid controller",
+            "Controller.SetCommand"
+        )
         return nil
     end
 
     if not command or type(command) ~= "table" then
-        _HarnessInternal.log.error("SetControllerCommand requires valid command table", "Controller.SetCommand")
+        _HarnessInternal.log.error(
+            "SetControllerCommand requires valid command table",
+            "Controller.SetCommand"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setCommand, controller, command)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller command: " .. tostring(result), "Controller.SetCommand")
+        _HarnessInternal.log.error(
+            "Failed to set controller command: " .. tostring(result),
+            "Controller.SetCommand"
+        )
         return nil
     end
 
@@ -152,18 +197,27 @@ end
 ---@usage SetControllerOnOff(controller, false)
 function SetControllerOnOff(controller, onOff)
     if not controller then
-        _HarnessInternal.log.error("SetControllerOnOff requires valid controller", "Controller.SetOnOff")
+        _HarnessInternal.log.error(
+            "SetControllerOnOff requires valid controller",
+            "Controller.SetOnOff"
+        )
         return nil
     end
 
     if type(onOff) ~= "boolean" then
-        _HarnessInternal.log.error("SetControllerOnOff requires boolean value", "Controller.SetOnOff")
+        _HarnessInternal.log.error(
+            "SetControllerOnOff requires boolean value",
+            "Controller.SetOnOff"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setOnOff, controller, onOff)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller on/off: " .. tostring(result), "Controller.SetOnOff")
+        _HarnessInternal.log.error(
+            "Failed to set controller on/off: " .. tostring(result),
+            "Controller.SetOnOff"
+        )
         return nil
     end
 
@@ -179,18 +233,27 @@ end
 ---@usage SetControllerAltitude(controller, 5000, true, "BARO")
 function SetControllerAltitude(controller, altitude, keep, altType)
     if not controller then
-        _HarnessInternal.log.error("SetControllerAltitude requires valid controller", "Controller.SetAltitude")
+        _HarnessInternal.log.error(
+            "SetControllerAltitude requires valid controller",
+            "Controller.SetAltitude"
+        )
         return nil
     end
 
     if not altitude or type(altitude) ~= "number" then
-        _HarnessInternal.log.error("SetControllerAltitude requires valid altitude", "Controller.SetAltitude")
+        _HarnessInternal.log.error(
+            "SetControllerAltitude requires valid altitude",
+            "Controller.SetAltitude"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setAltitude, controller, altitude, keep, altType)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller altitude: " .. tostring(result), "Controller.SetAltitude")
+        _HarnessInternal.log.error(
+            "Failed to set controller altitude: " .. tostring(result),
+            "Controller.SetAltitude"
+        )
         return nil
     end
 
@@ -205,7 +268,10 @@ end
 ---@usage SetControllerSpeed(controller, 250, true)
 function SetControllerSpeed(controller, speed, keep)
     if not controller then
-        _HarnessInternal.log.error("SetControllerSpeed requires valid controller", "Controller.SetSpeed")
+        _HarnessInternal.log.error(
+            "SetControllerSpeed requires valid controller",
+            "Controller.SetSpeed"
+        )
         return nil
     end
 
@@ -216,7 +282,10 @@ function SetControllerSpeed(controller, speed, keep)
 
     local success, result = pcall(controller.setSpeed, controller, speed, keep)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller speed: " .. tostring(result), "Controller.SetSpeed")
+        _HarnessInternal.log.error(
+            "Failed to set controller speed: " .. tostring(result),
+            "Controller.SetSpeed"
+        )
         return nil
     end
 
@@ -231,18 +300,27 @@ end
 ---@usage SetControllerOption(controller, 0, AI.Option.Air.val.ROE.WEAPON_FREE)
 function SetControllerOption(controller, optionId, optionValue)
     if not controller then
-        _HarnessInternal.log.error("SetControllerOption requires valid controller", "Controller.SetOption")
+        _HarnessInternal.log.error(
+            "SetControllerOption requires valid controller",
+            "Controller.SetOption"
+        )
         return nil
     end
 
     if not optionId or type(optionId) ~= "number" then
-        _HarnessInternal.log.error("SetControllerOption requires valid option ID", "Controller.SetOption")
+        _HarnessInternal.log.error(
+            "SetControllerOption requires valid option ID",
+            "Controller.SetOption"
+        )
         return nil
     end
 
     local success, result = pcall(controller.setOption, controller, optionId, optionValue)
     if not success then
-        _HarnessInternal.log.error("Failed to set controller option: " .. tostring(result), "Controller.SetOption")
+        _HarnessInternal.log.error(
+            "Failed to set controller option: " .. tostring(result),
+            "Controller.SetOption"
+        )
         return nil
     end
 
@@ -258,7 +336,10 @@ function ControllerSetROE(controller, value, domain)
     local d = (domain == "Ground" or domain == "Naval") and domain or "Air"
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ROE then
-        _HarnessInternal.log.error("AI.Option." .. d .. ".id.ROE not available", "Controller.SetROE")
+        _HarnessInternal.log.error(
+            "AI.Option." .. d .. ".id.ROE not available",
+            "Controller.SetROE"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.ROE then
@@ -266,7 +347,10 @@ function ControllerSetROE(controller, value, domain)
         value = opt.val.ROE[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetROE requires numeric or valid string ROE", "Controller.SetROE")
+        _HarnessInternal.log.error(
+            "ControllerSetROE requires numeric or valid string ROE",
+            "Controller.SetROE"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.ROE, value)
@@ -279,7 +363,10 @@ end
 function ControllerSetReactionOnThreat(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.REACTION_ON_THREAT then
-        _HarnessInternal.log.error("AI.Option.Air.id.REACTION_ON_THREAT not available", "Controller.SetReactionOnThreat")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.REACTION_ON_THREAT not available",
+            "Controller.SetReactionOnThreat"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.REACTION_ON_THREAT then
@@ -287,7 +374,10 @@ function ControllerSetReactionOnThreat(controller, value)
         value = opt.val.REACTION_ON_THREAT[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetReactionOnThreat requires numeric or valid string value", "Controller.SetReactionOnThreat")
+        _HarnessInternal.log.error(
+            "ControllerSetReactionOnThreat requires numeric or valid string value",
+            "Controller.SetReactionOnThreat"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.REACTION_ON_THREAT, value)
@@ -300,11 +390,17 @@ end
 function ControllerSetRadarUsing(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.RADAR_USING then
-        _HarnessInternal.log.error("AI.Option.Air.id.RADAR_USING not available", "Controller.SetRadarUsing")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.RADAR_USING not available",
+            "Controller.SetRadarUsing"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetRadarUsing requires numeric enum value", "Controller.SetRadarUsing")
+        _HarnessInternal.log.error(
+            "ControllerSetRadarUsing requires numeric enum value",
+            "Controller.SetRadarUsing"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.RADAR_USING, value)
@@ -317,11 +413,17 @@ end
 function ControllerSetFlareUsing(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.FLARE_USING then
-        _HarnessInternal.log.error("AI.Option.Air.id.FLARE_USING not available", "Controller.SetFlareUsing")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.FLARE_USING not available",
+            "Controller.SetFlareUsing"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetFlareUsing requires numeric enum value", "Controller.SetFlareUsing")
+        _HarnessInternal.log.error(
+            "ControllerSetFlareUsing requires numeric enum value",
+            "Controller.SetFlareUsing"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.FLARE_USING, value)
@@ -334,11 +436,17 @@ end
 function ControllerSetFormation(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.FORMATION then
-        _HarnessInternal.log.error("AI.Option.Air.id.FORMATION not available", "Controller.SetFormation")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.FORMATION not available",
+            "Controller.SetFormation"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetFormation requires numeric enum value", "Controller.SetFormation")
+        _HarnessInternal.log.error(
+            "ControllerSetFormation requires numeric enum value",
+            "Controller.SetFormation"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.FORMATION, value)
@@ -351,11 +459,17 @@ end
 function ControllerSetRTBOnBingo(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.RTB_ON_BINGO then
-        _HarnessInternal.log.error("AI.Option.Air.id.RTB_ON_BINGO not available", "Controller.SetRTBOnBingo")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.RTB_ON_BINGO not available",
+            "Controller.SetRTBOnBingo"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetRTBOnBingo requires boolean", "Controller.SetRTBOnBingo")
+        _HarnessInternal.log.error(
+            "ControllerSetRTBOnBingo requires boolean",
+            "Controller.SetRTBOnBingo"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.RTB_ON_BINGO, value)
@@ -368,7 +482,10 @@ end
 function ControllerSetSilence(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.SILENCE then
-        _HarnessInternal.log.error("AI.Option.Air.id.SILENCE not available", "Controller.SetSilence")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.SILENCE not available",
+            "Controller.SetSilence"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
@@ -387,7 +504,10 @@ function ControllerSetAlarmState(controller, value, domain)
     local d = (domain == "Air") and domain or "Ground"
     local opt = AI and AI.Option and AI.Option[d]
     if not opt or not opt.id or not opt.id.ALARM_STATE then
-        _HarnessInternal.log.error("AI.Option." .. d .. ".id.ALARM_STATE not available", "Controller.SetAlarmState")
+        _HarnessInternal.log.error(
+            "AI.Option." .. d .. ".id.ALARM_STATE not available",
+            "Controller.SetAlarmState"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.ALARM_STATE then
@@ -395,7 +515,10 @@ function ControllerSetAlarmState(controller, value, domain)
         value = opt.val.ALARM_STATE[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetAlarmState requires numeric or valid string value", "Controller.SetAlarmState")
+        _HarnessInternal.log.error(
+            "ControllerSetAlarmState requires numeric or valid string value",
+            "Controller.SetAlarmState"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.ALARM_STATE, value)
@@ -409,11 +532,17 @@ end
 function ControllerSetDisperseOnAttack(controller, seconds)
     local opt = AI and AI.Option and AI.Option.Ground
     if not opt or not opt.id or not opt.id.DISPERSE_ON_ATTACK then
-        _HarnessInternal.log.error("AI.Option.Ground.id.DISPERSE_ON_ATTACK not available", "Controller.SetDisperseOnAttack")
+        _HarnessInternal.log.error(
+            "AI.Option.Ground.id.DISPERSE_ON_ATTACK not available",
+            "Controller.SetDisperseOnAttack"
+        )
         return nil
     end
     if type(seconds) ~= "number" or seconds < 0 then
-        _HarnessInternal.log.error("ControllerSetDisperseOnAttack requires non-negative number of seconds", "Controller.SetDisperseOnAttack")
+        _HarnessInternal.log.error(
+            "ControllerSetDisperseOnAttack requires non-negative number of seconds",
+            "Controller.SetDisperseOnAttack"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.DISPERSE_ON_ATTACK, seconds)
@@ -426,11 +555,17 @@ end
 function ControllerSetRTBOnOutOfAmmo(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.RTB_ON_OUT_OF_AMMO then
-        _HarnessInternal.log.error("AI.Option.Air.id.RTB_ON_OUT_OF_AMMO not available", "Controller.SetRTBOnOutOfAmmo")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.RTB_ON_OUT_OF_AMMO not available",
+            "Controller.SetRTBOnOutOfAmmo"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetRTBOnOutOfAmmo requires boolean", "Controller.SetRTBOnOutOfAmmo")
+        _HarnessInternal.log.error(
+            "ControllerSetRTBOnOutOfAmmo requires boolean",
+            "Controller.SetRTBOnOutOfAmmo"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.RTB_ON_OUT_OF_AMMO, value)
@@ -443,11 +578,17 @@ end
 function ControllerSetECMUsing(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.ECM_USING then
-        _HarnessInternal.log.error("AI.Option.Air.id.ECM_USING not available", "Controller.SetECMUsing")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.ECM_USING not available",
+            "Controller.SetECMUsing"
+        )
         return nil
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetECMUsing requires numeric enum value", "Controller.SetECMUsing")
+        _HarnessInternal.log.error(
+            "ControllerSetECMUsing requires numeric enum value",
+            "Controller.SetECMUsing"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.ECM_USING, value)
@@ -460,11 +601,17 @@ end
 function ControllerSetProhibitWPPassReport(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_WP_PASS_REPORT then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT not available", "Controller.SetProhibitWPPassReport")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT not available",
+            "Controller.SetProhibitWPPassReport"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitWPPassReport requires boolean", "Controller.SetProhibitWPPassReport")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitWPPassReport requires boolean",
+            "Controller.SetProhibitWPPassReport"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_WP_PASS_REPORT, value)
@@ -477,11 +624,17 @@ end
 function ControllerSetProhibitAA(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_AA then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_AA not available", "Controller.SetProhibitAA")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_AA not available",
+            "Controller.SetProhibitAA"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitAA requires boolean", "Controller.SetProhibitAA")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitAA requires boolean",
+            "Controller.SetProhibitAA"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_AA, value)
@@ -494,11 +647,17 @@ end
 function ControllerSetProhibitJettison(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_JETT then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_JETT not available", "Controller.SetProhibitJettison")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_JETT not available",
+            "Controller.SetProhibitJettison"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitJettison requires boolean", "Controller.SetProhibitJettison")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitJettison requires boolean",
+            "Controller.SetProhibitJettison"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_JETT, value)
@@ -511,11 +670,17 @@ end
 function ControllerSetProhibitAB(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_AB then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_AB not available", "Controller.SetProhibitAB")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_AB not available",
+            "Controller.SetProhibitAB"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitAB requires boolean", "Controller.SetProhibitAB")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitAB requires boolean",
+            "Controller.SetProhibitAB"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_AB, value)
@@ -528,11 +693,17 @@ end
 function ControllerSetProhibitAG(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.PROHIBIT_AG then
-        _HarnessInternal.log.error("AI.Option.Air.id.PROHIBIT_AG not available", "Controller.SetProhibitAG")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.PROHIBIT_AG not available",
+            "Controller.SetProhibitAG"
+        )
         return nil
     end
     if type(value) ~= "boolean" then
-        _HarnessInternal.log.error("ControllerSetProhibitAG requires boolean", "Controller.SetProhibitAG")
+        _HarnessInternal.log.error(
+            "ControllerSetProhibitAG requires boolean",
+            "Controller.SetProhibitAG"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.PROHIBIT_AG, value)
@@ -546,7 +717,10 @@ end
 function ControllerSetMissileAttack(controller, value)
     local opt = AI and AI.Option and AI.Option.Air
     if not opt or not opt.id or not opt.id.MISSILE_ATTACK then
-        _HarnessInternal.log.error("AI.Option.Air.id.MISSILE_ATTACK not available", "Controller.SetMissileAttack")
+        _HarnessInternal.log.error(
+            "AI.Option.Air.id.MISSILE_ATTACK not available",
+            "Controller.SetMissileAttack"
+        )
         return nil
     end
     if type(value) == "string" and opt.val and opt.val.MISSILE_ATTACK then
@@ -554,7 +728,10 @@ function ControllerSetMissileAttack(controller, value)
         value = opt.val.MISSILE_ATTACK[upper]
     end
     if type(value) ~= "number" then
-        _HarnessInternal.log.error("ControllerSetMissileAttack requires numeric or valid string enum value", "Controller.SetMissileAttack")
+        _HarnessInternal.log.error(
+            "ControllerSetMissileAttack requires numeric or valid string enum value",
+            "Controller.SetMissileAttack"
+        )
         return nil
     end
     return SetControllerOption(controller, opt.id.MISSILE_ATTACK, value)
@@ -570,13 +747,20 @@ end
 ---@usage local targets = getControllerDetectedTargets(controller)
 function GetControllerDetectedTargets(controller, detectionType, categoryFilter)
     if not controller then
-        _HarnessInternal.log.error("GetControllerDetectedTargets requires valid controller", "Controller.GetDetectedTargets")
+        _HarnessInternal.log.error(
+            "GetControllerDetectedTargets requires valid controller",
+            "Controller.GetDetectedTargets"
+        )
         return nil
     end
 
-    local success, result = pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
+    local success, result =
+        pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
     if not success then
-        _HarnessInternal.log.error("Failed to get detected targets: " .. tostring(result), "Controller.GetDetectedTargets")
+        _HarnessInternal.log.error(
+            "Failed to get detected targets: " .. tostring(result),
+            "Controller.GetDetectedTargets"
+        )
         return nil
     end
 
@@ -592,18 +776,28 @@ end
 ---@usage KnowControllerTarget(controller, targetUnit, true, true)
 function KnowControllerTarget(controller, target, typeKnown, distanceKnown)
     if not controller then
-        _HarnessInternal.log.error("KnowControllerTarget requires valid controller", "Controller.KnowTarget")
+        _HarnessInternal.log.error(
+            "KnowControllerTarget requires valid controller",
+            "Controller.KnowTarget"
+        )
         return nil
     end
 
     if not target then
-        _HarnessInternal.log.error("KnowControllerTarget requires valid target", "Controller.KnowTarget")
+        _HarnessInternal.log.error(
+            "KnowControllerTarget requires valid target",
+            "Controller.KnowTarget"
+        )
         return nil
     end
 
-    local success, result = pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
+    local success, result =
+        pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
     if not success then
-        _HarnessInternal.log.error("Failed to know target: " .. tostring(result), "Controller.KnowTarget")
+        _HarnessInternal.log.error(
+            "Failed to know target: " .. tostring(result),
+            "Controller.KnowTarget"
+        )
         return nil
     end
 
@@ -618,18 +812,27 @@ end
 ---@usage local detected = isControllerTargetDetected(controller, targetUnit)
 function IsControllerTargetDetected(controller, target, detectionType)
     if not controller then
-        _HarnessInternal.log.error("IsControllerTargetDetected requires valid controller", "Controller.IsTargetDetected")
+        _HarnessInternal.log.error(
+            "IsControllerTargetDetected requires valid controller",
+            "Controller.IsTargetDetected"
+        )
         return nil
     end
 
     if not target then
-        _HarnessInternal.log.error("IsControllerTargetDetected requires valid target", "Controller.IsTargetDetected")
+        _HarnessInternal.log.error(
+            "IsControllerTargetDetected requires valid target",
+            "Controller.IsTargetDetected"
+        )
         return nil
     end
 
     local success, result = pcall(controller.isTargetDetected, controller, target, detectionType)
     if not success then
-        _HarnessInternal.log.error("Failed to check target detection: " .. tostring(result), "Controller.IsTargetDetected")
+        _HarnessInternal.log.error(
+            "Failed to check target detection: " .. tostring(result),
+            "Controller.IsTargetDetected"
+        )
         return nil
     end
 
@@ -651,16 +854,16 @@ function CreateOrbitTask(pattern, point, altitude, speed, taskParams)
             pattern = pattern or "Circle",
             point = point,
             altitude = altitude,
-            speed = speed
-        }
+            speed = speed,
+        },
     }
-    
+
     if taskParams then
         for k, v in pairs(taskParams) do
             task.params[k] = v
         end
     end
-    
+
     return task
 end
 
@@ -672,7 +875,10 @@ end
 ---@usage local task = createFollowTask(1001, {x=100, y=0, z=100})
 function CreateFollowTask(groupId, position, lastWaypointIndex)
     if not groupId then
-        _HarnessInternal.log.error("CreateFollowTask requires valid group ID", "Controller.CreateFollowTask")
+        _HarnessInternal.log.error(
+            "CreateFollowTask requires valid group ID",
+            "Controller.CreateFollowTask"
+        )
         return nil
     end
 
@@ -680,12 +886,12 @@ function CreateFollowTask(groupId, position, lastWaypointIndex)
         id = "follow",
         params = {
             groupId = groupId,
-            pos = position or {x = 50, y = 0, z = 50},
+            pos = position or { x = 50, y = 0, z = 50 },
             lastWptIndexFlag = lastWaypointIndex ~= nil,
-            lastWptIndex = lastWaypointIndex
-        }
+            lastWptIndex = lastWaypointIndex,
+        },
     }
-    
+
     return task
 end
 
@@ -698,7 +904,10 @@ end
 ---@usage local task = createEscortTask(1001, {x=200, y=0, z=0}, nil, 30000)
 function CreateEscortTask(groupId, position, lastWaypointIndex, engagementDistance)
     if not groupId then
-        _HarnessInternal.log.error("CreateEscortTask requires valid group ID", "Controller.CreateEscortTask")
+        _HarnessInternal.log.error(
+            "CreateEscortTask requires valid group ID",
+            "Controller.CreateEscortTask"
+        )
         return nil
     end
 
@@ -706,13 +915,13 @@ function CreateEscortTask(groupId, position, lastWaypointIndex, engagementDistan
         id = "escort",
         params = {
             groupId = groupId,
-            pos = position or {x = 50, y = 0, z = 50},
+            pos = position or { x = 50, y = 0, z = 50 },
             lastWptIndexFlag = lastWaypointIndex ~= nil,
             lastWptIndex = lastWaypointIndex,
-            engagementDistMax = engagementDistance or 60000
-        }
+            engagementDistMax = engagementDistance or 60000,
+        },
     }
-    
+
     return task
 end
 
@@ -727,7 +936,10 @@ end
 ---@usage local task = createAttackGroupTask(2001, nil, true)
 function CreateAttackGroupTask(groupId, weaponType, groupAttack, altitude, attackQty, direction)
     if not groupId then
-        _HarnessInternal.log.error("CreateAttackGroupTask requires valid group ID", "Controller.CreateAttackGroupTask")
+        _HarnessInternal.log.error(
+            "CreateAttackGroupTask requires valid group ID",
+            "Controller.CreateAttackGroupTask"
+        )
         return nil
     end
 
@@ -739,10 +951,10 @@ function CreateAttackGroupTask(groupId, weaponType, groupAttack, altitude, attac
             groupAttack = (groupAttack == nil) and true or groupAttack,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -757,7 +969,10 @@ end
 ---@usage local task = createAttackUnitTask(3001)
 function CreateAttackUnitTask(unitId, weaponType, groupAttack, altitude, attackQty, direction)
     if not unitId then
-        _HarnessInternal.log.error("CreateAttackUnitTask requires valid unit ID", "Controller.CreateAttackUnitTask")
+        _HarnessInternal.log.error(
+            "CreateAttackUnitTask requires valid unit ID",
+            "Controller.CreateAttackUnitTask"
+        )
         return nil
     end
 
@@ -769,10 +984,10 @@ function CreateAttackUnitTask(unitId, weaponType, groupAttack, altitude, attackQ
             groupAttack = groupAttack or false,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -787,7 +1002,10 @@ end
 ---@usage local task = createBombingTask({x=1000, y=0, z=2000})
 function CreateBombingTask(point, weaponType, groupAttack, altitude, attackQty, direction)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("CreateBombingTask requires valid point with x, y, z", "Controller.CreateBombingTask")
+        _HarnessInternal.log.error(
+            "CreateBombingTask requires valid point with x, y, z",
+            "Controller.CreateBombingTask"
+        )
         return nil
     end
 
@@ -799,10 +1017,10 @@ function CreateBombingTask(point, weaponType, groupAttack, altitude, attackQty, 
             groupAttack = groupAttack or false,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -817,22 +1035,25 @@ end
 ---@usage local task = createBombingRunwayTask(1)
 function CreateBombingRunwayTask(runwayId, weaponType, groupAttack, altitude, attackQty, direction)
     if not runwayId then
-        _HarnessInternal.log.error("CreateBombingRunwayTask requires valid runway ID", "Controller.CreateBombingRunwayTask")
+        _HarnessInternal.log.error(
+            "CreateBombingRunwayTask requires valid runway ID",
+            "Controller.CreateBombingRunwayTask"
+        )
         return nil
     end
 
     local task = {
-        id = "BombingRunway", 
+        id = "BombingRunway",
         params = {
             runwayId = runwayId,
             weaponType = weaponType,
             groupAttack = groupAttack or false,
             altitude = altitude,
             attackQty = attackQty,
-            direction = direction
-        }
+            direction = direction,
+        },
     }
-    
+
     return task
 end
 
@@ -844,7 +1065,10 @@ end
 ---@usage local task = createLandTask({x=1000, y=0, z=2000}, true, 300)
 function CreateLandTask(point, durationFlag, duration)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createLandTask requires valid point with x, y, z", "Controller.CreateLandTask")
+        _HarnessInternal.log.error(
+            "createLandTask requires valid point with x, y, z",
+            "Controller.CreateLandTask"
+        )
         return nil
     end
 
@@ -853,10 +1077,10 @@ function CreateLandTask(point, durationFlag, duration)
         params = {
             point = point,
             durationFlag = durationFlag or false,
-            duration = duration
-        }
+            duration = duration,
+        },
     }
-    
+
     return task
 end
 
@@ -866,9 +1090,9 @@ end
 function CreateRefuelingTask()
     local task = {
         id = "refueling",
-        params = {}
+        params = {},
     }
-    
+
     return task
 end
 
@@ -882,9 +1106,20 @@ end
 ---@param callsign number? Callsign number
 ---@return table? task The FAC attack group task table or nil on error
 ---@usage local task = createFACAttackGroupTask(2001)
-function CreateFACAttackGroupTask(groupId, priority, designation, datalink, frequency, modulation, callsign)
+function CreateFACAttackGroupTask(
+    groupId,
+    priority,
+    designation,
+    datalink,
+    frequency,
+    modulation,
+    callsign
+)
     if not groupId then
-        _HarnessInternal.log.error("createFACAttackGroupTask requires valid group ID", "Controller.CreateFACAttackGroupTask")
+        _HarnessInternal.log.error(
+            "createFACAttackGroupTask requires valid group ID",
+            "Controller.CreateFACAttackGroupTask"
+        )
         return nil
     end
 
@@ -897,10 +1132,10 @@ function CreateFACAttackGroupTask(groupId, priority, designation, datalink, freq
             datalink = datalink,
             frequency = frequency,
             modulation = modulation,
-            callsign = callsign
-        }
+            callsign = callsign,
+        },
     }
-    
+
     return task
 end
 
@@ -913,9 +1148,19 @@ end
 ---@param altitudeEnabled boolean? Whether to use altitude
 ---@return table? task The fire at point task table or nil on error
 ---@usage local task = createFireAtPointTask({x=1000, y=0, z=2000}, 100)
-function CreateFireAtPointTask(point, radius, expendQty, expendQtyEnabled, altitude, altitudeEnabled)
+function CreateFireAtPointTask(
+    point,
+    radius,
+    expendQty,
+    expendQtyEnabled,
+    altitude,
+    altitudeEnabled
+)
     if not point or type(point) ~= "table" or not point.x or not point.y or not point.z then
-        _HarnessInternal.log.error("createFireAtPointTask requires valid point with x, y, z", "Controller.CreateFireAtPointTask")
+        _HarnessInternal.log.error(
+            "createFireAtPointTask requires valid point with x, y, z",
+            "Controller.CreateFireAtPointTask"
+        )
         return nil
     end
 
@@ -927,10 +1172,10 @@ function CreateFireAtPointTask(point, radius, expendQty, expendQtyEnabled, altit
             expendQty = expendQty,
             expendQtyEnabled = expendQtyEnabled or false,
             altitude = altitude,
-            alt_type = altitudeEnabled and 1 or 0
-        }
+            alt_type = altitudeEnabled and 1 or 0,
+        },
     }
-    
+
     return task
 end
 
@@ -943,10 +1188,10 @@ function CreateHoldTask(template)
         id = "Hold",
         params = {
             templateFlag = template ~= nil,
-            template = template
-        }
+            template = template,
+        },
     }
-    
+
     return task
 end
 
@@ -960,10 +1205,10 @@ function CreateGoToWaypointTask(fromWaypointIndex, toWaypointIndex)
         id = "goToWaypoint",
         params = {
             fromWaypointIndex = fromWaypointIndex,
-            goToWaypointIndex = toWaypointIndex
-        }
+            goToWaypointIndex = toWaypointIndex,
+        },
     }
-    
+
     return task
 end
 
@@ -974,7 +1219,10 @@ end
 ---@usage local task = createWrappedAction({id="Script", params={...}})
 function CreateWrappedAction(action, stopFlag)
     if not action or type(action) ~= "table" then
-        _HarnessInternal.log.error("createWrappedAction requires valid action table", "Controller.CreateWrappedAction")
+        _HarnessInternal.log.error(
+            "createWrappedAction requires valid action table",
+            "Controller.CreateWrappedAction"
+        )
         return nil
     end
 
@@ -982,10 +1230,10 @@ function CreateWrappedAction(action, stopFlag)
         id = "WrappedAction",
         params = {
             action = action,
-            stopFlag = stopFlag or false
-        }
+            stopFlag = stopFlag or false,
+        },
     }
-    
+
     return task
 end
 
@@ -994,109 +1242,275 @@ end
 ---@return table option The ROE option table
 ---@usage local option = createROEOption(2) -- WEAPON_FREE
 -- Deprecated: use ControllerSetROE
-function CreateROEOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ROE) or 0, value = value } end
+function CreateROEOption(value)
+    return {
+        id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ROE)
+            or 0,
+        value = value,
+    }
+end
 
 --- Creates a reaction on threat option
 ---@param value number The reaction value
 ---@return table option The reaction option table
 ---@usage local option = createReactionOnThreatOption(1)
 -- Deprecated: use ControllerSetReactionOnThreat
-function CreateReactionOnThreatOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.REACTION_ON_THREAT) or 1, value = value } end
+function CreateReactionOnThreatOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.REACTION_ON_THREAT
+        ) or 1,
+        value = value,
+    }
+end
 
 --- Creates a radar using option
 ---@param value number The radar usage value
 ---@return table option The radar option table
 ---@usage local option = createRadarUsingOption(1)
 -- Deprecated: use ControllerSetRadarUsing
-function CreateRadarUsingOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.RADAR_USING) or 3, value = value } end
+function CreateRadarUsingOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.RADAR_USING
+        ) or 3,
+        value = value,
+    }
+end
 
 --- Creates a flare using option
 ---@param value number The flare usage value
 ---@return table option The flare option table
 ---@usage local option = createFlareUsingOption(1)
 -- Deprecated: use ControllerSetFlareUsing
-function CreateFlareUsingOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.FLARE_USING) or 4, value = value } end
+function CreateFlareUsingOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.FLARE_USING
+        ) or 4,
+        value = value,
+    }
+end
 
 --- Creates a formation option
 ---@param value number The formation value
 ---@return table option The formation option table
 ---@usage local option = createFormationOption(1)
 -- Deprecated: use ControllerSetFormation
-function CreateFormationOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.FORMATION) or 5, value = value } end
+function CreateFormationOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.FORMATION
+        ) or 5,
+        value = value,
+    }
+end
 
 --- Creates a Return To Base on bingo fuel option
 ---@param value boolean The RTB on bingo value
 ---@return table option The RTB option table
 ---@usage local option = createRTBOnBingoOption(true)
 -- Deprecated: use ControllerSetRTBOnBingo
-function CreateRTBOnBingoOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.RTB_ON_BINGO) or 6, value = value } end
+function CreateRTBOnBingoOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.RTB_ON_BINGO
+        ) or 6,
+        value = value,
+    }
+end
 
 --- Creates a radio silence option
 ---@param value boolean The silence value
 ---@return table option The silence option table
 ---@usage local option = createSilenceOption(true)
 -- Deprecated: use ControllerSetSilence
-function CreateSilenceOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.SILENCE) or 7, value = value } end
+function CreateSilenceOption(value)
+    return {
+        id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.SILENCE)
+            or 7,
+        value = value,
+    }
+end
 
 --- Creates an alarm state option
 ---@param value number The alarm state value
 ---@return table option The alarm state option table
 ---@usage local option = createAlarmStateOption(2)
 -- Deprecated: use ControllerSetAlarmState
-function CreateAlarmStateOption(value) return { id = (AI and AI.Option and AI.Option.Ground and AI.Option.Ground.id and AI.Option.Ground.id.ALARM_STATE) or 9, value = value } end
+function CreateAlarmStateOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Ground
+            and AI.Option.Ground.id
+            and AI.Option.Ground.id.ALARM_STATE
+        ) or 9,
+        value = value,
+    }
+end
 
 --- Creates a Return To Base on out of ammo option
 ---@param value boolean The RTB on out of ammo value
 ---@return table option The RTB option table
 ---@usage local option = createRTBOnOutOfAmmoOption(true)
 -- Deprecated: use ControllerSetRTBOnOutOfAmmo
-function CreateRTBOnOutOfAmmoOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.RTB_ON_OUT_OF_AMMO) or 10, value = value } end
+function CreateRTBOnOutOfAmmoOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.RTB_ON_OUT_OF_AMMO
+        ) or 10,
+        value = value,
+    }
+end
 
 --- Creates an ECM using option
 ---@param value number The ECM usage value
 ---@return table option The ECM option table
 ---@usage local option = createECMUsingOption(1)
 -- Deprecated: use ControllerSetECMUsing
-function CreateECMUsingOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.ECM_USING) or 13, value = value } end
+function CreateECMUsingOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.ECM_USING
+        ) or 13,
+        value = value,
+    }
+end
 
 --- Creates a prohibit waypoint pass report option (ID 19)
 ---@param value boolean The prohibit value
 ---@return table option The prohibit option table
 ---@usage local option = createProhibitWPPassReportOption(true)
 -- Deprecated: use ControllerSetProhibitWPPassReport
-function CreateProhibitWPPassReportOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT) or 19, value = value } end
+function CreateProhibitWPPassReportOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_WP_PASS_REPORT
+        ) or 19,
+        value = value,
+    }
+end
 
 --- Creates a prohibit air-to-air option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit AA option table
 ---@usage local option = createProhibitAAOption(false)
 -- Deprecated: use ControllerSetProhibitAA
-function CreateProhibitAAOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_AA) or 14, value = value } end
+function CreateProhibitAAOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_AA
+        ) or 14,
+        value = value,
+    }
+end
 
 --- Creates a prohibit jettison option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit jettison option table
 ---@usage local option = createProhibitJettisonOption(true)
 -- Deprecated: use ControllerSetProhibitJettison
-function CreateProhibitJettisonOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_JETT) or 15, value = value } end
+function CreateProhibitJettisonOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_JETT
+        ) or 15,
+        value = value,
+    }
+end
 
 --- Creates a prohibit afterburner option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit AB option table
 ---@usage local option = createProhibitABOption(true)
 -- Deprecated: use ControllerSetProhibitAB
-function CreateProhibitABOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_AB) or 16, value = value } end
+function CreateProhibitABOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_AB
+        ) or 16,
+        value = value,
+    }
+end
 
 --- Creates a prohibit air-to-ground option
 ---@param value boolean The prohibit value
 ---@return table option The prohibit AG option table
 ---@usage local option = createProhibitAGOption(false)
 -- Deprecated: use ControllerSetProhibitAG
-function CreateProhibitAGOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.PROHIBIT_AG) or 17, value = value } end
+function CreateProhibitAGOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.PROHIBIT_AG
+        ) or 17,
+        value = value,
+    }
+end
 
 --- Creates a missile attack option
 ---@param value number The missile attack value
 ---@return table option The missile attack option table
 ---@usage local option = createMissileAttackOption(1)
 -- Deprecated: use ControllerSetMissileAttack
-function CreateMissileAttackOption(value) return { id = (AI and AI.Option and AI.Option.Air and AI.Option.Air.id and AI.Option.Air.id.MISSILE_ATTACK) or 18, value = value } end
+function CreateMissileAttackOption(value)
+    return {
+        id = (
+            AI
+            and AI.Option
+            and AI.Option.Air
+            and AI.Option.Air.id
+            and AI.Option.Air.id.MISSILE_ATTACK
+        ) or 18,
+        value = value,
+    }
+end

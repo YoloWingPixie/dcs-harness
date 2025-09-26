@@ -11,13 +11,13 @@ require("vector")
 -- Internal helpers for colors/fills
 local function _normalizeColor(c)
     if type(c) ~= "table" then
-        return {r = 1, g = 1, b = 1, a = 1}
+        return { r = 1, g = 1, b = 1, a = 1 }
     end
     return {
         r = c.r or c[1] or 1,
         g = c.g or c[2] or 1,
         b = c.b or c[3] or 1,
-        a = c.a or c[4] or 1
+        a = c.a or c[4] or 1,
     }
 end
 
@@ -27,24 +27,24 @@ local function _defaultFill(color, fill)
             r = fill.r or fill[1] or 1,
             g = fill.g or fill[2] or 1,
             b = fill.b or fill[3] or 1,
-            a = fill.a or fill[4] or 0.25
+            a = fill.a or fill[4] or 0.25,
         }
     end
     local c = _normalizeColor(color)
     local a = c.a or 1
-    return {r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25))}
+    return { r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25)) }
 end
 
 -- Convert color table to array form {r,g,b,a} for DCS APIs
 local function _toArrayColor(color)
     if type(color) ~= "table" then
-        return {1, 1, 1, 1}
+        return { 1, 1, 1, 1 }
     end
     local r = color.r or color[1] or 1
     local g = color.g or color[2] or 1
     local b = color.b or color[3] or 1
     local a = color.a or color[4] or 1
-    return {r, g, b, a}
+    return { r, g, b, a }
 end
 
 --- Displays text message to all players
@@ -67,7 +67,10 @@ function OutText(text, displayTime, clearView)
 
     local success, result = pcall(trigger.action.outText, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display text: " .. tostring(result), "Trigger.OutText")
+        _HarnessInternal.log.error(
+            "Failed to display text: " .. tostring(result),
+            "Trigger.OutText"
+        )
         return nil
     end
 
@@ -83,12 +86,18 @@ end
 ---@usage OutTextForCoalition(coalition.side.BLUE, "Blue team message", 20)
 function OutTextForCoalition(coalitionId, text, displayTime, clearView)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("OutTextForCoalition requires valid coalition ID", "Trigger.OutTextForCoalition")
+        _HarnessInternal.log.error(
+            "OutTextForCoalition requires valid coalition ID",
+            "Trigger.OutTextForCoalition"
+        )
         return nil
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("OutTextForCoalition requires valid text string", "Trigger.OutTextForCoalition")
+        _HarnessInternal.log.error(
+            "OutTextForCoalition requires valid text string",
+            "Trigger.OutTextForCoalition"
+        )
         return nil
     end
 
@@ -98,9 +107,13 @@ function OutTextForCoalition(coalitionId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outTextForCoalition, coalitionId, text, displayTime, clearView)
+    local success, result =
+        pcall(trigger.action.outTextForCoalition, coalitionId, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display coalition text: " .. tostring(result), "Trigger.OutTextForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to display coalition text: " .. tostring(result),
+            "Trigger.OutTextForCoalition"
+        )
         return nil
     end
 
@@ -116,12 +129,18 @@ end
 ---@usage OutTextForGroup(1001, "Group message", 15)
 function OutTextForGroup(groupId, text, displayTime, clearView)
     if not groupId or type(groupId) ~= "number" then
-        _HarnessInternal.log.error("OutTextForGroup requires valid group ID", "Trigger.OutTextForGroup")
+        _HarnessInternal.log.error(
+            "OutTextForGroup requires valid group ID",
+            "Trigger.OutTextForGroup"
+        )
         return nil
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("OutTextForGroup requires valid text string", "Trigger.OutTextForGroup")
+        _HarnessInternal.log.error(
+            "OutTextForGroup requires valid text string",
+            "Trigger.OutTextForGroup"
+        )
         return nil
     end
 
@@ -131,9 +150,13 @@ function OutTextForGroup(groupId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outTextForGroup, groupId, text, displayTime, clearView)
+    local success, result =
+        pcall(trigger.action.outTextForGroup, groupId, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display group text: " .. tostring(result), "Trigger.OutTextForGroup")
+        _HarnessInternal.log.error(
+            "Failed to display group text: " .. tostring(result),
+            "Trigger.OutTextForGroup"
+        )
         return nil
     end
 
@@ -149,12 +172,18 @@ end
 ---@usage OutTextForUnit(2001, "Unit message", 10)
 function OutTextForUnit(unitId, text, displayTime, clearView)
     if not unitId or type(unitId) ~= "number" then
-        _HarnessInternal.log.error("OutTextForUnit requires valid unit ID", "Trigger.OutTextForUnit")
+        _HarnessInternal.log.error(
+            "OutTextForUnit requires valid unit ID",
+            "Trigger.OutTextForUnit"
+        )
         return nil
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("OutTextForUnit requires valid text string", "Trigger.OutTextForUnit")
+        _HarnessInternal.log.error(
+            "OutTextForUnit requires valid text string",
+            "Trigger.OutTextForUnit"
+        )
         return nil
     end
 
@@ -164,9 +193,13 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outTextForUnit, unitId, text, displayTime, clearView)
+    local success, result =
+        pcall(trigger.action.outTextForUnit, unitId, text, displayTime, clearView)
     if not success then
-        _HarnessInternal.log.error("Failed to display unit text: " .. tostring(result), "Trigger.OutTextForUnit")
+        _HarnessInternal.log.error(
+            "Failed to display unit text: " .. tostring(result),
+            "Trigger.OutTextForUnit"
+        )
         return nil
     end
 
@@ -201,18 +234,28 @@ end
 ---@usage OutSoundForCoalition(coalition.side.RED, "sounds/warning.ogg")
 function OutSoundForCoalition(coalitionId, soundFile, soundType)
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("OutSoundForCoalition requires valid coalition ID", "Trigger.OutSoundForCoalition")
+        _HarnessInternal.log.error(
+            "OutSoundForCoalition requires valid coalition ID",
+            "Trigger.OutSoundForCoalition"
+        )
         return nil
     end
 
     if not soundFile or type(soundFile) ~= "string" then
-        _HarnessInternal.log.error("OutSoundForCoalition requires valid sound file path", "Trigger.OutSoundForCoalition")
+        _HarnessInternal.log.error(
+            "OutSoundForCoalition requires valid sound file path",
+            "Trigger.OutSoundForCoalition"
+        )
         return nil
     end
 
-    local success, result = pcall(trigger.action.outSoundForCoalition, coalitionId, soundFile, soundType)
+    local success, result =
+        pcall(trigger.action.outSoundForCoalition, coalitionId, soundFile, soundType)
     if not success then
-        _HarnessInternal.log.error("Failed to play coalition sound: " .. tostring(result), "Trigger.OutSoundForCoalition")
+        _HarnessInternal.log.error(
+            "Failed to play coalition sound: " .. tostring(result),
+            "Trigger.OutSoundForCoalition"
+        )
         return nil
     end
 
@@ -226,7 +269,10 @@ end
 ---@usage Explosion({x=1000, y=100, z=2000}, 500)
 function Explosion(pos, power)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("Explosion requires valid position with x, y, z", "Trigger.Explosion")
+        _HarnessInternal.log.error(
+            "Explosion requires valid position with x, y, z",
+            "Trigger.Explosion"
+        )
         return nil
     end
 
@@ -237,7 +283,10 @@ function Explosion(pos, power)
 
     local success, result = pcall(trigger.action.explosion, pos, power)
     if not success then
-        _HarnessInternal.log.error("Failed to create explosion: " .. tostring(result), "Trigger.Explosion")
+        _HarnessInternal.log.error(
+            "Failed to create explosion: " .. tostring(result),
+            "Trigger.Explosion"
+        )
         return nil
     end
 
@@ -280,18 +329,27 @@ end
 ---@usage EffectSmokeBig({x=1000, y=0, z=2000}, trigger.effectPresets.BigSmoke)
 function EffectSmokeBig(pos, smokePreset, density, name)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("EffectSmokeBig requires valid position with x, y, z", "Trigger.EffectSmokeBig")
+        _HarnessInternal.log.error(
+            "EffectSmokeBig requires valid position with x, y, z",
+            "Trigger.EffectSmokeBig"
+        )
         return nil
     end
 
     if not smokePreset or type(smokePreset) ~= "number" then
-        _HarnessInternal.log.error("EffectSmokeBig requires valid smoke preset enum", "Trigger.EffectSmokeBig")
+        _HarnessInternal.log.error(
+            "EffectSmokeBig requires valid smoke preset enum",
+            "Trigger.EffectSmokeBig"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.effectSmokeBig, pos, smokePreset, density, name)
     if not success then
-        _HarnessInternal.log.error("Failed to create big smoke effect: " .. tostring(result), "Trigger.EffectSmokeBig")
+        _HarnessInternal.log.error(
+            "Failed to create big smoke effect: " .. tostring(result),
+            "Trigger.EffectSmokeBig"
+        )
         return nil
     end
 
@@ -304,13 +362,19 @@ end
 ---@usage EffectSmokeStop("smoke1")
 function EffectSmokeStop(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("EffectSmokeStop requires valid smoke effect name", "Trigger.EffectSmokeStop")
+        _HarnessInternal.log.error(
+            "EffectSmokeStop requires valid smoke effect name",
+            "Trigger.EffectSmokeStop"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.effectSmokeStop, name)
     if not success then
-        _HarnessInternal.log.error("Failed to stop smoke effect: " .. tostring(result), "Trigger.EffectSmokeStop")
+        _HarnessInternal.log.error(
+            "Failed to stop smoke effect: " .. tostring(result),
+            "Trigger.EffectSmokeStop"
+        )
         return nil
     end
 
@@ -324,7 +388,10 @@ end
 ---@usage IlluminationBomb({x=1000, y=500, z=2000}, 2000000)
 function IlluminationBomb(pos, power)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("IlluminationBomb requires valid position with x, y, z", "Trigger.IlluminationBomb")
+        _HarnessInternal.log.error(
+            "IlluminationBomb requires valid position with x, y, z",
+            "Trigger.IlluminationBomb"
+        )
         return nil
     end
 
@@ -334,7 +401,10 @@ function IlluminationBomb(pos, power)
 
     local success, result = pcall(trigger.action.illuminationBomb, pos, power)
     if not success then
-        _HarnessInternal.log.error("Failed to create illumination bomb: " .. tostring(result), "Trigger.IlluminationBomb")
+        _HarnessInternal.log.error(
+            "Failed to create illumination bomb: " .. tostring(result),
+            "Trigger.IlluminationBomb"
+        )
         return nil
     end
 
@@ -349,12 +419,18 @@ end
 ---@usage SignalFlare({x=1000, y=100, z=2000}, trigger.flareColor.Red, math.rad(45))
 function SignalFlare(pos, flareColor, azimuth)
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("SignalFlare requires valid position with x, y, z", "Trigger.SignalFlare")
+        _HarnessInternal.log.error(
+            "SignalFlare requires valid position with x, y, z",
+            "Trigger.SignalFlare"
+        )
         return nil
     end
 
     if not flareColor or type(flareColor) ~= "number" then
-        _HarnessInternal.log.error("SignalFlare requires valid flare color enum", "Trigger.SignalFlare")
+        _HarnessInternal.log.error(
+            "SignalFlare requires valid flare color enum",
+            "Trigger.SignalFlare"
+        )
         return nil
     end
 
@@ -364,7 +440,10 @@ function SignalFlare(pos, flareColor, azimuth)
 
     local success, result = pcall(trigger.action.signalFlare, pos, flareColor, azimuth)
     if not success then
-        _HarnessInternal.log.error("Failed to create signal flare: " .. tostring(result), "Trigger.SignalFlare")
+        _HarnessInternal.log.error(
+            "Failed to create signal flare: " .. tostring(result),
+            "Trigger.SignalFlare"
+        )
         return nil
     end
 
@@ -383,12 +462,18 @@ end
 ---@usage RadioTransmission("sounds/message.ogg", {x=1000, y=100, z=2000}, 0, true, 124000000, 100, "radio1")
 function RadioTransmission(filename, pos, modulation, loop, frequency, power, name)
     if not filename or type(filename) ~= "string" then
-        _HarnessInternal.log.error("RadioTransmission requires valid filename", "Trigger.RadioTransmission")
+        _HarnessInternal.log.error(
+            "RadioTransmission requires valid filename",
+            "Trigger.RadioTransmission"
+        )
         return nil
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("RadioTransmission requires valid position with x, y, z", "Trigger.RadioTransmission")
+        _HarnessInternal.log.error(
+            "RadioTransmission requires valid position with x, y, z",
+            "Trigger.RadioTransmission"
+        )
         return nil
     end
 
@@ -404,9 +489,21 @@ function RadioTransmission(filename, pos, modulation, loop, frequency, power, na
         power = 100
     end
 
-    local success, result = pcall(trigger.action.radioTransmission, filename, pos, modulation, loop, frequency, power, name)
+    local success, result = pcall(
+        trigger.action.radioTransmission,
+        filename,
+        pos,
+        modulation,
+        loop,
+        frequency,
+        power,
+        name
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to start radio transmission: " .. tostring(result), "Trigger.RadioTransmission")
+        _HarnessInternal.log.error(
+            "Failed to start radio transmission: " .. tostring(result),
+            "Trigger.RadioTransmission"
+        )
         return nil
     end
 
@@ -419,13 +516,19 @@ end
 ---@usage StopRadioTransmission("radio1")
 function StopRadioTransmission(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("StopRadioTransmission requires valid transmission name", "Trigger.StopRadioTransmission")
+        _HarnessInternal.log.error(
+            "StopRadioTransmission requires valid transmission name",
+            "Trigger.StopRadioTransmission"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.stopRadioTransmission, name)
     if not success then
-        _HarnessInternal.log.error("Failed to stop radio transmission: " .. tostring(result), "Trigger.StopRadioTransmission")
+        _HarnessInternal.log.error(
+            "Failed to stop radio transmission: " .. tostring(result),
+            "Trigger.StopRadioTransmission"
+        )
         return nil
     end
 
@@ -439,18 +542,27 @@ end
 ---@usage SetMarkupRadius(1001, 5000)
 function SetMarkupRadius(markId, radius)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupRadius requires valid mark ID", "Trigger.SetMarkupRadius")
+        _HarnessInternal.log.error(
+            "SetMarkupRadius requires valid mark ID",
+            "Trigger.SetMarkupRadius"
+        )
         return nil
     end
 
     if not radius or type(radius) ~= "number" or radius <= 0 then
-        _HarnessInternal.log.error("SetMarkupRadius requires valid radius", "Trigger.SetMarkupRadius")
+        _HarnessInternal.log.error(
+            "SetMarkupRadius requires valid radius",
+            "Trigger.SetMarkupRadius"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupRadius, markId, radius)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup radius: " .. tostring(result), "Trigger.SetMarkupRadius")
+        _HarnessInternal.log.error(
+            "Failed to set markup radius: " .. tostring(result),
+            "Trigger.SetMarkupRadius"
+        )
         return nil
     end
 
@@ -469,13 +581,19 @@ function SetMarkupText(markId, text)
     end
 
     if not text or type(text) ~= "string" then
-        _HarnessInternal.log.error("SetMarkupText requires valid text string", "Trigger.SetMarkupText")
+        _HarnessInternal.log.error(
+            "SetMarkupText requires valid text string",
+            "Trigger.SetMarkupText"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupText, markId, text)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup text: " .. tostring(result), "Trigger.SetMarkupText")
+        _HarnessInternal.log.error(
+            "Failed to set markup text: " .. tostring(result),
+            "Trigger.SetMarkupText"
+        )
         return nil
     end
 
@@ -489,18 +607,27 @@ end
 ---@usage SetMarkupColor(1001, {r=1, g=0, b=0, a=1})
 function SetMarkupColor(markId, color)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupColor requires valid mark ID", "Trigger.SetMarkupColor")
+        _HarnessInternal.log.error(
+            "SetMarkupColor requires valid mark ID",
+            "Trigger.SetMarkupColor"
+        )
         return nil
     end
 
     if not color or type(color) ~= "table" then
-        _HarnessInternal.log.error("SetMarkupColor requires valid color table", "Trigger.SetMarkupColor")
+        _HarnessInternal.log.error(
+            "SetMarkupColor requires valid color table",
+            "Trigger.SetMarkupColor"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupColor, markId, color)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup color: " .. tostring(result), "Trigger.SetMarkupColor")
+        _HarnessInternal.log.error(
+            "Failed to set markup color: " .. tostring(result),
+            "Trigger.SetMarkupColor"
+        )
         return nil
     end
 
@@ -514,18 +641,27 @@ end
 ---@usage SetMarkupColorFill(1001, {r=0, g=1, b=0, a=0.5})
 function SetMarkupColorFill(markId, colorFill)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupColorFill requires valid mark ID", "Trigger.SetMarkupColorFill")
+        _HarnessInternal.log.error(
+            "SetMarkupColorFill requires valid mark ID",
+            "Trigger.SetMarkupColorFill"
+        )
         return nil
     end
 
     if not colorFill or type(colorFill) ~= "table" then
-        _HarnessInternal.log.error("SetMarkupColorFill requires valid color fill table", "Trigger.SetMarkupColorFill")
+        _HarnessInternal.log.error(
+            "SetMarkupColorFill requires valid color fill table",
+            "Trigger.SetMarkupColorFill"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupColorFill, markId, colorFill)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup color fill: " .. tostring(result), "Trigger.SetMarkupColorFill")
+        _HarnessInternal.log.error(
+            "Failed to set markup color fill: " .. tostring(result),
+            "Trigger.SetMarkupColorFill"
+        )
         return nil
     end
 
@@ -539,18 +675,27 @@ end
 ---@usage SetMarkupFontSize(1001, 18)
 function SetMarkupFontSize(markId, fontSize)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("SetMarkupFontSize requires valid mark ID", "Trigger.SetMarkupFontSize")
+        _HarnessInternal.log.error(
+            "SetMarkupFontSize requires valid mark ID",
+            "Trigger.SetMarkupFontSize"
+        )
         return nil
     end
 
     if not fontSize or type(fontSize) ~= "number" or fontSize <= 0 then
-        _HarnessInternal.log.error("SetMarkupFontSize requires valid font size", "Trigger.SetMarkupFontSize")
+        _HarnessInternal.log.error(
+            "SetMarkupFontSize requires valid font size",
+            "Trigger.SetMarkupFontSize"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.setMarkupFontSize, markId, fontSize)
     if not success then
-        _HarnessInternal.log.error("Failed to set markup font size: " .. tostring(result), "Trigger.SetMarkupFontSize")
+        _HarnessInternal.log.error(
+            "Failed to set markup font size: " .. tostring(result),
+            "Trigger.SetMarkupFontSize"
+        )
         return nil
     end
 
@@ -569,7 +714,10 @@ function RemoveMark(markId)
 
     local success, result = pcall(trigger.action.removeMark, markId)
     if not success then
-        _HarnessInternal.log.error("Failed to remove mark: " .. tostring(result), "Trigger.RemoveMark")
+        _HarnessInternal.log.error(
+            "Failed to remove mark: " .. tostring(result),
+            "Trigger.RemoveMark"
+        )
         return nil
     end
 
@@ -595,13 +743,19 @@ function MarkToAll(markId, text, pos, readOnly, message)
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("MarkToAll requires valid position with x, y, z", "Trigger.MarkToAll")
+        _HarnessInternal.log.error(
+            "MarkToAll requires valid position with x, y, z",
+            "Trigger.MarkToAll"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.markToAll, markId, text, pos, readOnly, message)
     if not success then
-        _HarnessInternal.log.error("Failed to create mark for all: " .. tostring(result), "Trigger.MarkToAll")
+        _HarnessInternal.log.error(
+            "Failed to create mark for all: " .. tostring(result),
+            "Trigger.MarkToAll"
+        )
         return nil
     end
 
@@ -619,12 +773,18 @@ end
 ---@usage MarkToCoalition(1001, "Enemy Base", {x=1000, y=0, z=2000}, coalition.side.RED, true)
 function MarkToCoalition(markId, text, pos, coalitionId, readOnly, message)
     if not markId or type(markId) ~= "number" then
-        _HarnessInternal.log.error("MarkToCoalition requires valid mark ID", "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "MarkToCoalition requires valid mark ID",
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("MarkToCoalition requires valid coalition ID", "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "MarkToCoalition requires valid coalition ID",
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
@@ -633,13 +793,20 @@ function MarkToCoalition(markId, text, pos, coalitionId, readOnly, message)
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("MarkToCoalition requires valid position with x, y, z", "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "MarkToCoalition requires valid position with x, y, z",
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
-    local success, result = pcall(trigger.action.markToCoalition, markId, text, pos, coalitionId, readOnly, message)
+    local success, result =
+        pcall(trigger.action.markToCoalition, markId, text, pos, coalitionId, readOnly, message)
     if not success then
-        _HarnessInternal.log.error("Failed to create mark for coalition: " .. tostring(result), "Trigger.MarkToCoalition")
+        _HarnessInternal.log.error(
+            "Failed to create mark for coalition: " .. tostring(result),
+            "Trigger.MarkToCoalition"
+        )
         return nil
     end
 
@@ -671,13 +838,20 @@ function MarkToGroup(markId, text, pos, groupId, readOnly, message)
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("MarkToGroup requires valid position with x, y, z", "Trigger.MarkToGroup")
+        _HarnessInternal.log.error(
+            "MarkToGroup requires valid position with x, y, z",
+            "Trigger.MarkToGroup"
+        )
         return nil
     end
 
-    local success, result = pcall(trigger.action.markToGroup, markId, text, pos, groupId, readOnly, message)
+    local success, result =
+        pcall(trigger.action.markToGroup, markId, text, pos, groupId, readOnly, message)
     if not success then
-        _HarnessInternal.log.error("Failed to create mark for group: " .. tostring(result), "Trigger.MarkToGroup")
+        _HarnessInternal.log.error(
+            "Failed to create mark for group: " .. tostring(result),
+            "Trigger.MarkToGroup"
+        )
         return nil
     end
 
@@ -694,12 +868,25 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage LineToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function LineToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd, lineTypeOrColor, readOnlyOrLineType, messageOrReadOnly)
+function LineToAll(
+    coalitionOrId,
+    startOrIdOrStart,
+    endOrStartOrEnd,
+    colorOrEnd,
+    lineTypeOrColor,
+    readOnlyOrLineType,
+    messageOrReadOnly
+)
     -- Backward-compatible signature handling:
     -- Old: (id, startPos, endPos, color, lineType, readOnly, message)
     -- New (DCS): (coalition, id, startPos, endPos, color, lineType, readOnly, message)
     local coalitionArg, idArg, startPos, endPos, color, lineType, readOnly, message
-    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+    if
+        type(startOrIdOrStart) == "table"
+        and startOrIdOrStart.x
+        and startOrIdOrStart.y
+        and startOrIdOrStart.z
+    then
         -- Old signature without coalition
         coalitionArg = -1
         idArg = coalitionOrId
@@ -726,21 +913,46 @@ function LineToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd,
         return nil
     end
 
-    if not startPos or type(startPos) ~= "table" or not startPos.x or not startPos.y or not startPos.z then
-        _HarnessInternal.log.error("LineToAll requires valid start position with x, y, z", "Trigger.LineToAll")
+    if
+        not startPos
+        or type(startPos) ~= "table"
+        or not startPos.x
+        or not startPos.y
+        or not startPos.z
+    then
+        _HarnessInternal.log.error(
+            "LineToAll requires valid start position with x, y, z",
+            "Trigger.LineToAll"
+        )
         return nil
     end
 
     if not endPos or type(endPos) ~= "table" or not endPos.x or not endPos.y or not endPos.z then
-        _HarnessInternal.log.error("LineToAll requires valid end position with x, y, z", "Trigger.LineToAll")
+        _HarnessInternal.log.error(
+            "LineToAll requires valid end position with x, y, z",
+            "Trigger.LineToAll"
+        )
         return nil
     end
 
     color = _normalizeColor(color)
     local colorArr = _toArrayColor(color)
-    local success, result = pcall(trigger.action.lineToAll, coalitionArg, idArg, startPos, endPos, colorArr, lineType, readOnly, message)
+    local success, result = pcall(
+        trigger.action.lineToAll,
+        coalitionArg,
+        idArg,
+        startPos,
+        endPos,
+        colorArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create line for all: " .. tostring(result), "Trigger.LineToAll")
+        _HarnessInternal.log.error(
+            "Failed to create line for all: " .. tostring(result),
+            "Trigger.LineToAll"
+        )
         return nil
     end
 
@@ -758,11 +970,26 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage CircleToAll(1001, {x=1000, y=0, z=2000}, 500, {r=1, g=0, b=0, a=1}, {r=1, g=0, b=0, a=0.3})
-function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, colorOrRadiusOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function CircleToAll(
+    coalitionOrId,
+    centerOrIdOrCenter,
+    radiusOrCenterOrRadius,
+    colorOrRadiusOrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, center, radius, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, center, radius, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, center, radius, color, fillColor, lineType, readOnly, message
-    if type(centerOrIdOrCenter) == "table" and centerOrIdOrCenter.x and centerOrIdOrCenter.y and centerOrIdOrCenter.z and type(radiusOrCenterOrRadius) == "number" then
+    if
+        type(centerOrIdOrCenter) == "table"
+        and centerOrIdOrCenter.x
+        and centerOrIdOrCenter.y
+        and centerOrIdOrCenter.z
+        and type(radiusOrCenterOrRadius) == "number"
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         center = centerOrIdOrCenter
@@ -790,7 +1017,10 @@ function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, 
     end
 
     if not center or type(center) ~= "table" or not center.x or not center.y or not center.z then
-        _HarnessInternal.log.error("CircleToAll requires valid center position with x, y, z", "Trigger.CircleToAll")
+        _HarnessInternal.log.error(
+            "CircleToAll requires valid center position with x, y, z",
+            "Trigger.CircleToAll"
+        )
         return nil
     end
 
@@ -803,9 +1033,23 @@ function CircleToAll(coalitionOrId, centerOrIdOrCenter, radiusOrCenterOrRadius, 
     fillColor = _defaultFill(color, fillColor)
     local colorArr = _toArrayColor(color)
     local fillArr = _toArrayColor(fillColor)
-    local success, result = pcall(trigger.action.circleToAll, coalitionArg, idArg, center, radius, colorArr, fillArr, lineType, readOnly, message)
+    local success, result = pcall(
+        trigger.action.circleToAll,
+        coalitionArg,
+        idArg,
+        center,
+        radius,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create circle for all: " .. tostring(result), "Trigger.CircleToAll")
+        _HarnessInternal.log.error(
+            "Failed to create circle for all: " .. tostring(result),
+            "Trigger.CircleToAll"
+        )
         return nil
     end
 
@@ -823,11 +1067,25 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage RectToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=0, g=1, b=0, a=1})
-function RectToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function RectToAll(
+    coalitionOrId,
+    startOrIdOrStart,
+    endOrStartOrEnd,
+    colorOrEndOrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
-    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+    if
+        type(startOrIdOrStart) == "table"
+        and startOrIdOrStart.x
+        and startOrIdOrStart.y
+        and startOrIdOrStart.z
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         startPos = startOrIdOrStart
@@ -854,21 +1112,47 @@ function RectToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndO
         return nil
     end
 
-    if not startPos or type(startPos) ~= "table" or not startPos.x or not startPos.y or not startPos.z then
-        _HarnessInternal.log.error("RectToAll requires valid start position with x, y, z", "Trigger.RectToAll")
+    if
+        not startPos
+        or type(startPos) ~= "table"
+        or not startPos.x
+        or not startPos.y
+        or not startPos.z
+    then
+        _HarnessInternal.log.error(
+            "RectToAll requires valid start position with x, y, z",
+            "Trigger.RectToAll"
+        )
         return nil
     end
 
     if not endPos or type(endPos) ~= "table" or not endPos.x or not endPos.y or not endPos.z then
-        _HarnessInternal.log.error("RectToAll requires valid end position with x, y, z", "Trigger.RectToAll")
+        _HarnessInternal.log.error(
+            "RectToAll requires valid end position with x, y, z",
+            "Trigger.RectToAll"
+        )
         return nil
     end
 
-    local colorArr = _toArrayColor(color or {1,1,1,1})
-    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
-    local success, result = pcall(trigger.action.rectToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local success, result = pcall(
+        trigger.action.rectToAll,
+        coalitionArg,
+        idArg,
+        startPos,
+        endPos,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create rectangle for all: " .. tostring(result), "Trigger.RectToAll")
+        _HarnessInternal.log.error(
+            "Failed to create rectangle for all: " .. tostring(result),
+            "Trigger.RectToAll"
+        )
         return nil
     end
 
@@ -888,20 +1172,45 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage QuadToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=2000}, {x=2000, y=0, z=3000}, {x=1000, y=0, z=3000})
-function QuadToAll(coalitionOrId, p1OrIdOrP1, p2OrP1OrP2, p3OrP2OrP3, p4OrP3OrP4, colorOrP4OrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function QuadToAll(
+    coalitionOrId,
+    p1OrIdOrP1,
+    p2OrP1OrP2,
+    p3OrP2OrP3,
+    p4OrP3OrP4,
+    colorOrP4OrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, p1, p2, p3, p4, color, fillColor, lineType, readOnly, message
     if type(p1OrIdOrP1) == "table" and p1OrIdOrP1.x and p1OrIdOrP1.y and p1OrIdOrP1.z then
         coalitionArg = -1
         idArg = coalitionOrId
-        p1 = p1OrIdOrP1; p2 = p2OrP1OrP2; p3 = p3OrP2OrP3; p4 = p4OrP3OrP4
-        color = colorOrP4OrColor; fillColor = fillColorOrColorOrFill; lineType = lineTypeOrFillOrLine; readOnly = readOnlyOrLineOrReadOnly; message = messageOrReadOnly
+        p1 = p1OrIdOrP1
+        p2 = p2OrP1OrP2
+        p3 = p3OrP2OrP3
+        p4 = p4OrP3OrP4
+        color = colorOrP4OrColor
+        fillColor = fillColorOrColorOrFill
+        lineType = lineTypeOrFillOrLine
+        readOnly = readOnlyOrLineOrReadOnly
+        message = messageOrReadOnly
     else
         coalitionArg = coalitionOrId
         idArg = p1OrIdOrP1
-        p1 = p2OrP1OrP2; p2 = p3OrP2OrP3; p3 = p4OrP3OrP4; p4 = colorOrP4OrColor
-        color = fillColorOrColorOrFill; fillColor = lineTypeOrFillOrLine; lineType = readOnlyOrLineOrReadOnly; readOnly = messageOrReadOnly; message = nil
+        p1 = p2OrP1OrP2
+        p2 = p3OrP2OrP3
+        p3 = p4OrP3OrP4
+        p4 = colorOrP4OrColor
+        color = fillColorOrColorOrFill
+        fillColor = lineTypeOrFillOrLine
+        lineType = readOnlyOrLineOrReadOnly
+        readOnly = messageOrReadOnly
+        message = nil
     end
 
     if not idArg or type(idArg) ~= "number" then
@@ -910,27 +1219,55 @@ function QuadToAll(coalitionOrId, p1OrIdOrP1, p2OrP1OrP2, p3OrP2OrP3, p4OrP3OrP4
     end
 
     if not p1 or type(p1) ~= "table" or not p1.x or not p1.y or not p1.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point1 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point1 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
     if not p2 or type(p2) ~= "table" or not p2.x or not p2.y or not p2.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point2 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point2 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
     if not p3 or type(p3) ~= "table" or not p3.x or not p3.y or not p3.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point3 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point3 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
     if not p4 or type(p4) ~= "table" or not p4.x or not p4.y or not p4.z then
-        _HarnessInternal.log.error("QuadToAll requires valid point4 with x, y, z", "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "QuadToAll requires valid point4 with x, y, z",
+            "Trigger.QuadToAll"
+        )
         return nil
     end
 
-    local colorArr = _toArrayColor(color or {1,1,1,1})
-    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
-    local success, result = pcall(trigger.action.quadToAll, coalitionArg, idArg, p1, p2, p3, p4, colorArr, fillArr, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local success, result = pcall(
+        trigger.action.quadToAll,
+        coalitionArg,
+        idArg,
+        p1,
+        p2,
+        p3,
+        p4,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create quad for all: " .. tostring(result), "Trigger.QuadToAll")
+        _HarnessInternal.log.error(
+            "Failed to create quad for all: " .. tostring(result),
+            "Trigger.QuadToAll"
+        )
         return nil
     end
 
@@ -948,11 +1285,26 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage TextToAll(1001, "Objective", {x=1000, y=0, z=2000}, {r=1, g=1, b=1, a=1}, nil, 14)
-function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrColor, fillColorOrColorOrFill, fontSizeOrFillOrFont, readOnlyOrFontOrReadOnly, messageOrReadOnly)
+function TextToAll(
+    coalitionOrId,
+    textOrIdOrText,
+    posOrTextOrPos,
+    colorOrPosOrColor,
+    fillColorOrColorOrFill,
+    fontSizeOrFillOrFont,
+    readOnlyOrFontOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, text, pos, color, fillColor, fontSize, readOnly, message)
     -- New: (coalition, id, text, pos, color, fillColor, fontSize, readOnly, message)
     local coalitionArg, idArg, text, pos, color, fillColor, fontSize, readOnly, message
-    if type(textOrIdOrText) == "string" and type(posOrTextOrPos) == "table" and posOrTextOrPos.x and posOrTextOrPos.y and posOrTextOrPos.z then
+    if
+        type(textOrIdOrText) == "string"
+        and type(posOrTextOrPos) == "table"
+        and posOrTextOrPos.x
+        and posOrTextOrPos.y
+        and posOrTextOrPos.z
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         text = textOrIdOrText
@@ -985,7 +1337,10 @@ function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrCo
     end
 
     if not pos or type(pos) ~= "table" or not pos.x or not pos.y or not pos.z then
-        _HarnessInternal.log.error("TextToAll requires valid position with x, y, z", "Trigger.TextToAll")
+        _HarnessInternal.log.error(
+            "TextToAll requires valid position with x, y, z",
+            "Trigger.TextToAll"
+        )
         return nil
     end
 
@@ -994,9 +1349,22 @@ function TextToAll(coalitionOrId, textOrIdOrText, posOrTextOrPos, colorOrPosOrCo
     local colorArr = _toArrayColor(color)
     local fillArr = _toArrayColor(fillColor)
     -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
-    local success, result = pcall(trigger.action.textToAll, coalitionArg, idArg, pos, colorArr, fillArr, fontSize, readOnly, text)
+    local success, result = pcall(
+        trigger.action.textToAll,
+        coalitionArg,
+        idArg,
+        pos,
+        colorArr,
+        fillArr,
+        fontSize,
+        readOnly,
+        text
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create text for all: " .. tostring(result), "Trigger.TextToAll")
+        _HarnessInternal.log.error(
+            "Failed to create text for all: " .. tostring(result),
+            "Trigger.TextToAll"
+        )
         return nil
     end
 
@@ -1014,11 +1382,25 @@ end
 ---@param message string? Optional message
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage ArrowToAll(1001, {x=1000, y=0, z=2000}, {x=2000, y=0, z=3000}, {r=1, g=0, b=0, a=1})
-function ArrowToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEndOrColor, fillColorOrColorOrFill, lineTypeOrFillOrLine, readOnlyOrLineOrReadOnly, messageOrReadOnly)
+function ArrowToAll(
+    coalitionOrId,
+    startOrIdOrStart,
+    endOrStartOrEnd,
+    colorOrEndOrColor,
+    fillColorOrColorOrFill,
+    lineTypeOrFillOrLine,
+    readOnlyOrLineOrReadOnly,
+    messageOrReadOnly
+)
     -- Old: (id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     -- New: (coalition, id, startPos, endPos, color, fillColor, lineType, readOnly, message)
     local coalitionArg, idArg, startPos, endPos, color, fillColor, lineType, readOnly, message
-    if type(startOrIdOrStart) == "table" and startOrIdOrStart.x and startOrIdOrStart.y and startOrIdOrStart.z then
+    if
+        type(startOrIdOrStart) == "table"
+        and startOrIdOrStart.x
+        and startOrIdOrStart.y
+        and startOrIdOrStart.z
+    then
         coalitionArg = -1
         idArg = coalitionOrId
         startPos = startOrIdOrStart
@@ -1045,21 +1427,47 @@ function ArrowToAll(coalitionOrId, startOrIdOrStart, endOrStartOrEnd, colorOrEnd
         return nil
     end
 
-    if not startPos or type(startPos) ~= "table" or not startPos.x or not startPos.y or not startPos.z then
-        _HarnessInternal.log.error("ArrowToAll requires valid start position with x, y, z", "Trigger.ArrowToAll")
+    if
+        not startPos
+        or type(startPos) ~= "table"
+        or not startPos.x
+        or not startPos.y
+        or not startPos.z
+    then
+        _HarnessInternal.log.error(
+            "ArrowToAll requires valid start position with x, y, z",
+            "Trigger.ArrowToAll"
+        )
         return nil
     end
 
     if not endPos or type(endPos) ~= "table" or not endPos.x or not endPos.y or not endPos.z then
-        _HarnessInternal.log.error("ArrowToAll requires valid end position with x, y, z", "Trigger.ArrowToAll")
+        _HarnessInternal.log.error(
+            "ArrowToAll requires valid end position with x, y, z",
+            "Trigger.ArrowToAll"
+        )
         return nil
     end
 
-    local colorArr = _toArrayColor(color or {1,1,1,1})
-    local fillArr = _toArrayColor(fillColor or {1,1,1,0.25})
-    local success, result = pcall(trigger.action.arrowToAll, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
+    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local success, result = pcall(
+        trigger.action.arrowToAll,
+        coalitionArg,
+        idArg,
+        startPos,
+        endPos,
+        colorArr,
+        fillArr,
+        lineType,
+        readOnly,
+        message
+    )
     if not success then
-        _HarnessInternal.log.error("Failed to create arrow for all: " .. tostring(result), "Trigger.ArrowToAll")
+        _HarnessInternal.log.error(
+            "Failed to create arrow for all: " .. tostring(result),
+            "Trigger.ArrowToAll"
+        )
         return nil
     end
 
@@ -1084,7 +1492,10 @@ function SetAITask(group, actionIndex)
 
     local success, result = pcall(trigger.action.setAITask, group, actionIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to set AI task: " .. tostring(result), "Trigger.SetAITask")
+        _HarnessInternal.log.error(
+            "Failed to set AI task: " .. tostring(result),
+            "Trigger.SetAITask"
+        )
         return nil
     end
 
@@ -1109,7 +1520,10 @@ function PushAITask(group, actionIndex)
 
     local success, result = pcall(trigger.action.pushAITask, group, actionIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to push AI task: " .. tostring(result), "Trigger.PushAITask")
+        _HarnessInternal.log.error(
+            "Failed to push AI task: " .. tostring(result),
+            "Trigger.PushAITask"
+        )
         return nil
     end
 
@@ -1122,13 +1536,19 @@ end
 ---@usage TriggerActivateGroup(group)
 function TriggerActivateGroup(group)
     if not group then
-        _HarnessInternal.log.error("TriggerActivateGroup requires valid group", "Trigger.TriggerActivateGroup")
+        _HarnessInternal.log.error(
+            "TriggerActivateGroup requires valid group",
+            "Trigger.TriggerActivateGroup"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.activateGroup, group)
     if not success then
-        _HarnessInternal.log.error("Failed to activate group: " .. tostring(result), "Trigger.TriggerActivateGroup")
+        _HarnessInternal.log.error(
+            "Failed to activate group: " .. tostring(result),
+            "Trigger.TriggerActivateGroup"
+        )
         return nil
     end
 
@@ -1141,13 +1561,19 @@ end
 ---@usage TriggerDeactivateGroup(group)
 function TriggerDeactivateGroup(group)
     if not group then
-        _HarnessInternal.log.error("TriggerDeactivateGroup requires valid group", "Trigger.TriggerDeactivateGroup")
+        _HarnessInternal.log.error(
+            "TriggerDeactivateGroup requires valid group",
+            "Trigger.TriggerDeactivateGroup"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.deactivateGroup, group)
     if not success then
-        _HarnessInternal.log.error("Failed to deactivate group: " .. tostring(result), "Trigger.TriggerDeactivateGroup")
+        _HarnessInternal.log.error(
+            "Failed to deactivate group: " .. tostring(result),
+            "Trigger.TriggerDeactivateGroup"
+        )
         return nil
     end
 
@@ -1166,7 +1592,10 @@ function SetGroupAIOn(group)
 
     local success, result = pcall(trigger.action.setGroupAIOn, group)
     if not success then
-        _HarnessInternal.log.error("Failed to set group AI on: " .. tostring(result), "Trigger.SetGroupAIOn")
+        _HarnessInternal.log.error(
+            "Failed to set group AI on: " .. tostring(result),
+            "Trigger.SetGroupAIOn"
+        )
         return nil
     end
 
@@ -1185,7 +1614,10 @@ function SetGroupAIOff(group)
 
     local success, result = pcall(trigger.action.setGroupAIOff, group)
     if not success then
-        _HarnessInternal.log.error("Failed to set group AI off: " .. tostring(result), "Trigger.SetGroupAIOff")
+        _HarnessInternal.log.error(
+            "Failed to set group AI off: " .. tostring(result),
+            "Trigger.SetGroupAIOff"
+        )
         return nil
     end
 
@@ -1198,13 +1630,19 @@ end
 ---@usage GroupStopMoving(group)
 function GroupStopMoving(group)
     if not group then
-        _HarnessInternal.log.error("GroupStopMoving requires valid group", "Trigger.GroupStopMoving")
+        _HarnessInternal.log.error(
+            "GroupStopMoving requires valid group",
+            "Trigger.GroupStopMoving"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.groupStopMoving, group)
     if not success then
-        _HarnessInternal.log.error("Failed to stop group moving: " .. tostring(result), "Trigger.GroupStopMoving")
+        _HarnessInternal.log.error(
+            "Failed to stop group moving: " .. tostring(result),
+            "Trigger.GroupStopMoving"
+        )
         return nil
     end
 
@@ -1217,13 +1655,19 @@ end
 ---@usage GroupContinueMoving(group)
 function GroupContinueMoving(group)
     if not group then
-        _HarnessInternal.log.error("GroupContinueMoving requires valid group", "Trigger.GroupContinueMoving")
+        _HarnessInternal.log.error(
+            "GroupContinueMoving requires valid group",
+            "Trigger.GroupContinueMoving"
+        )
         return nil
     end
 
     local success, result = pcall(trigger.action.groupContinueMoving, group)
     if not success then
-        _HarnessInternal.log.error("Failed to continue group moving: " .. tostring(result), "Trigger.GroupContinueMoving")
+        _HarnessInternal.log.error(
+            "Failed to continue group moving: " .. tostring(result),
+            "Trigger.GroupContinueMoving"
+        )
         return nil
     end
 
@@ -1242,7 +1686,10 @@ end
 function MarkupToAll(shapeId, coalition, id, point1, ...)
     -- Validate shapeId
     if not shapeId or type(shapeId) ~= "number" or shapeId < 1 or shapeId > 7 then
-        _HarnessInternal.log.error("MarkupToAll requires valid shape ID (1-7)", "Trigger.MarkupToAll")
+        _HarnessInternal.log.error(
+            "MarkupToAll requires valid shape ID (1-7)",
+            "Trigger.MarkupToAll"
+        )
         return nil
     end
 
@@ -1260,13 +1707,16 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
 
     -- Validate point1
     if not point1 or type(point1) ~= "table" or not point1.x or not point1.y or not point1.z then
-        _HarnessInternal.log.error("MarkupToAll requires valid first point with x, y, z", "Trigger.MarkupToAll")
+        _HarnessInternal.log.error(
+            "MarkupToAll requires valid first point with x, y, z",
+            "Trigger.MarkupToAll"
+        )
         return nil
     end
 
-    local varargs = {...}
-    local params = {shapeId, coalition, id, point1}
-    
+    local varargs = { ... }
+    local params = { shapeId, coalition, id, point1 }
+
     -- Add all variadic arguments to params
     for i = 1, #varargs do
         table.insert(params, varargs[i])
@@ -1276,9 +1726,12 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
     local success, result = pcall(function()
         return trigger.action.markupToAll(unpack(params))
     end)
-    
+
     if not success then
-        _HarnessInternal.log.error("Failed to create markup shape: " .. tostring(result), "Trigger.MarkupToAll")
+        _HarnessInternal.log.error(
+            "Failed to create markup shape: " .. tostring(result),
+            "Trigger.MarkupToAll"
+        )
         return nil
     end
 

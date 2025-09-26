@@ -21,9 +21,9 @@ function Queue()
     local queue = {
         _items = {},
         _first = 1,
-        _last = 0
+        _last = 0,
     }
-    
+
     --- Add item to back of queue
     ---@param item any Item to enqueue
     ---@usage queue:enqueue("item")
@@ -31,7 +31,7 @@ function Queue()
         self._last = self._last + 1
         self._items[self._last] = item
     end
-    
+
     --- Remove and return item from front of queue
     ---@return any? item Dequeued item or nil if empty
     ---@usage local item = queue:dequeue()
@@ -39,20 +39,20 @@ function Queue()
         if self:isEmpty() then
             return nil
         end
-        
+
         local item = self._items[self._first]
         self._items[self._first] = nil
         self._first = self._first + 1
-        
+
         -- Reset indices when queue is empty to prevent index growth
         if self._first > self._last then
             self._first = 1
             self._last = 0
         end
-        
+
         return item
     end
-    
+
     --- Peek at front item without removing
     ---@return any? item Front item or nil if empty
     ---@usage local front = queue:peek()
@@ -62,14 +62,14 @@ function Queue()
         end
         return self._items[self._first]
     end
-    
+
     --- Check if queue is empty
     ---@return boolean empty True if queue is empty
     ---@usage if queue:isEmpty() then ... end
     function queue:isEmpty()
         return self._first > self._last
     end
-    
+
     --- Get number of items in queue
     ---@return number size Number of items
     ---@usage local size = queue:size()
@@ -79,7 +79,7 @@ function Queue()
         end
         return self._last - self._first + 1
     end
-    
+
     --- Clear all items from queue
     ---@usage queue:clear()
     function queue:clear()
@@ -87,7 +87,7 @@ function Queue()
         self._first = 1
         self._last = 0
     end
-    
+
     return queue
 end
 
@@ -98,9 +98,9 @@ end
 function Stack()
     local stack = {
         _items = {},
-        _top = 0
+        _top = 0,
     }
-    
+
     --- Push item onto stack
     ---@param item any Item to push
     ---@usage stack:push("item")
@@ -108,7 +108,7 @@ function Stack()
         self._top = self._top + 1
         self._items[self._top] = item
     end
-    
+
     --- Pop and return top item from stack
     ---@return any? item Popped item or nil if empty
     ---@usage local item = stack:pop()
@@ -116,13 +116,13 @@ function Stack()
         if self:isEmpty() then
             return nil
         end
-        
+
         local item = self._items[self._top]
         self._items[self._top] = nil
         self._top = self._top - 1
         return item
     end
-    
+
     --- Peek at top item without removing
     ---@return any? item Top item or nil if empty
     ---@usage local top = stack:peek()
@@ -132,28 +132,28 @@ function Stack()
         end
         return self._items[self._top]
     end
-    
+
     --- Check if stack is empty
     ---@return boolean empty True if stack is empty
     ---@usage if stack:isEmpty() then ... end
     function stack:isEmpty()
         return self._top == 0
     end
-    
+
     --- Get number of items in stack
     ---@return number size Number of items
     ---@usage local size = stack:size()
     function stack:size()
         return self._top
     end
-    
+
     --- Clear all items from stack
     ---@usage stack:clear()
     function stack:clear()
         self._items = {}
         self._top = 0
     end
-    
+
     return stack
 end
 
@@ -172,16 +172,16 @@ function Cache(capacity)
         _HarnessInternal.log.error("Cache capacity must be positive", "DataStructures.Cache")
         capacity = nil
     end
-    
+
     local cache = {
         _capacity = capacity or math.huge,
         _items = {},
         _order = {},
         _size = 0,
-        _ttls = {},  -- TTL expiration times
-        _types = {}  -- Track data types
+        _ttls = {}, -- TTL expiration times
+        _types = {}, -- Track data types
     }
-    
+
     -- Internal: Check and remove expired items
     local function checkExpired(key)
         local ttl = cache._ttls[key]
@@ -191,7 +191,7 @@ function Cache(capacity)
         end
         return false
     end
-    
+
     -- Internal: Get current time (DCS compatible)
     local function getCurrentTime()
         if timer and timer.getTime then
@@ -199,7 +199,7 @@ function Cache(capacity)
         end
         return os.time()
     end
-    
+
     --- Get value from cache
     ---@param key string Cache key
     ---@return any? value Cached value or nil
@@ -208,20 +208,20 @@ function Cache(capacity)
         if checkExpired(key) then
             return nil
         end
-        
+
         local item = self._items[key]
         if not item then
             return nil
         end
-        
+
         -- Move to front (most recently used) if capacity is limited
         if self._capacity ~= math.huge then
             self:_moveToFront(key)
         end
-        
+
         return item.value
     end
-    
+
     --- Set key-value pair with optional TTL
     ---@param key string Cache key
     ---@param value any Value to cache
@@ -230,21 +230,21 @@ function Cache(capacity)
     ---@usage cache:set("key", "value", 60) -- expires in 60 seconds
     function cache:set(key, value, ttl)
         local isNew = self._items[key] == nil
-        
+
         if isNew and self._size >= self._capacity then
             -- Remove least recently used
             self:_removeLRU()
         end
-        
-        self._items[key] = {value = value}
+
+        self._items[key] = { value = value }
         self._types[key] = type(value)
-        
+
         if ttl and ttl > 0 then
             self._ttls[key] = getCurrentTime() + ttl
         else
             self._ttls[key] = nil
         end
-        
+
         if self._capacity ~= math.huge then
             if isNew then
                 table.insert(self._order, 1, key)
@@ -255,10 +255,10 @@ function Cache(capacity)
         elseif isNew then
             self._size = self._size + 1
         end
-        
+
         return true
     end
-    
+
     --- Set key only if it doesn't exist
     ---@param key string Cache key
     ---@param value any Value to cache
@@ -271,7 +271,7 @@ function Cache(capacity)
         end
         return self:set(key, value, ttl)
     end
-    
+
     --- Set with expiration time
     ---@param key string Cache key
     ---@param seconds number TTL in seconds
@@ -281,7 +281,7 @@ function Cache(capacity)
     function cache:setex(key, seconds, value)
         return self:set(key, value, seconds)
     end
-    
+
     --- Delete key(s)
     ---@param ... string Keys to delete
     ---@return number count Number of keys deleted
@@ -303,7 +303,7 @@ function Cache(capacity)
         end
         return count
     end
-    
+
     --- Check if key exists
     ---@param key string Cache key
     ---@return boolean exists True if key exists and not expired
@@ -314,7 +314,7 @@ function Cache(capacity)
         end
         return self._items[key] ~= nil
     end
-    
+
     --- Set expiration time
     ---@param key string Cache key
     ---@param seconds number TTL in seconds
@@ -327,7 +327,7 @@ function Cache(capacity)
         self._ttls[key] = getCurrentTime() + seconds
         return true
     end
-    
+
     --- Get remaining TTL
     ---@param key string Cache key
     ---@return number ttl Seconds until expiration, -1 if no TTL, -2 if not exists
@@ -336,21 +336,21 @@ function Cache(capacity)
         if not self._items[key] then
             return -2
         end
-        
+
         local ttl = self._ttls[key]
         if not ttl then
             return -1
         end
-        
+
         local remaining = ttl - getCurrentTime()
         if remaining <= 0 then
             self:del(key)
             return -2
         end
-        
+
         return math.floor(remaining)
     end
-    
+
     --- Remove expiration
     ---@param key string Cache key
     ---@return boolean success True if expiration was removed
@@ -362,7 +362,7 @@ function Cache(capacity)
         self._ttls[key] = nil
         return true
     end
-    
+
     --- Increment numeric value
     ---@param key string Cache key
     ---@param increment number? Amount to increment (default: 1)
@@ -371,17 +371,17 @@ function Cache(capacity)
     function cache:incr(key, increment)
         increment = increment or 1
         local value = self:get(key) or 0
-        
+
         if type(value) ~= "number" then
             _HarnessInternal.log.error("INCR requires numeric value", "DataStructures.Cache")
             return nil
         end
-        
+
         local newValue = value + increment
         self:set(key, newValue)
         return newValue
     end
-    
+
     --- Decrement numeric value
     ---@param key string Cache key
     ---@param decrement number? Amount to decrement (default: 1)
@@ -390,7 +390,7 @@ function Cache(capacity)
     function cache:decr(key, decrement)
         return self:incr(key, -(decrement or 1))
     end
-    
+
     --- Get all keys matching pattern
     ---@param pattern string? Lua pattern (default: ".*" for all)
     ---@return table keys Array of matching keys
@@ -398,16 +398,16 @@ function Cache(capacity)
     function cache:keys(pattern)
         pattern = pattern or ".*"
         local keys = {}
-        
+
         for key, _ in pairs(self._items) do
             if not checkExpired(key) and string.match(key, pattern) then
                 table.insert(keys, key)
             end
         end
-        
+
         return keys
     end
-    
+
     --- Get data type of key
     ---@param key string Cache key
     ---@return string type Type of value ("string", "number", "table", etc) or "none"
@@ -418,7 +418,7 @@ function Cache(capacity)
         end
         return self._types[key] or type(self._items[key].value)
     end
-    
+
     --- Clear all items (flush database)
     ---@usage cache:flushdb()
     function cache:flushdb()
@@ -428,7 +428,7 @@ function Cache(capacity)
         self._ttls = {}
         self._types = {}
     end
-    
+
     --- Get current cache size
     ---@return number size Number of cached items
     ---@usage local size = cache:dbsize()
@@ -439,13 +439,13 @@ function Cache(capacity)
         end
         return self._size
     end
-    
+
     -- Internal: Move key to front of order list (for LRU)
     function cache:_moveToFront(key)
         self:_removeFromOrder(key)
         table.insert(self._order, 1, key)
     end
-    
+
     -- Internal: Remove key from order list
     function cache:_removeFromOrder(key)
         for i, k in ipairs(self._order) do
@@ -455,7 +455,7 @@ function Cache(capacity)
             end
         end
     end
-    
+
     -- Internal: Remove least recently used item
     function cache:_removeLRU()
         local lru = table.remove(self._order)
@@ -463,7 +463,7 @@ function Cache(capacity)
             self:del(lru)
         end
     end
-    
+
     return cache
 end
 
@@ -479,40 +479,43 @@ function Memoize(func, capacity, keyGenerator)
         _HarnessInternal.log.error("Memoize requires a function", "DataStructures.Memoize")
         return func
     end
-    
+
     capacity = capacity or 128
-    
+
     -- Default key generator: convert args to string and concatenate
-    keyGenerator = keyGenerator or function(...)
-        local args = {...}
-        local key = ""
-        for i = 1, select("#", ...) do
-            if i > 1 then key = key .. "|" end
-            local arg = args[i]
-            local argType = type(arg)
-            if argType == "nil" then
-                key = key .. "nil"
-            elseif argType == "boolean" then
-                key = key .. tostring(arg)
-            elseif argType == "number" or argType == "string" then
-                key = key .. arg
-            elseif argType == "table" then
-                -- Simple table serialization (not recursive)
-                key = key .. "table:" .. tostring(arg)
-            else
-                key = key .. argType .. ":" .. tostring(arg)
+    keyGenerator = keyGenerator
+        or function(...)
+            local args = { ... }
+            local key = ""
+            for i = 1, select("#", ...) do
+                if i > 1 then
+                    key = key .. "|"
+                end
+                local arg = args[i]
+                local argType = type(arg)
+                if argType == "nil" then
+                    key = key .. "nil"
+                elseif argType == "boolean" then
+                    key = key .. tostring(arg)
+                elseif argType == "number" or argType == "string" then
+                    key = key .. arg
+                elseif argType == "table" then
+                    -- Simple table serialization (not recursive)
+                    key = key .. "table:" .. tostring(arg)
+                else
+                    key = key .. argType .. ":" .. tostring(arg)
+                end
             end
+            return key
         end
-        return key
-    end
-    
+
     local cache = {
         _capacity = capacity,
         _items = {},
         _order = {},
-        _size = 0
+        _size = 0,
     }
-    
+
     -- Internal: Move key to front of order list
     local function moveToFront(key)
         for i, k in ipairs(cache._order) do
@@ -523,7 +526,7 @@ function Memoize(func, capacity, keyGenerator)
         end
         table.insert(cache._order, 1, key)
     end
-    
+
     -- Internal: Remove least recently used item
     local function removeLRU()
         local lru = table.remove(cache._order)
@@ -532,34 +535,34 @@ function Memoize(func, capacity, keyGenerator)
             cache._size = cache._size - 1
         end
     end
-    
+
     -- Memoized function
     return function(...)
         local key = keyGenerator(...)
-        
+
         -- Check cache
         local cached = cache._items[key]
         if cached then
             moveToFront(key)
             return unpack(cached.results, 1, cached.n)
         end
-        
+
         -- Call original function and capture all returns
         local function captureReturns(...)
-            return select("#", ...), {...}
+            return select("#", ...), { ... }
         end
-        
+
         local n, results = captureReturns(func(...))
-        
+
         -- Store in cache
         if cache._size >= cache._capacity then
             removeLRU()
         end
-        
-        cache._items[key] = {results = results, n = n}
+
+        cache._items[key] = { results = results, n = n }
         table.insert(cache._order, 1, key)
         cache._size = cache._size + 1
-        
+
         return unpack(results, 1, n)
     end
 end
@@ -580,9 +583,9 @@ function Heap(isMinHeap, compareFunc)
         _HarnessInternal.log.error("Heap compareFunc must be a function", "DataStructures.Heap")
         compareFunc = nil
     end
-    
+
     isMinHeap = isMinHeap ~= false -- Default to min heap
-    
+
     local heap = {
         _items = {},
         _size = 0,
@@ -592,9 +595,9 @@ function Heap(isMinHeap, compareFunc)
             else
                 return a > b
             end
-        end
+        end,
     }
-    
+
     --- Insert item into heap
     ---@param item any Item to insert
     ---@usage heap:insert(5)
@@ -603,7 +606,7 @@ function Heap(isMinHeap, compareFunc)
         self._items[self._size] = item
         self:_bubbleUp(self._size)
     end
-    
+
     --- Remove and return top item (min or max)
     ---@return any? item Top item or nil if empty
     ---@usage local top = heap:extract()
@@ -611,47 +614,47 @@ function Heap(isMinHeap, compareFunc)
         if self:isEmpty() then
             return nil
         end
-        
+
         local top = self._items[1]
         self._items[1] = self._items[self._size]
         self._items[self._size] = nil
         self._size = self._size - 1
-        
+
         if self._size > 0 then
             self:_bubbleDown(1)
         end
-        
+
         return top
     end
-    
+
     --- Peek at top item without removing
     ---@return any? item Top item or nil if empty
     ---@usage local top = heap:peek()
     function heap:peek()
         return self._items[1]
     end
-    
+
     --- Check if heap is empty
     ---@return boolean empty True if heap is empty
     ---@usage if heap:isEmpty() then ... end
     function heap:isEmpty()
         return self._size == 0
     end
-    
+
     --- Get number of items in heap
     ---@return number size Number of items
     ---@usage local size = heap:size()
     function heap:size()
         return self._size
     end
-    
+
     --- Clear all items from heap
     ---@usage heap:clear()
     function heap:clear()
         self._items = {}
         self._size = 0
     end
-    
+
     -- Internal: Bubble up to maintain heap property
     function heap:_bubbleUp(index)
         while index > 1 do
@@ -664,31 +667,32 @@ function Heap(isMinHeap, compareFunc)
             end
         end
     end
-    
+
     -- Internal: Bubble down to maintain heap property
     function heap:_bubbleDown(index)
         while true do
             local smallest = index
             local left = 2 * index
             local right = 2 * index + 1
-            
+
             if left <= self._size and self._compare(self._items[left], self._items[smallest]) then
                 smallest = left
             end
-            
+
             if right <= self._size and self._compare(self._items[right], self._items[smallest]) then
                 smallest = right
             end
-            
+
             if smallest ~= index then
-                self._items[index], self._items[smallest] = self._items[smallest], self._items[index]
+                self._items[index], self._items[smallest] =
+                    self._items[smallest], self._items[index]
                 index = smallest
             else
                 break
             end
         end
     end
-    
+
     return heap
 end
 
@@ -699,9 +703,9 @@ end
 function Set()
     local set = {
         _items = {},
-        _size = 0
+        _size = 0,
     }
-    
+
     --- Add item to set
     ---@param item any Item to add
     ---@return boolean added True if item was added (not already present)
@@ -714,7 +718,7 @@ function Set()
         self._size = self._size + 1
         return true
     end
-    
+
     --- Remove item from set
     ---@param item any Item to remove
     ---@return boolean removed True if item was removed
@@ -727,7 +731,7 @@ function Set()
         self._size = self._size - 1
         return true
     end
-    
+
     --- Check if set contains item
     ---@param item any Item to check
     ---@return boolean contains True if set contains item
@@ -735,28 +739,28 @@ function Set()
     function set:contains(item)
         return self._items[item] ~= nil
     end
-    
+
     --- Get number of items in set
     ---@return number size Number of items
     ---@usage local size = set:size()
     function set:size()
         return self._size
     end
-    
+
     --- Check if set is empty
     ---@return boolean empty True if set is empty
     ---@usage if set:isEmpty() then ... end
     function set:isEmpty()
         return self._size == 0
     end
-    
+
     --- Clear all items from set
     ---@usage set:clear()
     function set:clear()
         self._items = {}
         self._size = 0
     end
-    
+
     --- Get array of all items
     ---@return table items Array of set items
     ---@usage local items = set:toArray()
@@ -767,7 +771,7 @@ function Set()
         end
         return array
     end
-    
+
     --- Create union with another set
     ---@param other table Another set
     ---@return table union New set containing items from both sets
@@ -782,7 +786,7 @@ function Set()
         end
         return result
     end
-    
+
     --- Create intersection with another set
     ---@param other table Another set
     ---@return table intersection New set containing common items
@@ -796,7 +800,7 @@ function Set()
         end
         return result
     end
-    
+
     --- Create difference with another set
     ---@param other table Another set
     ---@return table difference New set containing items in this but not other
@@ -810,7 +814,7 @@ function Set()
         end
         return result
     end
-    
+
     return set
 end
 
@@ -822,10 +826,13 @@ end
 function PriorityQueue(compareFunc)
     -- Validate compareFunc
     if compareFunc ~= nil and type(compareFunc) ~= "function" then
-        _HarnessInternal.log.error("PriorityQueue compareFunc must be a function", "DataStructures.PriorityQueue")
+        _HarnessInternal.log.error(
+            "PriorityQueue compareFunc must be a function",
+            "DataStructures.PriorityQueue"
+        )
         compareFunc = nil
     end
-    
+
     local heapCompareFunc = nil
     if not compareFunc then
         -- Default comparison for items with priority field
@@ -833,23 +840,23 @@ function PriorityQueue(compareFunc)
             return a.priority < b.priority
         end
     end
-    
+
     local pqueue = {
-        _heap = Heap(true, heapCompareFunc or compareFunc)
+        _heap = Heap(true, heapCompareFunc or compareFunc),
     }
-    
+
     --- Add item with priority
     ---@param item any Item to add
     ---@param priority number? Priority (used if no compareFunc provided)
     ---@usage pqueue:enqueue(task, 5)
     function pqueue:enqueue(item, priority)
         if not compareFunc and priority then
-            self._heap:insert({item = item, priority = priority})
+            self._heap:insert({ item = item, priority = priority })
         else
             self._heap:insert(item)
         end
     end
-    
+
     --- Remove and return highest priority item
     ---@return any? item Highest priority item or nil if empty
     ---@usage local task = pqueue:dequeue()
@@ -860,7 +867,7 @@ function PriorityQueue(compareFunc)
         end
         return result
     end
-    
+
     --- Peek at highest priority item
     ---@return any? item Highest priority item or nil if empty
     ---@usage local next = pqueue:peek()
@@ -871,26 +878,26 @@ function PriorityQueue(compareFunc)
         end
         return result
     end
-    
+
     --- Check if queue is empty
     ---@return boolean empty True if queue is empty
     ---@usage if pqueue:isEmpty() then ... end
     function pqueue:isEmpty()
         return self._heap:isEmpty()
     end
-    
+
     --- Get number of items
     ---@return number size Number of items
     ---@usage local size = pqueue:size()
     function pqueue:size()
         return self._heap:size()
     end
-    
+
     --- Clear all items
     ---@usage pqueue:clear()
     function pqueue:clear()
         self._heap:clear()
     end
-    
+
     return pqueue
 end

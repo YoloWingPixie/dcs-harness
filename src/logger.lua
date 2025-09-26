@@ -42,45 +42,45 @@ function HarnessLogger(namespace)
     if not namespace or type(namespace) ~= "string" then
         namespace = _HarnessInternal.defaultNamespace
     end
-    
+
     -- Return existing logger if already created
     if _HarnessInternal.loggers[namespace] then
         return _HarnessInternal.loggers[namespace]
     end
-    
+
     ---@type Logger
     local logger = {
-        namespace = namespace
+        namespace = namespace,
     }
-    
+
     --- Log an info message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.info(message, caller)
         env.info(formatMessage(namespace, message, caller))
     end
-    
+
     --- Log a warning message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.warn(message, caller)
         env.warning(formatMessage(namespace, message, caller))
     end
-    
+
     --- Log an error message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.error(message, caller)
         env.error(formatMessage(namespace, message, caller))
     end
-    
+
     --- Log a debug message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.debug(message, caller)
         env.info(formatMessage(namespace .. " : DEBUG", message, caller))
     end
-    
+
     _HarnessInternal.loggers[namespace] = logger
     return logger
 end

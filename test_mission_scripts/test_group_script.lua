@@ -14,14 +14,20 @@ end
 
 local function getGroupByName(name)
     local ok, grp = pcall(Group.getByName, name)
-    if ok then return grp end
+    if ok then
+        return grp
+    end
     return nil
 end
 
 local function getFirstUnit(grp)
-    if not grp then return nil end
+    if not grp then
+        return nil
+    end
     local ok, u = pcall(grp.getUnit, grp, 1)
-    if ok then return u end
+    if ok then
+        return u
+    end
     return nil
 end
 
@@ -47,10 +53,19 @@ local function sectionLookupAndBasics()
     local categoryId = GetGroupCategory(name) or -1
     local id = GetGroupID(name) or -1
 
-    OutText(string.format("Group '%s' exists=%s size=%d init=%d coal=%s cat=%s id=%s",
-        tostring(name), tostring(exists), tonumber(size) or -1, tonumber(initSize) or -1,
-        tostring(coalitionId), tostring(categoryId), tostring(id)
-    ), 10)
+    OutText(
+        string.format(
+            "Group '%s' exists=%s size=%d init=%d coal=%s cat=%s id=%s",
+            tostring(name),
+            tostring(exists),
+            tonumber(size) or -1,
+            tonumber(initSize) or -1,
+            tostring(coalitionId),
+            tostring(categoryId),
+            tostring(id)
+        ),
+        10
+    )
 
     -- Units list
     local units = GetGroupUnits(name) or {}
@@ -61,7 +76,9 @@ local function sectionControllerAndMessages()
     info("Group Visual: Controller & Messages")
 
     local grp = GetGroup("HARNESS_TEST_GROUP")
-    if not grp then return end
+    if not grp then
+        return
+    end
 
     -- Controller cache path
     local ctrl = GetGroupController("HARNESS_TEST_GROUP")
@@ -90,7 +107,9 @@ local function sectionActivationAndEmissions()
 
     local name = "HARNESS_TEST_GROUP"
     local grp = GetGroup(name)
-    if not grp then return end
+    if not grp then
+        return
+    end
 
     -- Activate group and toggle emissions
     ActivateGroup(name)
@@ -105,12 +124,16 @@ local function sectionMarkers()
     info("Group Visual: Markers")
 
     local grp = getGroupByName("HARNESS_TEST_GROUP")
-    if not grp then return end
+    if not grp then
+        return
+    end
 
     local ok, pos = pcall(function()
         local u = getFirstUnit(grp)
-        if not u then return nil end
-        local upos = u:getPoint() or (u.getPosition and (u:getPosition().p))
+        if not u then
+            return nil
+        end
+        local upos = u:getPoint() or (u.getPosition and u:getPosition().p)
         return upos
     end)
 
@@ -119,14 +142,16 @@ local function sectionMarkers()
         return
     end
 
-    MarkGroup(grp, {x = pos.x, y = pos.y, z = pos.z}, "HARNESS_TEST_GROUP HERE")
+    MarkGroup(grp, { x = pos.x, y = pos.y, z = pos.z }, "HARNESS_TEST_GROUP HERE")
 end
 
 local function sectionLifecycle()
     info("Group Visual: Lifecycle (destroy)")
 
     local grp = getGroupByName("HARNESS_TEST_GROUP")
-    if not grp then return end
+    if not grp then
+        return
+    end
 
     ScheduleOnce(function()
         info("Destroying group in 3..", 3)
@@ -153,5 +178,3 @@ local function main()
 end
 
 main()
-
-

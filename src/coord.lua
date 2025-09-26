@@ -20,7 +20,10 @@ function LOtoLL(vec3)
 
     local success, result = pcall(coord.LOtoLL, vec3)
     if not success then
-        _HarnessInternal.log.error("Failed to convert LO to LL: " .. tostring(result), "Coord.LOtoLL")
+        _HarnessInternal.log.error(
+            "Failed to convert LO to LL: " .. tostring(result),
+            "Coord.LOtoLL"
+        )
         return nil
     end
 
@@ -48,7 +51,10 @@ function LLtoLO(latitude, longitude, altitude)
 
     local success, result = pcall(coord.LLtoLO, latitude, longitude, altitude)
     if not success then
-        _HarnessInternal.log.error("Failed to convert LL to LO: " .. tostring(result), "Coord.LLtoLO")
+        _HarnessInternal.log.error(
+            "Failed to convert LL to LO: " .. tostring(result),
+            "Coord.LLtoLO"
+        )
         return nil
     end
 
@@ -67,7 +73,10 @@ function LOtoMGRS(vec3)
 
     local success, result = pcall(coord.LOtoMGRS, vec3)
     if not success then
-        _HarnessInternal.log.error("Failed to convert LO to MGRS: " .. tostring(result), "Coord.LOtoMGRS")
+        _HarnessInternal.log.error(
+            "Failed to convert LO to MGRS: " .. tostring(result),
+            "Coord.LOtoMGRS"
+        )
         return nil
     end
 
@@ -86,7 +95,10 @@ function MGRStoLO(mgrsString)
 
     local success, result = pcall(coord.MGRStoLO, mgrsString)
     if not success then
-        _HarnessInternal.log.error("Failed to convert MGRS to LO: " .. tostring(result), "Coord.MGRStoLO")
+        _HarnessInternal.log.error(
+            "Failed to convert MGRS to LO: " .. tostring(result),
+            "Coord.MGRStoLO"
+        )
         return nil
     end
 

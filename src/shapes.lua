@@ -21,26 +21,26 @@ function CreateTriangle(center, size, rotation)
         _HarnessInternal.log.error("CreateTriangle requires center point", "Shapes.CreateTriangle")
         return nil
     end
-    
+
     center = ToVec2(center)
     size = size or 1000 -- Default 1km sides
     rotation = rotation or 0
-    
+
     -- Create equilateral triangle
     local height = size * math.sqrt(3) / 2
     local points = {
-        Vec2(0, height * 2/3),           -- Top vertex
-        Vec2(-size/2, -height * 1/3),    -- Bottom left
-        Vec2(size/2, -height * 1/3)      -- Bottom right
+        Vec2(0, height * 2 / 3), -- Top vertex
+        Vec2(-size / 2, -height * 1 / 3), -- Bottom left
+        Vec2(size / 2, -height * 1 / 3), -- Bottom right
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -53,32 +53,35 @@ end
 --- @usage local rect = CreateRectangle({x=0, z=0}, 5000, 3000, 90)
 function CreateRectangle(center, width, height, rotation)
     if not center then
-        _HarnessInternal.log.error("CreateRectangle requires center point", "Shapes.CreateRectangle")
+        _HarnessInternal.log.error(
+            "CreateRectangle requires center point",
+            "Shapes.CreateRectangle"
+        )
         return nil
     end
-    
+
     center = ToVec2(center)
-    width = width or 2000    -- Default 2km width
-    height = height or 1000  -- Default 1km height
+    width = width or 2000 -- Default 2km width
+    height = height or 1000 -- Default 1km height
     rotation = rotation or 0
-    
+
     local halfW = width / 2
     local halfH = height / 2
-    
+
     local points = {
-        Vec2(-halfW, -halfH),  -- Bottom left
-        Vec2(halfW, -halfH),   -- Bottom right
-        Vec2(halfW, halfH),    -- Top right
-        Vec2(-halfW, halfH)    -- Top left
+        Vec2(-halfW, -halfH), -- Bottom left
+        Vec2(halfW, -halfH), -- Bottom right
+        Vec2(halfW, halfH), -- Top right
+        Vec2(-halfW, halfH), -- Top left
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -104,22 +107,22 @@ function CreateOval(center, radiusX, radiusZ, numPoints)
         _HarnessInternal.log.error("CreateOval requires center point", "Shapes.CreateOval")
         return nil
     end
-    
+
     center = ToVec2(center)
-    radiusX = radiusX or 1000    -- Default 1km radius X
-    radiusZ = radiusZ or radiusX  -- Default to circle if not specified
-    numPoints = numPoints or 36   -- Default 36 points (10-degree increments)
-    
+    radiusX = radiusX or 1000 -- Default 1km radius X
+    radiusZ = radiusZ or radiusX -- Default to circle if not specified
+    numPoints = numPoints or 36 -- Default 36 points (10-degree increments)
+
     local points = {}
     local angleStep = 2 * math.pi / numPoints
-    
+
     for i = 0, numPoints - 1 do
         local angle = i * angleStep
         local x = radiusX * math.cos(angle)
         local z = radiusZ * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -146,29 +149,29 @@ function CreateFan(origin, centerBearing, arcDegrees, distance, numPoints)
         _HarnessInternal.log.error("CreateFan requires origin point", "Shapes.CreateFan")
         return nil
     end
-    
+
     origin = ToVec2(origin)
     centerBearing = centerBearing or 0
     arcDegrees = arcDegrees or 90
-    distance = distance or 50 * 1852  -- Default 50 nautical miles
-    numPoints = numPoints or math.ceil(arcDegrees / 5) + 1  -- Default 5-degree increments
-    
-    local points = {origin}  -- Start with origin
-    
+    distance = distance or 50 * 1852 -- Default 50 nautical miles
+    numPoints = numPoints or math.ceil(arcDegrees / 5) + 1 -- Default 5-degree increments
+
+    local points = { origin } -- Start with origin
+
     -- Calculate start bearing (half arc to the left of center)
     local halfArc = arcDegrees / 2
     local startBearing = centerBearing - halfArc
     local angleStep = arcDegrees / (numPoints - 1)
-    
+
     for i = 0, numPoints - 1 do
         local bearing = startBearing + i * angleStep
         local point = origin:displace(bearing, distance)
         table.insert(points, point)
     end
-    
+
     -- Close the fan by returning to origin
     table.insert(points, origin)
-    
+
     return points
 end
 
@@ -182,34 +185,37 @@ end
 --- @usage local trap = CreateTrapezoid({x=0, z=0}, 1000, 3000, 2000)
 function CreateTrapezoid(center, topWidth, bottomWidth, height, rotation)
     if not center then
-        _HarnessInternal.log.error("CreateTrapezoid requires center point", "Shapes.CreateTrapezoid")
+        _HarnessInternal.log.error(
+            "CreateTrapezoid requires center point",
+            "Shapes.CreateTrapezoid"
+        )
         return nil
     end
-    
+
     center = ToVec2(center)
-    topWidth = topWidth or 1000      -- Default 1km top width
+    topWidth = topWidth or 1000 -- Default 1km top width
     bottomWidth = bottomWidth or 2000 -- Default 2km bottom width
-    height = height or 1000           -- Default 1km height
+    height = height or 1000 -- Default 1km height
     rotation = rotation or 0
-    
+
     local halfTop = topWidth / 2
     local halfBottom = bottomWidth / 2
     local halfH = height / 2
-    
+
     local points = {
-        Vec2(-halfBottom, -halfH),  -- Bottom left
-        Vec2(halfBottom, -halfH),   -- Bottom right
-        Vec2(halfTop, halfH),       -- Top right
-        Vec2(-halfTop, halfH)       -- Top left
+        Vec2(-halfBottom, -halfH), -- Bottom left
+        Vec2(halfBottom, -halfH), -- Bottom right
+        Vec2(halfTop, halfH), -- Top right
+        Vec2(-halfTop, halfH), -- Top left
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -226,37 +232,37 @@ function CreatePill(center, legBearing, legLength, radius, pointsPerCap)
         _HarnessInternal.log.error("CreatePill requires center point", "Shapes.CreatePill")
         return nil
     end
-    
+
     center = ToVec2(center)
     legBearing = legBearing or 0
-    legLength = legLength or 40 * 1852  -- Default 40 nautical miles
-    radius = radius or 10 * 1852         -- Default 10 nautical miles
-    pointsPerCap = pointsPerCap or 19    -- Points per semicircle
-    
+    legLength = legLength or 40 * 1852 -- Default 40 nautical miles
+    radius = radius or 10 * 1852 -- Default 10 nautical miles
+    pointsPerCap = pointsPerCap or 19 -- Points per semicircle
+
     local halfLegLength = legLength / 2
-    
+
     -- Calculate the two centers for the semicircular caps
     local cap1Center = center:displace(legBearing, halfLegLength)
     local cap2Center = center:displace((legBearing + 180) % 360, halfLegLength)
-    
+
     -- Calculate perpendicular bearing for the sides
     local perpBearing = (legBearing + 90) % 360
-    
+
     local points = {}
-    
+
     -- Generate first semicircle (right side going clockwise from perpBearing)
     local angleStep = 180 / (pointsPerCap - 1)
     for i = 0, pointsPerCap - 1 do
         local bearing = (perpBearing - i * angleStep + 720) % 360
         table.insert(points, cap1Center:displace(bearing, radius))
     end
-    
+
     -- Generate second semicircle (left side going clockwise from opposite perpBearing)
     for i = 0, pointsPerCap - 1 do
         local bearing = ((perpBearing + 180) - i * angleStep + 720) % 360
         table.insert(points, cap2Center:displace(bearing, radius))
     end
-    
+
     return points
 end
 
@@ -273,16 +279,16 @@ function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
         _HarnessInternal.log.error("CreateStar requires center point", "Shapes.CreateStar")
         return nil
     end
-    
+
     center = ToVec2(center)
-    outerRadius = outerRadius or 1000   -- Default 1km outer radius
-    innerRadius = innerRadius or 400    -- Default 400m inner radius
-    numPoints = numPoints or 5         -- Default 5-pointed star
+    outerRadius = outerRadius or 1000 -- Default 1km outer radius
+    innerRadius = innerRadius or 400 -- Default 400m inner radius
+    numPoints = numPoints or 5 -- Default 5-pointed star
     rotation = rotation or 0
-    
+
     local points = {}
-    local angleStep = math.pi / numPoints  -- Half angle between points
-    
+    local angleStep = math.pi / numPoints -- Half angle between points
+
     for i = 0, numPoints * 2 - 1 do
         local angle = i * angleStep - math.pi / 2 + DegToRad(rotation)
         local radius = (i % 2 == 0) and outerRadius or innerRadius
@@ -290,7 +296,7 @@ function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
         local z = radius * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -303,28 +309,34 @@ end
 --- @usage local pentagon = CreatePolygon({x=0, z=0}, 3000, 5, 0)
 function CreatePolygon(center, radius, numSides, rotation)
     if not center or not radius or not numSides then
-        _HarnessInternal.log.error("CreatePolygon requires center, radius, and number of sides", "Shapes.CreatePolygon")
+        _HarnessInternal.log.error(
+            "CreatePolygon requires center, radius, and number of sides",
+            "Shapes.CreatePolygon"
+        )
         return nil
     end
-    
+
     if numSides < 3 then
-        _HarnessInternal.log.error("CreatePolygon requires at least 3 sides", "Shapes.CreatePolygon")
+        _HarnessInternal.log.error(
+            "CreatePolygon requires at least 3 sides",
+            "Shapes.CreatePolygon"
+        )
         return nil
     end
-    
+
     center = ToVec2(center)
     rotation = rotation or 0
-    
+
     local points = {}
     local angleStep = 2 * math.pi / numSides
-    
+
     for i = 0, numSides - 1 do
         local angle = i * angleStep - math.pi / 2 + DegToRad(rotation)
         local x = radius * math.cos(angle)
         local z = radius * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -361,31 +373,31 @@ function CreateArc(center, radius, startBearing, endBearing, numPoints)
         _HarnessInternal.log.error("CreateArc requires center and radius", "Shapes.CreateArc")
         return nil
     end
-    
+
     center = ToVec2(center)
     startBearing = startBearing or 0
     endBearing = endBearing or 90
     numPoints = numPoints or math.ceil(math.abs(endBearing - startBearing) / 5) + 1
-    
+
     local points = {}
-    
+
     -- Normalize bearings
     startBearing = startBearing % 360
     endBearing = endBearing % 360
-    
+
     -- Calculate arc span
     local arcSpan = endBearing - startBearing
     if arcSpan < 0 then
         arcSpan = arcSpan + 360
     end
-    
+
     local angleStep = arcSpan / (numPoints - 1)
-    
+
     for i = 0, numPoints - 1 do
         local bearing = (startBearing + i * angleStep) % 360
         table.insert(points, center:displace(bearing, radius))
     end
-    
+
     return points
 end
 
@@ -402,18 +414,18 @@ function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
         _HarnessInternal.log.error("CreateSpiral requires center point", "Shapes.CreateSpiral")
         return nil
     end
-    
+
     center = ToVec2(center)
     startRadius = startRadius or 100
     endRadius = endRadius or 1000
     numTurns = numTurns or 3
     pointsPerTurn = pointsPerTurn or 36
-    
+
     local points = {}
     local totalPoints = numTurns * pointsPerTurn
     local radiusStep = (endRadius - startRadius) / totalPoints
     local angleStep = 2 * math.pi / pointsPerTurn
-    
+
     for i = 0, totalPoints - 1 do
         local radius = startRadius + i * radiusStep
         local angle = i * angleStep
@@ -421,7 +433,7 @@ function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
         local z = radius * math.sin(angle)
         table.insert(points, center + Vec2(x, z))
     end
-    
+
     return points
 end
 
@@ -437,42 +449,45 @@ function CreateRing(center, outerRadius, innerRadius, numPoints)
         _HarnessInternal.log.error("CreateRing requires center point", "Shapes.CreateRing")
         return nil
     end
-    
+
     if not outerRadius or not innerRadius or innerRadius >= outerRadius then
-        _HarnessInternal.log.error("CreateRing requires valid inner and outer radii", "Shapes.CreateRing")
+        _HarnessInternal.log.error(
+            "CreateRing requires valid inner and outer radii",
+            "Shapes.CreateRing"
+        )
         return nil
     end
-    
+
     -- Create as two circles that will form a ring when rendered
     -- Note: This creates a hollow ring outline, not a filled donut
     local outer = CreateCircle(center, outerRadius, numPoints)
     local inner = CreateCircle(center, innerRadius, numPoints)
-    
+
     -- Reverse inner circle for proper winding
     local reversedInner = {}
     for i = #inner, 1, -1 do
         table.insert(reversedInner, inner[i])
     end
-    
+
     -- Combine: outer circle + connection + reversed inner circle + connection back
     local ring = {}
-    
+
     -- Add outer circle
     for _, p in ipairs(outer) do
         table.insert(ring, p)
     end
-    
+
     -- Connect to inner circle
     table.insert(ring, reversedInner[1])
-    
+
     -- Add reversed inner circle
     for _, p in ipairs(reversedInner) do
         table.insert(ring, p)
     end
-    
+
     -- Close the ring
     table.insert(ring, outer[1])
-    
+
     return ring
 end
 
@@ -488,38 +503,38 @@ function CreateCross(center, size, thickness, rotation)
         _HarnessInternal.log.error("CreateCross requires center point", "Shapes.CreateCross")
         return nil
     end
-    
+
     center = ToVec2(center)
-    size = size or 1000          -- Default 1km size
-    thickness = thickness or 200  -- Default 200m thickness
+    size = size or 1000 -- Default 1km size
+    thickness = thickness or 200 -- Default 200m thickness
     rotation = rotation or 0
-    
+
     local halfSize = size / 2
     local halfThick = thickness / 2
-    
+
     -- Define cross shape points (12 points for the outline)
     local points = {
-        Vec2(-halfThick, -halfSize),    -- Bottom of vertical bar
+        Vec2(-halfThick, -halfSize), -- Bottom of vertical bar
         Vec2(halfThick, -halfSize),
         Vec2(halfThick, -halfThick),
-        Vec2(halfSize, -halfThick),     -- Right of horizontal bar
+        Vec2(halfSize, -halfThick), -- Right of horizontal bar
         Vec2(halfSize, halfThick),
         Vec2(halfThick, halfThick),
-        Vec2(halfThick, halfSize),      -- Top of vertical bar
+        Vec2(halfThick, halfSize), -- Top of vertical bar
         Vec2(-halfThick, halfSize),
         Vec2(-halfThick, halfThick),
-        Vec2(-halfSize, halfThick),     -- Left of horizontal bar
+        Vec2(-halfSize, halfThick), -- Left of horizontal bar
         Vec2(-halfSize, -halfThick),
-        Vec2(-halfThick, -halfThick)
+        Vec2(-halfThick, -halfThick),
     }
-    
+
     -- Rotate and translate
     local result = {}
     for _, p in ipairs(points) do
         local rotated = p:rotate(rotation)
         table.insert(result, center + rotated)
     end
-    
+
     return result
 end
 
@@ -533,9 +548,9 @@ function ShapeToVec3(shape, altitude)
         _HarnessInternal.log.error("ShapeToVec3 requires valid shape", "Shapes.ShapeToVec3")
         return nil
     end
-    
+
     altitude = altitude or 0
-    
+
     local result = {}
     for _, p in ipairs(shape) do
         if IsVec2(p) then
@@ -546,6 +561,6 @@ function ShapeToVec3(shape, altitude)
             table.insert(result, Vec3(p.x, altitude, p.z))
         end
     end
-    
+
     return result
 end

@@ -12,14 +12,20 @@
 -- =============================
 local function getGroupByName(name)
     local ok, grp = pcall(Group.getByName, name)
-    if ok then return grp end
+    if ok then
+        return grp
+    end
     return nil
 end
 
 local function getController(grp)
-    if not grp then return nil end
+    if not grp then
+        return nil
+    end
     local ok, ctrl = pcall(grp.getController, grp)
-    if ok then return ctrl end
+    if ok then
+        return ctrl
+    end
     return nil
 end
 
@@ -29,7 +35,11 @@ end
 
 -- Feature detection for Air option IDs that may not exist in some versions
 local function airOptionIdAvailable(name)
-    return AI and AI.Option and AI.Option.Air and AI.Option.Air.id and (AI.Option.Air.id[name] ~= nil)
+    return AI
+        and AI.Option
+        and AI.Option.Air
+        and AI.Option.Air.id
+        and (AI.Option.Air.id[name] ~= nil)
 end
 
 -- =============================
@@ -40,7 +50,10 @@ local function sectionAirController()
 
     local grp = getGroupByName("HARNESS_TEST_AIR_GROUP")
     if not grp then
-        info("(Tip) Place an air group named 'HARNESS_TEST_AIR_GROUP' to demo air controller options", 10)
+        info(
+            "(Tip) Place an air group named 'HARNESS_TEST_AIR_GROUP' to demo air controller options",
+            10
+        )
         return
     end
     local ctrl = getController(grp)
@@ -67,7 +80,7 @@ local function sectionAirController()
     SetControllerAltitude(ctrl, 1200)
 
     -- Demonstrate task queue with a valid AIR task (Orbit), then pop later
-    local orbitPoint = {x = 0, y = 1200, z = 0}
+    local orbitPoint = { x = 0, y = 1200, z = 0 }
     local orbit = CreateOrbitTask("Circle", orbitPoint, 1200, 150)
     if orbit then
         PushControllerTask(ctrl, orbit)
@@ -89,7 +102,10 @@ local function sectionGroundController()
 
     local grp = getGroupByName("HARNESS_TEST_GROUP")
     if not grp then
-        info("(Optional) Place a ground group named 'HARNESS_TEST_GROUP' to demo ground controller options", 10)
+        info(
+            "(Optional) Place a ground group named 'HARNESS_TEST_GROUP' to demo ground controller options",
+            10
+        )
         return
     end
     local ctrl = getController(grp)
@@ -122,5 +138,3 @@ local function main()
 end
 
 main()
-
-

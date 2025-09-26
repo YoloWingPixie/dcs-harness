@@ -7,27 +7,31 @@
 
 -- Environment Management
 local function deepCopy(obj, seen)
-    if type(obj) ~= 'table' then return obj end
-    if seen and seen[obj] then return seen[obj] end
-    
+    if type(obj) ~= "table" then
+        return obj
+    end
+    if seen and seen[obj] then
+        return seen[obj]
+    end
+
     local s = seen or {}
     local res = {}
     s[obj] = res
-    
+
     -- Use pcall to handle potential errors from metamethods
     local ok, err = pcall(function()
         for k, v in pairs(obj) do
             res[deepCopy(k, s)] = deepCopy(v, s)
         end
     end)
-    
+
     if not ok then
         -- If pairs fails due to metamethods, fall back to next
         for k, v in next, obj do
             res[deepCopy(k, s)] = deepCopy(v, s)
         end
     end
-    
+
     -- Don't copy metatables to avoid potential infinite recursion
     return res
 end
@@ -47,14 +51,14 @@ function SaveEnvironment()
         atmosphere = atmosphere,
         _HarnessInternal = _HarnessInternal and deepCopy(_HarnessInternal) or nil,
         -- Save package.loaded state
-        package_loaded = {}
+        package_loaded = {},
     }
-    
+
     -- Save loaded module list (but not the modules themselves)
     for k, v in pairs(package.loaded) do
         saved.package_loaded[k] = true
     end
-    
+
     return saved
 end
 
@@ -72,7 +76,7 @@ function RestoreEnvironment(saved)
     coord = saved.coord
     atmosphere = saved.atmosphere
     _HarnessInternal = saved._HarnessInternal
-    
+
     -- Clear any modules loaded after save
     local toRemove = {}
     for k, v in pairs(package.loaded) do
@@ -80,7 +84,7 @@ function RestoreEnvironment(saved)
             toRemove[k] = true
         end
     end
-    
+
     for k, _ in pairs(toRemove) do
         package.loaded[k] = nil
     end
@@ -93,7 +97,7 @@ MockManager.__index = MockManager
 function MockManager:new()
     local instance = {
         mocks = {},
-        originalFunctions = {}
+        originalFunctions = {},
     }
     setmetatable(instance, MockManager)
     return instance
@@ -105,7 +109,7 @@ function MockManager:mockFunction(path, mockFn)
     for part in string.gmatch(path, "[^.]+") do
         table.insert(parts, part)
     end
-    
+
     -- Navigate to parent object
     local parent = _G
     for i = 1, #parts - 1 do
@@ -114,16 +118,16 @@ function MockManager:mockFunction(path, mockFn)
             error("Cannot mock " .. path .. " - parent does not exist")
         end
     end
-    
+
     local funcName = parts[#parts]
-    
+
     -- Save original
     table.insert(self.mocks, {
         parent = parent,
         name = funcName,
-        original = parent[funcName]
+        original = parent[funcName],
     })
-    
+
     -- Set mock
     parent[funcName] = mockFn
 end
@@ -132,7 +136,7 @@ function MockManager:mockGlobal(name, value)
     table.insert(self.mocks, {
         parent = _G,
         name = name,
-        original = _G[name]
+        original = _G[name],
     })
     _G[name] = value
 end
@@ -152,27 +156,27 @@ HarnessTestCase.__index = HarnessTestCase
 
 function HarnessTestCase:new(testClass)
     testClass = testClass or {}
-    
+
     -- Save original setUp and tearDown if they exist
     local originalSetUp = testClass.setUp
     local originalTearDown = testClass.tearDown
-    
+
     -- Create wrapper setUp that ensures framework setup runs first
     local frameworkSetUp = function(self)
         -- Save environment
         self._savedEnv = SaveEnvironment()
         self._mockManager = MockManager:new()
-        
+
         -- Ensure mock_dcs is loaded
-        if not package.loaded['mock_dcs'] then
-            require('mock_dcs')
+        if not package.loaded["mock_dcs"] then
+            require("mock_dcs")
         end
-        
+
         -- Initialize Harness internal structure
         HARNESS_VERSION = "1.0.0-test"
         _HarnessInternal = {
             loggers = {},
-            defaultNamespace = "Harness"
+            defaultNamespace = "Harness",
         }
         -- Initialize minimal cache structure for tests (no production changes)
         _HarnessInternal.cache = {
@@ -181,92 +185,104 @@ function HarnessTestCase:new(testClass)
             controllers = {},
             airbases = {},
             stats = { hits = 0, misses = 0, evictions = 0 },
-            config = { maxUnits = 1000, maxGroups = 500, maxControllers = 500, maxAirbases = 100, ttl = 300 }
+            config = {
+                maxUnits = 1000,
+                maxGroups = 500,
+                maxControllers = 500,
+                maxAirbases = 100,
+                ttl = 300,
+            },
         }
         -- Load production cache module to attach cache methods (no edits to production code)
-        package.path = package.path .. ';../src/?.lua'
-        if not package.loaded['logger'] then require('logger') end
-        if not package.loaded['cache'] then require('cache') end
+        package.path = package.path .. ";../src/?.lua"
+        if not package.loaded["logger"] then
+            require("logger")
+        end
+        if not package.loaded["cache"] then
+            require("cache")
+        end
     end
-    
+
     -- Override setUp
     testClass.setUp = function(self)
         -- Always run framework setup first
         frameworkSetUp(self)
-        
+
         -- Call original setUp if exists
         if originalSetUp then
             originalSetUp(self)
         end
     end
-    
+
     -- Override tearDown
     testClass.tearDown = function(self)
         -- Call original tearDown first
         if originalTearDown then
             originalTearDown(self)
         end
-        
+
         -- Restore mocks
         if self._mockManager then
             self._mockManager:restoreAll()
         end
-        
+
         -- Restore environment
         if self._savedEnv then
             RestoreEnvironment(self._savedEnv)
         end
     end
-    
+
     -- Helper to reload Harness modules
     testClass.reloadHarnessModules = function(self)
         -- Clear Harness modules from cache
         local modulesToReload = {}
         for k, v in pairs(package.loaded) do
-            if string.match(k, "^logger$") or
-               string.match(k, "^cache$") or
-               string.match(k, "^group$") or
-               string.match(k, "^coalition$") or
-               string.match(k, "^unit$") or
-               string.match(k, "^zone$") or
-               string.match(k, "^drawing$") then
+            if
+                string.match(k, "^logger$")
+                or string.match(k, "^cache$")
+                or string.match(k, "^group$")
+                or string.match(k, "^coalition$")
+                or string.match(k, "^unit$")
+                or string.match(k, "^zone$")
+                or string.match(k, "^drawing$")
+            then
                 package.loaded[k] = nil
                 table.insert(modulesToReload, k)
             end
         end
-        
+
         -- Reinitialize _HarnessInternal
         _HarnessInternal = {
             loggers = {},
-            defaultNamespace = "Harness"
+            defaultNamespace = "Harness",
         }
-        
+
         -- Reload modules that were cleared
         for _, module in ipairs(modulesToReload) do
             require(module)
         end
     end
-    
+
     -- Mock helper
     testClass.mock = function(self, path, value)
         return self._mockManager:mockFunction(path, value)
     end
-    
+
     testClass.mockGlobal = function(self, name, value)
         return self._mockManager:mockGlobal(name, value)
     end
-    
+
     return testClass
 end
 
 -- Helper to create isolated test suite
 function CreateIsolatedTestSuite(name, testDefinitions)
     local testClass = testDefinitions or {}
-    
+
     -- Store setUp/tearDown that will be defined later
     local userSetUp = nil
     local userTearDown = nil
-    
+
     -- Create metatable to intercept setUp/tearDown definitions
     local mt = {
         __newindex = function(t, k, v)
@@ -277,15 +293,15 @@ function CreateIsolatedTestSuite(name, testDefinitions)
                     -- Framework setup
                     self._savedEnv = SaveEnvironment()
                     self._mockManager = MockManager:new()
-                    
-                    if not package.loaded['mock_dcs'] then
-                        require('mock_dcs')
+
+                    if not package.loaded["mock_dcs"] then
+                        require("mock_dcs")
                     end
-                    
+
                     HARNESS_VERSION = "1.0.0-test"
                     _HarnessInternal = {
                         loggers = {},
-                        defaultNamespace = "Harness"
+                        defaultNamespace = "Harness",
                     }
                     -- Initialize minimal cache structure for tests (no production changes)
                     _HarnessInternal.cache = {
@@ -294,13 +310,23 @@ function CreateIsolatedTestSuite(name, testDefinitions)
                         controllers = {},
                         airbases = {},
                         stats = { hits = 0, misses = 0, evictions = 0 },
-                        config = { maxUnits = 1000, maxGroups = 500, maxControllers = 500, maxAirbases = 100, ttl = 300 }
+                        config = {
+                            maxUnits = 1000,
+                            maxGroups = 500,
+                            maxControllers = 500,
+                            maxAirbases = 100,
+                            ttl = 300,
+                        },
                     }
                     -- Load production cache module to attach cache methods (no edits to production code)
-                    package.path = package.path .. ';../src/?.lua'
-                    if not package.loaded['logger'] then require('logger') end
-                    if not package.loaded['cache'] then require('cache') end
-                    
+                    package.path = package.path .. ";../src/?.lua"
+                    if not package.loaded["logger"] then
+                        require("logger")
+                    end
+                    if not package.loaded["cache"] then
+                        require("cache")
+                    end
+
                     -- User setup
                     if userSetUp then
                         userSetUp(self)
@@ -308,9 +334,9 @@ function CreateIsolatedTestSuite(name, testDefinitions)
 
                     -- After user setup (which may reset _HarnessInternal via _header),
                     -- reload cache module so its functions attach to the fresh structure
-                    package.path = package.path .. ';../src/?.lua'
-                    package.loaded['cache'] = nil
-                    require('cache')
+                    package.path = package.path .. ";../src/?.lua"
+                    package.loaded["cache"] = nil
+                    require("cache")
                 end)
             elseif k == "tearDown" then
                 userTearDown = v
@@ -320,12 +346,12 @@ function CreateIsolatedTestSuite(name, testDefinitions)
                     if userTearDown then
                         userTearDown(self)
                     end
-                    
+
                     -- Framework teardown
                     if self._mockManager then
                         self._mockManager:restoreAll()
                     end
-                    
+
                     if self._savedEnv then
                         RestoreEnvironment(self._savedEnv)
                     end
@@ -333,19 +359,19 @@ function CreateIsolatedTestSuite(name, testDefinitions)
             else
                 rawset(t, k, v)
             end
-        end
+        end,
     }
-    
+
     setmetatable(testClass, mt)
-    
+
     -- Add helper methods
     testClass.mock = function(self, path, value)
         return self._mockManager:mockFunction(path, value)
     end
-    
+
     testClass.mockGlobal = function(self, name, value)
         return self._mockManager:mockGlobal(name, value)
     end
-    
+
     return testClass
 end

@@ -104,8 +104,25 @@ local function sectionLookupAndIdentity()
         10
     )
 
-    if desc and desc.typeName then
-        OutText("TypeName=" .. tostring(desc.typeName), 8)
+    if desc then
+        local attrCount = 0
+        if type(desc.attributes) == "table" then
+            for _ in pairs(desc.attributes) do
+                attrCount = attrCount + 1
+            end
+        end
+        _HarnessInternal.log.info(
+            string.format(
+                "Unit Desc: typeName=%s life=%s attrKeys=%d",
+                tostring(desc.typeName),
+                tostring(desc.life),
+                attrCount
+            ),
+            "UnitVisual"
+        )
+        if desc.typeName then
+            OutText("TypeName=" .. tostring(desc.typeName), 8)
+        end
     end
     if forces then
         OutText("ForcesName=" .. tostring(forces), 6)

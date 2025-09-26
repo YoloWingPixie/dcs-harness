@@ -1,15 +1,14 @@
 -- Test Runner for Harness
 -- This loads all test files and runs them with LuaUnit
 
--- Add test directory to path (platform-independent)
 local separator = package.config:sub(1, 1) -- Gets the directory separator
-package.path = package.path .. ";" .. "." .. separator .. "tests" .. separator .. "?.lua"
+package.path = "." .. separator .. "tests" .. separator .. "?.lua;" .. package.path
 
 -- Add src directory to path so module requires from src/ resolve during preloads
-package.path = package.path .. ";" .. ".." .. separator .. "src" .. separator .. "?.lua"
+package.path = ".." .. separator .. "src" .. separator .. "?.lua;" .. package.path
 
--- Add luaunit directory to path so we can require the vendored luaunit
-package.path = package.path .. ";" .. ".." .. separator .. "luaunit" .. separator .. "?.lua"
+-- Add luaunit directory to path so we can require the vendored luaunit (must take precedence)
+package.path = ".." .. separator .. "luaunit" .. separator .. "?.lua;" .. package.path
 
 -- Load LuaUnit
 local lu = require("luaunit")

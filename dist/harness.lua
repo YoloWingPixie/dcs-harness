@@ -1058,11 +1058,11 @@ function GetAirbaseDescriptor(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getDescriptor, airbase)
+    local success, result = pcall(airbase.getDesc, airbase)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get airbase descriptor: " .. tostring(result),
-            "Airbase.GetDescriptor"
+            "Airbase.GetDesc"
         )
         return nil
     end
@@ -1099,13 +1099,13 @@ end
 ---@param airbase table? Airbase object
 ---@return table? unit Airbase unit if found, nil otherwise
 ---@usage local unit = getAirbaseUnit(airbase)
-function GetAirbaseUnit(airbase)
+function GetAirbaseUnit(airbase, unitIndex)
     if not airbase then
         _HarnessInternal.log.error("GetAirbaseUnit requires valid airbase", "Airbase.GetUnit")
         return nil
     end
 
-    local success, result = pcall(airbase.getUnit, airbase)
+    local success, result = pcall(airbase.getUnit, airbase, unitIndex)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get airbase unit: " .. tostring(result),
@@ -1130,16 +1130,35 @@ function GetAirbaseCategoryName(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getCategoryName, airbase)
+    local success, categoryValue = pcall(airbase.getCategoryEx, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase category name: " .. tostring(result),
-            "Airbase.GetCategoryName"
+            "Failed to get airbase category: " .. tostring(categoryValue),
+            "Airbase.GetCategoryEx"
         )
         return nil
     end
 
-    return result
+    local names = {}
+    local cat = (Airbase and Airbase.Category) or nil
+    if cat then
+        names[cat.AIRDROME] = "AIRDROME"
+        names[cat.HELIPAD] = "HELIPAD"
+        local farp = rawget(cat, "FARP")
+        if farp ~= nil then
+            names[farp] = "FARP"
+        end
+        local ship = cat["SHIP"]
+        if ship ~= nil then
+            names[ship] = "SHIP"
+        end
+        local oil = rawget(cat, "OIL_PLATFORM")
+        if oil ~= nil then
+            names[oil] = "OIL_PLATFORM"
+        end
+    end
+
+    return names[categoryValue] or tostring(categoryValue)
 end
 
 --- Get airbase parking information
@@ -10129,34 +10148,39 @@ end
 ]]
 --- Create a laser spot
 ---@param source table Unit or weapon that creates the spot
----@param target table? Target position (Vec3) or nil for unguided
----@param offset table? Offset from target position (Vec3)
+---@param target table Target position (Vec3)
+---@param localRef table? Optional local reference Vec3 on source (schema localRef)
 ---@param code number Laser code (1111-1788)
 ---@return table? spot Created spot object or nil on error
 ---@usage local spot = CreateLaserSpot(jtac, targetPos, nil, 1688)
-function CreateLaserSpot(source, target, offset, code)
+function CreateLaserSpot(source, target, localRef, code)
     if not source then
         _HarnessInternal.log.error("CreateLaserSpot requires source unit/weapon", "CreateLaserSpot")
         return nil
     end
 
-    if not code or type(code) ~= "number" then
-        _HarnessInternal.log.error("CreateLaserSpot requires numeric laser code", "CreateLaserSpot")
+    if not target or not IsVec3(target) then
+        _HarnessInternal.log.error(
+            "CreateLaserSpot requires Vec3 target position",
+            "CreateLaserSpot"
+        )
         return nil
     end
 
+    if code == nil then
+        _HarnessInternal.log.error("CreateLaserSpot requires numeric laser code", "CreateLaserSpot")
+        return nil
+    end
+    if type(code) ~= "number" then
+        _HarnessInternal.log.error("CreateLaserSpot code must be a number", "CreateLaserSpot")
+        return nil
+    end
     if code < 1111 or code > 1788 then
         _HarnessInternal.log.error("Laser code must be between 1111-1788", "CreateLaserSpot")
         return nil
     end
 
-    local spotType = {
-        type = Spot.LaserSpotType.LASER,
-        point = target,
-        offset = offset,
-    }
-
-    local success, spot = pcall(Spot.createLaser, source, spotType, code)
+    local success, spot = pcall(Spot.createLaser, source, localRef, target, code)
     if not success then
         _HarnessInternal.log.error(
             "Failed to create laser spot: " .. tostring(spot),
@@ -10165,16 +10189,20 @@ function CreateLaserSpot(source, target, offset, code)
         return nil
     end
 
-    _HarnessInternal.log.info("Created laser spot with code " .. code, "CreateLaserSpot")
+    _HarnessInternal.log.info(
+        "Created laser spot" .. (code and (" with code " .. code) or ""),
+        "CreateLaserSpot"
+    )
     return spot
 end
 
 --- Create an IR pointer spot
 ---@param source table Unit that creates the spot
 ---@param target table Target position (Vec3)
+---@param localRef table? Optional local reference Vec3 on source (schema localRef)
 ---@return table? spot Created spot object or nil on error
 ---@usage local spot = CreateIRSpot(aircraft, targetPos)
-function CreateIRSpot(source, target)
+function CreateIRSpot(source, target, localRef)
     if not source then
         _HarnessInternal.log.error("CreateIRSpot requires source unit", "CreateIRSpot")
         return nil
@@ -10185,7 +10213,7 @@ function CreateIRSpot(source, target)
         return nil
     end
 
-    local success, spot = pcall(Spot.createInfraRed, source, target)
+    local success, spot = pcall(Spot.createInfraRed, source, localRef, target)
     if not success then
         _HarnessInternal.log.error("Failed to create IR spot: " .. tostring(spot), "CreateIRSpot")
         return nil
@@ -10235,6 +10263,9 @@ function GetSpotPoint(spot)
         return nil
     end
 
+    if type(point) ~= "table" then
+        return nil
+    end
     return point
 end
 
@@ -10283,6 +10314,9 @@ function GetLaserCode(spot)
         return nil
     end
 
+    if type(code) ~= "number" then
+        return nil
+    end
     return code
 end
 
@@ -10328,14 +10362,12 @@ function SpotExists(spot)
         return false
     end
 
-    local success, exists = pcall(function()
-        return spot:isExist()
+    -- Schema does not expose isExist; probe a lightweight getter instead
+    local success = pcall(function()
+        -- getCategory is cheap and available per schema; any error implies invalid spot
+        return spot:getCategory()
     end)
-    if not success then
-        return false
-    end
-
-    return exists == true
+    return success == true
 end
 
 --- Get spot category
@@ -10359,6 +10391,9 @@ function GetSpotCategory(spot)
         return nil
     end
 
+    if type(category) ~= "number" then
+        return nil
+    end
     return category
 end
 -- ==== END: src\spot.lua ====
@@ -14771,20 +14806,184 @@ function OnWorldEvent(event)
     return true
 end
 
---- Gets the current weather in the world
----@return table? weather Weather information table or nil on error
+--- Gets fog-related weather values if available (DCS 2.9.10+)
+---@return table? weather Table with fog fields if available { fogThickness, fogVisibilityDistance, fogAnimationEnabled }
 ---@usage local weather = GetWorldWeather()
 function GetWorldWeather()
-    local success, result = pcall(world.getWeather)
-    if not success then
+    if not world or not world.weather then
         _HarnessInternal.log.error(
-            "Failed to get world weather: " .. tostring(result),
+            "World.weather is not available in this DCS version",
             "World.GetWeather"
         )
         return nil
     end
 
-    return result
+    local data = {}
+
+    if world.weather.getFogThickness then
+        local ok, v = pcall(world.weather.getFogThickness)
+        if ok then
+            data.fogThickness = v
+        end
+    end
+
+    if world.weather.getFogVisibilityDistance then
+        local ok, v = pcall(world.weather.getFogVisibilityDistance)
+        if ok then
+            data.fogVisibilityDistance = v
+        end
+    end
+
+    if world.weather.setFogAnimation and world.weather.getFogVisibilityDistance then
+        -- No getter for animation; absent in API. Expose presence of setter as capability flag.
+        data.fogAnimationEnabled = nil
+    end
+
+    return data
+end
+
+-- Fog control (DCS 2.9.10+)
+
+--- Get fog thickness in meters
+---@return number? thickness Fog thickness in meters or nil if unsupported/error
+---@usage local t = GetFogThickness()
+function GetFogThickness()
+    if not world or not world.weather or type(world.weather.getFogThickness) ~= "function" then
+        _HarnessInternal.log.error(
+            "world.weather.getFogThickness not available",
+            "World.GetFogThickness"
+        )
+        return nil
+    end
+    local ok, v = pcall(world.weather.getFogThickness)
+    if not ok then
+        _HarnessInternal.log.error(
+            "Failed to get fog thickness: " .. tostring(v),
+            "World.GetFogThickness"
+        )
+        return nil
+    end
+    return v
+end
+
+--- Set fog thickness in meters
+---@param thickness number Non-negative thickness in meters
+---@return boolean? success True on success, nil on error
+---@usage SetFogThickness(300)
+function SetFogThickness(thickness)
+    if not world or not world.weather or type(world.weather.setFogThickness) ~= "function" then
+        _HarnessInternal.log.error(
+            "world.weather.setFogThickness not available",
+            "World.SetFogThickness"
+        )
+        return nil
+    end
+    if type(thickness) ~= "number" or thickness < 0 then
+        _HarnessInternal.log.error(
+            "SetFogThickness requires non-negative number",
+            "World.SetFogThickness"
+        )
+        return nil
+    end
+    local ok, err = pcall(world.weather.setFogThickness, thickness)
+    if not ok then
+        _HarnessInternal.log.error(
+            "Failed to set fog thickness: " .. tostring(err),
+            "World.SetFogThickness"
+        )
+        return nil
+    end
+    return true
+end
+
+--- Get fog visibility distance in meters
+---@return number? distance Visibility distance in meters or nil if unsupported/error
+---@usage local d = GetFogVisibilityDistance()
+function GetFogVisibilityDistance()
+    if
+        not world
+        or not world.weather
+        or type(world.weather.getFogVisibilityDistance) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "world.weather.getFogVisibilityDistance not available",
+            "World.GetFogVisibilityDistance"
+        )
+        return nil
+    end
+    local ok, v = pcall(world.weather.getFogVisibilityDistance)
+    if not ok then
+        _HarnessInternal.log.error(
+            "Failed to get fog visibility distance: " .. tostring(v),
+            "World.GetFogVisibilityDistance"
+        )
+        return nil
+    end
+    return v
+end
+
+--- Set fog visibility distance in meters
+---@param distance number Non-negative distance in meters
+---@return boolean? success True on success, nil on error
+---@usage SetFogVisibilityDistance(800)
+function SetFogVisibilityDistance(distance)
+    if
+        not world
+        or not world.weather
+        or type(world.weather.setFogVisibilityDistance) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "world.weather.setFogVisibilityDistance not available",
+            "World.SetFogVisibilityDistance"
+        )
+        return nil
+    end
+    if type(distance) ~= "number" or distance < 0 then
+        _HarnessInternal.log.error(
+            "SetFogVisibilityDistance requires non-negative number",
+            "World.SetFogVisibilityDistance"
+        )
+        return nil
+    end
+    local ok, err = pcall(world.weather.setFogVisibilityDistance, distance)
+    if not ok then
+        _HarnessInternal.log.error(
+            "Failed to set fog visibility distance: " .. tostring(err),
+            "World.SetFogVisibilityDistance"
+        )
+        return nil
+    end
+    return true
+end
+
+--- Enable or disable fog animation
+---@param enabled boolean Whether to enable fog animation
+---@return boolean? success True on success, nil on error
+---@usage SetFogAnimation(true)
+function SetFogAnimation(enabled)
+    if not world or not world.weather or type(world.weather.setFogAnimation) ~= "function" then
+        _HarnessInternal.log.error(
+            "world.weather.setFogAnimation not available",
+            "World.SetFogAnimation"
+        )
+        return nil
+    end
+    if type(enabled) ~= "boolean" then
+        _HarnessInternal.log.error(
+            "SetFogAnimation requires boolean enabled",
+            "World.SetFogAnimation"
+        )
+        return nil
+    end
+    local ok, err = pcall(world.weather.setFogAnimation, enabled)
+    if not ok then
+        _HarnessInternal.log.error(
+            "Failed to set fog animation: " .. tostring(err),
+            "World.SetFogAnimation"
+        )
+        return nil
+    end
+    return true
 end
 
 --- Removes junk objects within a search volume

@@ -148,7 +148,7 @@ end
 local function sectionLifecycle()
     info("Group Visual: Lifecycle (destroy)")
 
-    local grp = getGroupByName("HARNESS_TEST_GROUP")
+    local grp = getGroupByName("HARNESS_TEST_DESTROY_GROUP")
     if not grp then
         return
     end

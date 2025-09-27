@@ -26,5 +26,6 @@ globals:
   Controller: { any: true }
   Weapon: { any: true }
   SceneryObject: { any: true }
+  Spot: { any: true }
   Airbase: { any: true }
   AI: { any: true }

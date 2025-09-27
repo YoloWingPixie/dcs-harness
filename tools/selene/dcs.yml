@@ -1,64 +1,27 @@
----
-base: lua51
-globals:
-  DCS:
-    any: true
-  env:
-    any: true
-  world:
-    any: true
-  world.event:
-    any: true
-  coalition:
-    any: true
-  coalition.side:
-    any: true
-  coalition.service:
-    any: true
-  Group:
-    any: true
-  Group.Category:
-    any: true
-  Unit:
-    any: true
-  StaticObject:
-    any: true
-  Airbase:
-    any: true
-  Airbase.Category:
-    any: true
-  Controller:
-    any: true
-  Object:
-    any: true
-  Object.Category:
-    any: true
-  Weapon:
-    any: true
-  Weapon.Category:
-    any: true
-  Spot:
-    any: true
-  Spot.Category:
-    any: true
-  trigger:
-    any: true
-  timer:
-    any: true
-  missionCommands:
-    any: true
-  net:
-    any: true
-  land:
-    any: true
-  terrain:
-    any: true
-  coord:
-    any: true
-  Vec2:
-    any: true
-  Vec3:
-    any: true
-  Position3:
-    any: true
+# dcs.yml
+# Custom Selene standard library definition for the DCS World Lua environment
 
+base: lua51 # Inherit from the standard Lua 5.1 library
+
+lua_versions:
+  - lua51 # Explicitly state we target Lua 5.1 syntax
+
+globals:
+  # Core DCS Environment
+  env: { any: true }
+  world: { any: true }
+  timer: { any: true }
+  coalition: { any: true }
+  trigger: { any: true }
+  land: { any: true }
+  missionCommands: { any: true }
+  country: { any: true }
+
+  Group: { any: true }
+  Unit: { any: true }
+  StaticObject: { any: true }
+  Controller: { any: true }
+  Weapon: { any: true }
+  SceneryObject: { any: true }
+  Airbase: { any: true }
+  AI: { any: true }

@@ -49,10 +49,19 @@ jobs:
           task test
           task build:cd
 
+      - name: Compute artifact name
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -e
+          TS=$(date -u +%Y%m%dT%H%M%SZ)
+          SHORT_SHA=${GITHUB_SHA::7}
+          echo "ART_NAME=harness-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${SHORT_SHA}-${TS}" >> $GITHUB_ENV
+
       - name: Upload build artifact
         if: ${{ success() && hashFiles('dist/harness.lua') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: harness.lua
+          name: ${{ env.ART_NAME }}
           path: dist/harness.lua
 

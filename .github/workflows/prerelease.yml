@@ -37,6 +37,16 @@ jobs:
         run: |
           task build:cd
 
+      - name: Compute artifact name
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -e
+          TS=$(date -u +%Y%m%dT%H%M%SZ)
+          SHORT_SHA=${GITHUB_SHA::7}
+          BRANCH=$(echo $GITHUB_HEAD_REF | tr '/' '-')
+          echo "ART_NAME=harness-prerelease-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${BRANCH}-${SHORT_SHA}-${TS}" >> $GITHUB_ENV
+
       - name: Create prerelease tag
         if: success()
         shell: bash
@@ -58,6 +68,6 @@ jobs:
       - name: Upload prerelease artifact
         uses: actions/upload-artifact@v4
         with:
-          name: harness-prerelease
+          name: ${{ env.ART_NAME }}
           path: dist/harness.lua
 

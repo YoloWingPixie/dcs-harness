@@ -1,4 +1,4 @@
-std = "tools/selene/dcs.yml"
+std = "tools/selene/dcs"
 
 [lints]
 multiple_statements = "allow"

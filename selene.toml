@@ -1,0 +1,5 @@
+std = "lua51"
+
+[lints]
+path = ["src", "tests", "test_mission_scripts"]
+

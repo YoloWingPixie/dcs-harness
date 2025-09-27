@@ -77,12 +77,18 @@ tasks:
   format:
     desc: Format Lua sources with Stylua (vendored)
     cmds:
-      - ./stylua/stylua.exe src tests test_mission_scripts
+      - cmd: ./stylua/stylua src tests test_mission_scripts
+        platforms: [linux, darwin]
+      - cmd: ./stylua/stylua.exe src tests test_mission_scripts
+        platforms: [windows]
 
   format:check:
     desc: Check formatting with Stylua (vendored)
     cmds:
-      - ./stylua/stylua.exe --check src tests test_mission_scripts
+      - cmd: ./stylua/stylua --check src tests test_mission_scripts
+        platforms: [linux, darwin]
+      - cmd: ./stylua/stylua.exe --check src tests test_mission_scripts
+        platforms: [windows]
 
   coverage:
     desc: Run tests with coverage reporting

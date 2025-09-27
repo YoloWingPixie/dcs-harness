@@ -29,11 +29,10 @@ jobs:
       - name: Set up Task
         uses: arduino/setup-task@v1
 
-      - name: Install Lua 5.1
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y lua5.1
-          sudo ln -sf /usr/bin/lua5.1 /usr/local/bin/lua
+      - name: Set up Lua 5.1
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.1"
 
       - name: Lint Lua with Selene
         uses: YoloWingPixie/selene-lua-linter-action@v1
@@ -42,6 +41,7 @@ jobs:
 
       - name: Run format, tests, and build
         run: |
+          chmod +x stylua/stylua || true
           task format:check
           task test
           task build:cd

@@ -1,52 +1,52 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
+      - dev/**
   pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag (e.g., v1.2.3)"
-        required: true
-        type: string
+    branches:
+      - '**'
 
 permissions:
-  contents: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  prerelease:
-    if: ${{ github.event_name == 'pull_request' }}
-    name: Build and tag prerelease
+  ci:
+    name: Lint, Test and Build
     runs-on: ubuntu-latest
     steps:
-      - &checkout
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - &setup_python
-        name: Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v5
 
-      - &setup_task
-        name: Set up Task
+      - name: Set up Task
         uses: arduino/setup-task@v1
 
-      - &setup_lua51
-        name: Set up Lua 5.1
+      - name: Set up Lua 5.1
         uses: leafo/gh-actions-lua@v10
         with:
           luaVersion: "5.1"
 
-      - &build_cd
-        name: Build (CD)
+      - name: Cache Lua toolchain
+        uses: actions/cache@v4
+        with:
+          path: .lua
+          key: lua-${{ runner.os }}-5.1-ghactionslua-v10
+          restore-keys: |
+            lua-${{ runner.os }}-5.1-
+            lua-${{ runner.os }}-
+
+      - name: CI task (format, test)
         run: |
-          task build:cd
+          chmod +x stylua/stylua || true
+          task format:check
+          task test
 
       - name: Compute artifact name
         if: ${{ success() }}
@@ -55,72 +55,24 @@ jobs:
           set -e
           TS=$(date -u +%Y%m%dT%H%M%SZ)
           SHORT_SHA=${GITHUB_SHA::7}
-          BRANCH=$(echo "$GITHUB_HEAD_REF" | tr '/' '-')
-          echo "ART_NAME=harness-prerelease-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${BRANCH}-${SHORT_SHA}-${TS}" >> "$GITHUB_ENV"
+          echo "ART_NAME=harness-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${SHORT_SHA}-${TS}" >> $GITHUB_ENV
 
-      - name: Create prerelease tag
-        if: success()
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build artifact
         run: |
-          set -e
-          VERSION=$(grep -Eo 'HARNESS_VERSION\s*=\s*"[^"]+"' dist/harness.lua | sed -E 's/.*"(.*)"/\1/')
-          if [ -z "$VERSION" ]; then VERSION=$(date +%Y.%m.%d); fi
-          SHA=${GITHUB_SHA::7}
-          TAG="v$VERSION-prerelease.$(echo "$GITHUB_HEAD_REF" | tr '/' '-')+$SHA"
-          echo "Creating prerelease tag $TAG"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag -f "$TAG" "$GITHUB_SHA"
-          git push -f origin "$TAG"
+          task build:cd
 
-      - name: Upload prerelease artifact
+      - name: Lint built artifact with Selene
+        uses: YoloWingPixie/selene-lua-linter-action@v1
+        with:
+          config-path: 'selene.toml'
+          lint-path: 'dist/harness.lua'
+          report-as-annotations: 'true'
+          working-directory: '.'
+
+      - name: Upload build artifact
+        if: ${{ success() && hashFiles('dist/harness.lua') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ART_NAME }}
           path: dist/harness.lua
 
-  release:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    name: Tag main and publish release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - *setup_python
-      - *setup_task
-      - *setup_lua51
-
-      - name: Create and push tag from main
-        shell: bash
-        env:
-          TAG: ${{ inputs.tag }}
-        run: |
-          set -e
-          if [[ -z "$TAG" ]]; then echo "tag input required"; exit 1; fi
-          git fetch --tags origin
-          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists"; exit 1
-          fi
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-
-      - *build_cd
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ inputs.tag }}
-          tag_name: ${{ inputs.tag }}
-          files: dist/harness.lua
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

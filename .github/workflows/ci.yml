@@ -14,8 +14,8 @@ permissions:
 
 jobs:
   ci:
-    name: Lint, Test, Build (Taskfile)
-    runs-on: windows-latest
+    name: Lint, Test and Build
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,32 +24,27 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+        
 
       - name: Set up Task
         uses: arduino/setup-task@v1
 
       - name: Install Lua and LuaRocks
-        shell: powershell
         run: |
-          choco install -y lua
-          choco install -y luarocks
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks
 
       - name: Install Lua tooling (luacheck, luacov)
-        shell: powershell
         run: |
-          refreshenv
-          luarocks install luacheck
-          luarocks install luacov
+          sudo luarocks install luacheck
+          sudo luarocks install luacov
 
       - name: Run CI task
-        shell: powershell
         run: |
           task ci
 
       - name: Upload build artifact
-        if: success() && exists('dist/harness.lua')
+        if: ${{ success() && hashFiles('dist/harness.lua') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: harness.lua

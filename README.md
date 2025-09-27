@@ -34,6 +34,29 @@ lua-composer --config .composerrc
 lua-composer --config .composerrc-scoped
 ```
 
+## Formatting
+
+We vendor Stylua for consistent Lua formatting:
+
+- Config: `.stylua.toml`
+- Ignore: `.styluaignore`
+- Binary: `stylua/stylua.exe`
+
+Usage:
+
+```bash
+# Format all Lua sources
+task format
+
+# Check formatting (CI-safe)
+task format:check
+```
+
+VS Code:
+
+- Install the "Stylua" extension (`JohnnyMorganz.stylua`)
+- Settings are preconfigured to use the vendored binary and format on save
+
 ## Usage
 
 ### Logger

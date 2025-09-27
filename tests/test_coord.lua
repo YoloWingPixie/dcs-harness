@@ -1,34 +1,53 @@
 -- test_coord.lua
-local lu = require('luaunit')
+local lu = require("luaunit")
+require("test_utils")
 
 -- Setup test environment
-package.path = package.path .. ';../src/?.lua'
-require('mock_dcs')
-require('_header')
-require('logger')
-require('coord')
+package.path = package.path .. ";../src/?.lua"
 
-TestCoord = {}
+-- Create isolated test suite
+TestCoord = CreateIsolatedTestSuite("TestCoord", {})
 
 function TestCoord:setUp()
+    -- Load required modules
+    require("mock_dcs")
+    require("_header")
+
+    -- Ensure _HarnessInternal has required fields before loading logger
+    if not _HarnessInternal.loggers then
+        _HarnessInternal.loggers = {}
+    end
+    if not _HarnessInternal.defaultNamespace then
+        _HarnessInternal.defaultNamespace = "Harness"
+    end
+
+    require("logger")
+
+    -- Ensure internal logger is created
+    if not _HarnessInternal.log then
+        _HarnessInternal.log = HarnessLogger("Harness")
+    end
+
+    require("coord")
+
     -- Save original mock functions
     self.original_LOtoLL = coord.LOtoLL
     self.original_LLtoLO = coord.LLtoLO
-    self.original_LOtoMGRS = coord.LOtoMGRS
-    self.original_MGRStoLO = coord.MGRStoLO
+    self.original_LLtoMGRS = coord.LLtoMGRS
+    self.original_MGRStoLL = coord.MGRStoLL
 end
 
 function TestCoord:tearDown()
     -- Restore original mock functions
     coord.LOtoLL = self.original_LOtoLL
     coord.LLtoLO = self.original_LLtoLO
-    coord.LOtoMGRS = self.original_LOtoMGRS
-    coord.MGRStoLO = self.original_MGRStoLO
+    coord.LLtoMGRS = self.original_LLtoMGRS
+    coord.MGRStoLL = self.original_MGRStoLL
 end
 
 -- LOtoLL tests
 function TestCoord:testLOtoLL_ValidVec3()
-    local vec3 = {x = 1000, y = 100, z = 2000}
+    local vec3 = { x = 1000, y = 100, z = 2000 }
     local result = LOtoLL(vec3)
     lu.assertNotNil(result)
     lu.assertEquals(result.latitude, 43.5)
@@ -46,19 +65,19 @@ function TestCoord:testLOtoLL_EmptyTable()
 end
 
 function TestCoord:testLOtoLL_MissingX()
-    local vec3 = {y = 100, z = 2000}
+    local vec3 = { y = 100, z = 2000 }
     local result = LOtoLL(vec3)
     lu.assertNil(result)
 end
 
 function TestCoord:testLOtoLL_MissingY()
-    local vec3 = {x = 1000, z = 2000}
+    local vec3 = { x = 1000, z = 2000 }
     local result = LOtoLL(vec3)
     lu.assertNil(result)
 end
 
 function TestCoord:testLOtoLL_MissingZ()
-    local vec3 = {x = 1000, y = 100}
+    local vec3 = { x = 1000, y = 100 }
     local result = LOtoLL(vec3)
     lu.assertNil(result)
 end
@@ -72,19 +91,19 @@ function TestCoord:testLOtoLL_APIError()
     coord.LOtoLL = function(vec3)
         error("DCS API error")
     end
-    local vec3 = {x = 1000, y = 100, z = 2000}
+    local vec3 = { x = 1000, y = 100, z = 2000 }
     local result = LOtoLL(vec3)
     lu.assertNil(result)
 end
 
 function TestCoord:testLOtoLL_ZeroCoordinates()
-    local vec3 = {x = 0, y = 0, z = 0}
+    local vec3 = { x = 0, y = 0, z = 0 }
     local result = LOtoLL(vec3)
     lu.assertNotNil(result)
 end
 
 function TestCoord:testLOtoLL_NegativeCoordinates()
-    local vec3 = {x = -5000, y = -100, z = -3000}
+    local vec3 = { x = -5000, y = -100, z = -3000 }
     local result = LOtoLL(vec3)
     lu.assertNotNil(result)
 end
@@ -158,7 +177,7 @@ end
 
 -- LOtoMGRS tests
 function TestCoord:testLOtoMGRS_ValidVec3()
-    local vec3 = {x = 1000, y = 100, z = 2000}
+    local vec3 = { x = 1000, y = 100, z = 2000 }
     local result = LOtoMGRS(vec3)
     lu.assertNotNil(result)
     lu.assertEquals(result.UTMZone, "37T")
@@ -178,7 +197,7 @@ function TestCoord:testLOtoMGRS_EmptyTable()
 end
 
 function TestCoord:testLOtoMGRS_MissingCoordinates()
-    local vec3 = {x = 1000}  -- Missing y and z
+    local vec3 = { x = 1000 } -- Missing y and z
     local result = LOtoMGRS(vec3)
     lu.assertNil(result)
 end
@@ -189,22 +208,22 @@ function TestCoord:testLOtoMGRS_InvalidType()
 end
 
 function TestCoord:testLOtoMGRS_APIError()
-    coord.LOtoMGRS = function(vec3)
+    coord.LLtoMGRS = function(lat, lon)
         error("DCS API error")
     end
-    local vec3 = {x = 1000, y = 100, z = 2000}
+    local vec3 = { x = 1000, y = 100, z = 2000 }
     local result = LOtoMGRS(vec3)
     lu.assertNil(result)
 end
 
 function TestCoord:testLOtoMGRS_ZeroCoordinates()
-    local vec3 = {x = 0, y = 0, z = 0}
+    local vec3 = { x = 0, y = 0, z = 0 }
     local result = LOtoMGRS(vec3)
     lu.assertNotNil(result)
 end
 
 function TestCoord:testLOtoMGRS_LargeCoordinates()
-    local vec3 = {x = 999999, y = 10000, z = 999999}
+    local vec3 = { x = 999999, y = 10000, z = 999999 }
     local result = LOtoMGRS(vec3)
     lu.assertNotNil(result)
 end
@@ -225,16 +244,16 @@ end
 
 function TestCoord:testMGRStoLO_EmptyString()
     local result = MGRStoLO("")
-    lu.assertNil(result)  -- Empty string should fail validation
+    lu.assertNil(result) -- Empty string should fail validation
 end
 
 function TestCoord:testMGRStoLO_InvalidType()
-    local result = MGRStoLO(12345)  -- Number instead of string
+    local result = MGRStoLO(12345) -- Number instead of string
     lu.assertNil(result)
 end
 
 function TestCoord:testMGRStoLO_InvalidFormat()
-    coord.MGRStoLO = function(mgrsString)
+    coord.MGRStoLL = function(mgrsString)
         error("Invalid MGRS format")
     end
     local result = MGRStoLO("INVALID MGRS")
@@ -242,7 +261,7 @@ function TestCoord:testMGRStoLO_InvalidFormat()
 end
 
 function TestCoord:testMGRStoLO_APIError()
-    coord.MGRStoLO = function(mgrsString)
+    coord.MGRStoLL = function(mgrsString)
         error("DCS API error")
     end
     local result = MGRStoLO("37T CK 12345 67890")
@@ -256,7 +275,7 @@ function TestCoord:testMGRStoLO_VariousFormats()
         "37TCK1234567890",
         "37T CK 1234567890",
     }
-    
+
     for _, mgrs in ipairs(formats) do
         local result = MGRStoLO(mgrs)
         lu.assertNotNil(result)
@@ -266,16 +285,16 @@ end
 -- Integration tests
 function TestCoord:testRoundTrip_LOtoLL_LLtoLO()
     -- Start with a position
-    local originalPos = {x = 5000, y = 1500, z = 8000}
-    
+    local originalPos = { x = 5000, y = 1500, z = 8000 }
+
     -- Convert to lat/lon
     local latlon = LOtoLL(originalPos)
     lu.assertNotNil(latlon)
-    
+
     -- Convert back to local coordinates
     local newPos = LLtoLO(latlon.latitude, latlon.longitude, originalPos.y)
     lu.assertNotNil(newPos)
-    
+
     -- Should be close to original (mock returns fixed values)
     lu.assertEquals(newPos.x, 1000)
     lu.assertEquals(newPos.y, originalPos.y)
@@ -284,20 +303,20 @@ end
 
 function TestCoord:testRoundTrip_LOtoMGRS_MGRStoLO()
     -- Start with a position
-    local originalPos = {x = 5000, y = 1500, z = 8000}
-    
+    local originalPos = { x = 5000, y = 1500, z = 8000 }
+
     -- Convert to MGRS
     local mgrs = LOtoMGRS(originalPos)
     lu.assertNotNil(mgrs)
-    
+
     -- Build MGRS string
-    local mgrsString = string.format("%s %s %d %d", 
-        mgrs.UTMZone, mgrs.MGRSDigraph, mgrs.Easting, mgrs.Northing)
-    
+    local mgrsString =
+        string.format("%s %s %d %d", mgrs.UTMZone, mgrs.MGRSDigraph, mgrs.Easting, mgrs.Northing)
+
     -- Convert back to local coordinates
     local newPos = MGRStoLO(mgrsString)
     lu.assertNotNil(newPos)
-    
+
     -- Should return mock values
     lu.assertEquals(newPos.x, 1000)
     lu.assertEquals(newPos.y, 0)
@@ -306,13 +325,13 @@ end
 
 -- Edge cases
 function TestCoord:testCoordinates_VerySmallValues()
-    local vec3 = {x = 0.001, y = 0.001, z = 0.001}
+    local vec3 = { x = 0.001, y = 0.001, z = 0.001 }
     local result = LOtoLL(vec3)
     lu.assertNotNil(result)
 end
 
 function TestCoord:testCoordinates_MixedSigns()
-    local vec3 = {x = -1000, y = 500, z = -2000}
+    local vec3 = { x = -1000, y = 500, z = -2000 }
     local result = LOtoLL(vec3)
     lu.assertNotNil(result)
 end
@@ -321,7 +340,7 @@ function TestCoord:testLatLon_PoleCoordinates()
     -- North pole
     local result1 = LLtoLO(90, 0, 0)
     lu.assertNotNil(result1)
-    
+
     -- South pole
     local result2 = LLtoLO(-90, 0, 0)
     lu.assertNotNil(result2)
@@ -331,7 +350,7 @@ function TestCoord:testLatLon_DatelineCoordinates()
     -- International date line
     local result1 = LLtoLO(0, 180, 0)
     lu.assertNotNil(result1)
-    
+
     local result2 = LLtoLO(0, -180, 0)
     lu.assertNotNil(result2)
 end

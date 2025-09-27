@@ -32,7 +32,7 @@ jobs:
       - name: Install Lua and LuaRocks
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.1 luarocks
+          sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks build-essential unzip pkg-config
           sudo ln -sf /usr/bin/lua5.1 /usr/local/bin/lua
 
       - name: Cache LuaRocks

@@ -29,37 +29,22 @@ jobs:
       - name: Set up Task
         uses: arduino/setup-task@v1
 
-      - name: Install Lua and LuaRocks
+      - name: Install Lua 5.1
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks build-essential unzip pkg-config
+          sudo apt-get install -y lua5.1
           sudo ln -sf /usr/bin/lua5.1 /usr/local/bin/lua
 
-      - name: Cache LuaRocks
-        uses: actions/cache@v4
+      - name: Lint Lua with Selene
+        uses: YoloWingPixie/selene-lua-linter-action@v1
         with:
-          path: |
-            ~/.cache/luarocks
-            ~/.luarocks
-          key: ${{ runner.os }}-luarocks-5.1-luacheck-luacov
-          restore-keys: |
-            ${{ runner.os }}-luarocks-5.1-
+          config-path: 'selene.toml'
 
-      - name: Install Lua tooling (luacheck, luacov)
+      - name: Run format, tests, and build
         run: |
-          echo "$HOME/.luarocks/bin" >> $GITHUB_PATH
-          luarocks --lua-version=5.1 --local install luacheck
-          luarocks --lua-version=5.1 --local install luacov
-
-      - name: Configure LuaRocks paths
-        run: |
-          eval "$(luarocks --lua-version=5.1 path --bin)"
-          echo "LUA_PATH=$LUA_PATH" >> $GITHUB_ENV
-          echo "LUA_CPATH=$LUA_CPATH" >> $GITHUB_ENV
-
-      - name: Run CI task
-        run: |
-          task ci
+          task format:check
+          task test
+          task build:cd
 
       - name: Upload build artifact
         if: ${{ success() && hashFiles('dist/harness.lua') != '' }}

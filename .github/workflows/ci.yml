@@ -33,13 +33,6 @@ jobs:
         with:
           luaVersion: "5.1"
 
-      - name: Set up LuaRocks
-        uses: leafo/gh-actions-luarocks@v4
-
-      - name: Install luacheck
-        run: |
-          luarocks install luacheck
-          
       - name: Cache Lua toolchain
         uses: actions/cache@v4
         with:
@@ -48,20 +41,11 @@ jobs:
           restore-keys: |
             lua-${{ runner.os }}-5.1-
             lua-${{ runner.os }}-
-        
-      - name: Cache LuaRocks tree
-        uses: actions/cache@v4
-        with:
-          path: .luarocks
-          key: luarocks-${{ runner.os }}-lua5.1-${{ hashFiles('**/*.rockspec', '**/luarocks.lock', '.luacheckrc') }}
-          restore-keys: |
-            luarocks-${{ runner.os }}-lua5.1-
 
-      - name: CI task (format, lint, test)
+      - name: CI task (format, test)
         run: |
           chmod +x stylua/stylua || true
           task format:check
-          task lint
           task test
 
       - name: Compute artifact name

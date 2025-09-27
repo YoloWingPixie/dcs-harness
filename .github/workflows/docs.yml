@@ -37,6 +37,10 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
 
+      - name: Create virtual environment (uv)
+        run: |
+          uv venv
+
       - name: Install documentation dependencies (uv)
         run: |
           uv pip install -e .[docs]

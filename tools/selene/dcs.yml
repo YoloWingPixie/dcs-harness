@@ -8,6 +8,7 @@ lua_versions:
 
 globals:
   # Core DCS Environment
+  log: { any: true }
   atmosphere: { any: true }
   coord: { any: true }
   net: { any: true }

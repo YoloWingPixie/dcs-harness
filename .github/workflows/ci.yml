@@ -57,17 +57,6 @@ jobs:
           echo "LUA_PATH=$LUA_PATH" >> $GITHUB_ENV
           echo "LUA_CPATH=$LUA_CPATH" >> $GITHUB_ENV
 
-      - name: Set up Stylua
-        uses: JohnnyMorganz/stylua-action@v4
-        with:
-          version: latest
-
-      - name: Make Stylua available at vendored path
-        run: |
-          mkdir -p stylua
-          cp "$(command -v stylua)" stylua/stylua.exe
-          chmod +x stylua/stylua.exe
-
       - name: Run CI task
         run: |
           task ci

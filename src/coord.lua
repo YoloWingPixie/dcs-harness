@@ -74,10 +74,7 @@ function LOtoMGRS(vec3)
     -- DCS does not expose coord.LOtoMGRS; compose LO->LL->MGRS
     local okLL, ll = pcall(coord.LOtoLL, vec3)
     if not okLL or not ll or type(ll.latitude) ~= "number" or type(ll.longitude) ~= "number" then
-        _HarnessInternal.log.error(
-            "Failed to convert LO to LL: " .. tostring(ll),
-            "Coord.LOtoMGRS"
-        )
+        _HarnessInternal.log.error("Failed to convert LO to LL: " .. tostring(ll), "Coord.LOtoMGRS")
         return nil
     end
 
@@ -115,10 +112,7 @@ function MGRStoLO(mgrsString)
 
     local okLO, lo = pcall(coord.LLtoLO, ll.lat, ll.lon)
     if not okLO then
-        _HarnessInternal.log.error(
-            "Failed to convert LL to LO: " .. tostring(lo),
-            "Coord.MGRStoLO"
-        )
+        _HarnessInternal.log.error("Failed to convert LL to LO: " .. tostring(lo), "Coord.MGRStoLO")
         return nil
     end
 

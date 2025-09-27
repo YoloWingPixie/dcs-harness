@@ -1,2 +1,2 @@
-std = "tools/selene/dcs.yml"
+std = "./tools/selene/dcs.yml"
 

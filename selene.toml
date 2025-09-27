@@ -1,2 +1,2 @@
-std = ["lua51", "tools/selene/dcs.yml"]
+std = "tools/selene/dcs.yml"
 

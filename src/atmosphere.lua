@@ -7,6 +7,7 @@
 
 require("logger")
 require("vector")
+require("conversion")
 
 --- Get wind at a specific point
 ---@param point table? Vec3 position {x, y, z}
@@ -117,4 +118,104 @@ function GetTemperatureAndPressure(point)
     end
 
     return data
+end
+
+-- ================================================================================================
+-- Convenience getters with built-in unit conversions for UI use
+-- ================================================================================================
+
+--- Compute heading (direction to) in degrees from a wind vector
+---@param wind table Wind vector {x,y,z}
+---@return number headingDeg Heading in degrees (0..360), where 0=N, 90=E
+local function _ComputeHeadingDeg(wind)
+    if not wind or type(wind.x) ~= "number" or type(wind.z) ~= "number" then
+        return 0
+    end
+    local deg = math.deg(math.atan2(wind.x, wind.z))
+    return (deg + 360) % 360
+end
+
+--- Compute horizontal wind speed in meters per second from a vector
+---@param wind table Wind vector {x,y,z}
+---@return number mps Horizontal speed in m/s
+local function _HorizontalSpeedMps(wind)
+    if not wind or type(wind.x) ~= "number" or type(wind.z) ~= "number" then
+        return 0
+    end
+    return math.sqrt((wind.x * wind.x) + (wind.z * wind.z))
+end
+
+--- Get wind (no turbulence) with heading and speed in knots
+---@param point table Vec3 position {x, y, z}
+---@return table? data { headingDeg, speedKts, vector }
+---@usage local w = GetWindKnots(p) -- w.headingDeg, w.speedKts
+function GetWindKnots(point)
+    local wind = GetWind(point)
+    if not wind then
+        return nil
+    end
+    local kts = MpsToKnots(_HorizontalSpeedMps(wind))
+    return {
+        headingDeg = _ComputeHeadingDeg(wind),
+        speedKts = kts,
+        vector = wind,
+    }
+end
+
+--- Get wind with turbulence, returning heading and speed in knots
+---@param point table Vec3 position {x, y, z}
+---@return table? data { headingDeg, speedKts, vector }
+---@usage local w = GetWindWithTurbulenceKnots(p)
+function GetWindWithTurbulenceKnots(point)
+    local wind = GetWindWithTurbulence(point)
+    if not wind then
+        return nil
+    end
+    local kts = MpsToKnots(_HorizontalSpeedMps(wind))
+    return {
+        headingDeg = _ComputeHeadingDeg(wind),
+        speedKts = kts,
+        vector = wind,
+    }
+end
+
+--- Get temperature in Celsius at a point
+---@param point table Vec3 position {x, y, z}
+---@return number? celsius Temperature in °C or nil on error
+function GetTemperatureC(point)
+    local tp = GetTemperatureAndPressure(point)
+    if not tp or type(tp.temperatureK) ~= "number" then
+        return nil
+    end
+    return KtoC(tp.temperatureK)
+end
+
+--- Get temperature in Fahrenheit at a point
+---@param point table Vec3 position {x, y, z}
+---@return number? fahrenheit Temperature in °F or nil on error
+function GetTemperatureF(point)
+    local c = GetTemperatureC(point)
+    return c and CtoF(c) or nil
+end
+
+--- Get pressure in inches of mercury at a point
+---@param point table Vec3 position {x, y, z}
+---@return number? inHg Pressure in inHg or nil on error
+function GetPressureInHg(point)
+    local tp = GetTemperatureAndPressure(point)
+    if not tp or type(tp.pressurePa) ~= "number" then
+        return nil
+    end
+    return PaToInHg(tp.pressurePa)
+end
+
+--- Get pressure in hectoPascals at a point
+---@param point table Vec3 position {x, y, z}
+---@return number? hPa Pressure in hPa or nil on error
+function GetPressurehPa(point)
+    local tp = GetTemperatureAndPressure(point)
+    if not tp or type(tp.pressurePa) ~= "number" then
+        return nil
+    end
+    return PaTohPa(tp.pressurePa)
 end

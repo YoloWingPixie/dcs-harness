@@ -818,4 +818,24 @@ function TestUnit:testUnit_VeryHighSpeed()
     lu.assertEquals(vel.x, 2000)
 end
 
+-- Convenience getters tests merged here
+
+function TestUnit:test_convenience_speed_and_altitude()
+    local name = "Player"
+    local mps = GetUnitSpeedMps(name)
+    local kts = GetUnitSpeedKnots(name)
+    lu.assertEquals(type(mps), "number")
+    lu.assertEquals(type(kts), "number")
+    lu.assertTrue(mps >= 0)
+    lu.assertTrue(kts >= 0)
+
+    local vs = GetUnitVerticalSpeedFeet(name)
+    lu.assertEquals(type(vs), "number")
+
+    local msl = GetUnitAltitudeMSLFeet(name)
+    local agl = GetUnitAltitudeAGLFeet(name)
+    lu.assertEquals(type(msl), "number")
+    lu.assertEquals(type(agl), "number")
+end
+
 return TestUnit

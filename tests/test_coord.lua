@@ -33,16 +33,16 @@ function TestCoord:setUp()
     -- Save original mock functions
     self.original_LOtoLL = coord.LOtoLL
     self.original_LLtoLO = coord.LLtoLO
-    self.original_LOtoMGRS = coord.LOtoMGRS
-    self.original_MGRStoLO = coord.MGRStoLO
+    self.original_LLtoMGRS = coord.LLtoMGRS
+    self.original_MGRStoLL = coord.MGRStoLL
 end
 
 function TestCoord:tearDown()
     -- Restore original mock functions
     coord.LOtoLL = self.original_LOtoLL
     coord.LLtoLO = self.original_LLtoLO
-    coord.LOtoMGRS = self.original_LOtoMGRS
-    coord.MGRStoLO = self.original_MGRStoLO
+    coord.LLtoMGRS = self.original_LLtoMGRS
+    coord.MGRStoLL = self.original_MGRStoLL
 end
 
 -- LOtoLL tests
@@ -208,7 +208,7 @@ function TestCoord:testLOtoMGRS_InvalidType()
 end
 
 function TestCoord:testLOtoMGRS_APIError()
-    coord.LOtoMGRS = function(vec3)
+    coord.LLtoMGRS = function(lat, lon)
         error("DCS API error")
     end
     local vec3 = { x = 1000, y = 100, z = 2000 }
@@ -253,7 +253,7 @@ function TestCoord:testMGRStoLO_InvalidType()
 end
 
 function TestCoord:testMGRStoLO_InvalidFormat()
-    coord.MGRStoLO = function(mgrsString)
+    coord.MGRStoLL = function(mgrsString)
         error("Invalid MGRS format")
     end
     local result = MGRStoLO("INVALID MGRS")
@@ -261,7 +261,7 @@ function TestCoord:testMGRStoLO_InvalidFormat()
 end
 
 function TestCoord:testMGRStoLO_APIError()
-    coord.MGRStoLO = function(mgrsString)
+    coord.MGRStoLL = function(mgrsString)
         error("DCS API error")
     end
     local result = MGRStoLO("37T CK 12345 67890")

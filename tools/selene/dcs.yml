@@ -8,6 +8,9 @@ lua_versions:
 
 globals:
   # Core DCS Environment
+  atmosphere: { any: true }
+  coord: { any: true }
+  net: { any: true }
   env: { any: true }
   world: { any: true }
   timer: { any: true }

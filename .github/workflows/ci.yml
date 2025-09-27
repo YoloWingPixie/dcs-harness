@@ -40,6 +40,7 @@ jobs:
           config-path: 'selene.toml'
           lint-path: 'src/'
           report-as-annotations: 'true'
+          working-directory: '.'
 
       - name: Run format, tests, and build
         run: |

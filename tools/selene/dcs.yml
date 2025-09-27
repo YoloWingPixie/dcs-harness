@@ -1,0 +1,32 @@
+# dcs.yml
+# Custom Selene standard library definition for the DCS World Lua environment
+
+base: lua51 # Inherit from the standard Lua 5.1 library
+
+lua_versions:
+  - lua51 # Explicitly state we target Lua 5.1 syntax
+
+globals:
+  # Core DCS Environment
+  log: { any: true }
+  atmosphere: { any: true }
+  coord: { any: true }
+  net: { any: true }
+  env: { any: true }
+  world: { any: true }
+  timer: { any: true }
+  coalition: { any: true }
+  trigger: { any: true }
+  land: { any: true }
+  missionCommands: { any: true }
+  country: { any: true }
+
+  Group: { any: true }
+  Unit: { any: true }
+  StaticObject: { any: true }
+  Controller: { any: true }
+  Weapon: { any: true }
+  SceneryObject: { any: true }
+  Spot: { any: true }
+  Airbase: { any: true }
+  AI: { any: true }

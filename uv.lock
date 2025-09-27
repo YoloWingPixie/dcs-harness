@@ -1,0 +1,44 @@
+version = 1
+requires-python = ">=3.13"
+
+[[package]]
+name = "antlr4-python3-runtime"
+version = "4.13.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/5f/2cdf6f7aca3b20d3f316e9f505292e1f256a32089bd702034c29ebde6242/antlr4_python3_runtime-4.13.2.tar.gz", hash = "sha256:909b647e1d2fc2b70180ac586df3933e38919c85f98ccc656a96cd3f25ef3916", size = 117467 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/03/a851e84fcbb85214dc637b6378121ef9a0dd61b4c65264675d8a5c9b1ae7/antlr4_python3_runtime-4.13.2-py3-none-any.whl", hash = "sha256:fe3835eb8d33daece0e799090eda89719dbccee7aa39ef94eed3818cafa5a7e8", size = 144462 },
+]
+
+[[package]]
+name = "harness"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "luaparser" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "luaparser", specifier = ">=3.3.0" }]
+
+[[package]]
+name = "luaparser"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "antlr4-python3-runtime" },
+    { name = "multimethod" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/ee/3e3a26265dc7e3124c2ccef0bcf262dda2730f7bcf32b64ada99ed34f643/luaparser-3.3.0.tar.gz", hash = "sha256:923f1c07fffbec6d7883e903b82f7f3b700a277b1948221018410f578df9bb8f", size = 51911 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fc/02/896cf9587a3ce6139a5277cea8679d27fb9b49e0acf26b9a2bdcd6099cac/luaparser-3.3.0-py3-none-any.whl", hash = "sha256:d8cf3aa519a702d082a8492fb5d3ac65af88cc67066952ca23848d46e84dced6", size = 58585 },
+]
+
+[[package]]
+name = "multimethod"
+version = "2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/14/34e8c84ba4f1ab1186dc07426e0e84be71d3336cc57e8d076ee14331d50e/multimethod-2.0.tar.gz", hash = "sha256:c628b6d2e7d61fbe58484dd884d990901e8314faf58af062e72b65e3423cb109", size = 16065 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/42/a285fc4b89b3a249538954779cd4082a85bf35dc7d0a9c93e48e146e3dc7/multimethod-2.0-py3-none-any.whl", hash = "sha256:45aa231dc9dbb7f980c0f2ad8179e2c2b72a8cd5c7d7534337be66dde29d35be", size = 9836 },
+]

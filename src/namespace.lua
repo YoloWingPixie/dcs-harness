@@ -1,0 +1,1 @@
+-- Harness is globally available when this build is loaded

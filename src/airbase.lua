@@ -4,20 +4,26 @@
     This module provides validated wrapper functions for DCS airbase operations,
     including runway queries, parking spots, and airbase information.
 ]]
-
+require("logger")
 --- Get airbase by name
 ---@param airbaseName string? Name of the airbase
 ---@return table? airbase Airbase object if found, nil otherwise
 ---@usage local airbase = getAirbaseByName("Batumi")
-function getAirbaseByName(airbaseName)
+function GetAirbaseByName(airbaseName)
     if not airbaseName or type(airbaseName) ~= "string" then
-        _HarnessInternal.log.error("getAirbaseByName requires valid airbase name", "Airbase.getByName")
+        _HarnessInternal.log.error(
+            "GetAirbaseByName requires valid airbase name",
+            "Airbase.GetByName"
+        )
         return nil
     end
 
     local success, result = pcall(Airbase.getByName, airbaseName)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase by name: " .. tostring(result), "Airbase.getByName")
+        _HarnessInternal.log.error(
+            "Failed to get airbase by name: " .. tostring(result),
+            "Airbase.GetByName"
+        )
         return nil
     end
 
@@ -28,15 +34,21 @@ end
 ---@param airbase table? Airbase object
 ---@return table? descriptor Airbase descriptor if found, nil otherwise
 ---@usage local desc = getAirbaseDescriptor(airbase)
-function getAirbaseDescriptor(airbase)
+function GetAirbaseDescriptor(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseDescriptor requires valid airbase", "Airbase.getDescriptor")
+        _HarnessInternal.log.error(
+            "GetAirbaseDescriptor requires valid airbase",
+            "Airbase.GetDescriptor"
+        )
         return nil
     end
 
-    local success, result = pcall(airbase.getDescriptor, airbase)
+    local success, result = pcall(airbase.getDesc, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase descriptor: " .. tostring(result), "Airbase.getDescriptor")
+        _HarnessInternal.log.error(
+            "Failed to get airbase descriptor: " .. tostring(result),
+            "Airbase.GetDesc"
+        )
         return nil
     end
 
@@ -47,15 +59,21 @@ end
 ---@param airbase table? Airbase object
 ---@return string? callsign Airbase callsign if found, nil otherwise
 ---@usage local callsign = getAirbaseCallsign(airbase)
-function getAirbaseCallsign(airbase)
+function GetAirbaseCallsign(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseCallsign requires valid airbase", "Airbase.getCallsign")
+        _HarnessInternal.log.error(
+            "GetAirbaseCallsign requires valid airbase",
+            "Airbase.GetCallsign"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getCallsign, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase callsign: " .. tostring(result), "Airbase.getCallsign")
+        _HarnessInternal.log.error(
+            "Failed to get airbase callsign: " .. tostring(result),
+            "Airbase.GetCallsign"
+        )
         return nil
     end
 
@@ -66,15 +84,18 @@ end
 ---@param airbase table? Airbase object
 ---@return table? unit Airbase unit if found, nil otherwise
 ---@usage local unit = getAirbaseUnit(airbase)
-function getAirbaseUnit(airbase)
+function GetAirbaseUnit(airbase, unitIndex)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseUnit requires valid airbase", "Airbase.getUnit")
+        _HarnessInternal.log.error("GetAirbaseUnit requires valid airbase", "Airbase.GetUnit")
         return nil
     end
 
-    local success, result = pcall(airbase.getUnit, airbase)
+    local success, result = pcall(airbase.getUnit, airbase, unitIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase unit: " .. tostring(result), "Airbase.getUnit")
+        _HarnessInternal.log.error(
+            "Failed to get airbase unit: " .. tostring(result),
+            "Airbase.GetUnit"
+        )
         return nil
     end
 
@@ -85,19 +106,44 @@ end
 ---@param airbase table? Airbase object
 ---@return string? category Category name if found, nil otherwise
 ---@usage local category = getAirbaseCategoryName(airbase)
-function getAirbaseCategoryName(airbase)
+function GetAirbaseCategoryName(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseCategoryName requires valid airbase", "Airbase.getCategoryName")
+        _HarnessInternal.log.error(
+            "GetAirbaseCategoryName requires valid airbase",
+            "Airbase.GetCategoryName"
+        )
         return nil
     end
 
-    local success, result = pcall(airbase.getCategoryName, airbase)
+    local success, categoryValue = pcall(airbase.getCategoryEx, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase category name: " .. tostring(result), "Airbase.getCategoryName")
+        _HarnessInternal.log.error(
+            "Failed to get airbase category: " .. tostring(categoryValue),
+            "Airbase.GetCategoryEx"
+        )
         return nil
     end
 
-    return result
+    local names = {}
+    local cat = (Airbase and Airbase.Category) or nil
+    if cat then
+        names[cat.AIRDROME] = "AIRDROME"
+        names[cat.HELIPAD] = "HELIPAD"
+        local farp = rawget(cat, "FARP")
+        if farp ~= nil then
+            names[farp] = "FARP"
+        end
+        local ship = cat["SHIP"]
+        if ship ~= nil then
+            names[ship] = "SHIP"
+        end
+        local oil = rawget(cat, "OIL_PLATFORM")
+        if oil ~= nil then
+            names[oil] = "OIL_PLATFORM"
+        end
+    end
+
+    return names[categoryValue] or tostring(categoryValue)
 end
 
 --- Get airbase parking information
@@ -105,15 +151,18 @@ end
 ---@param available boolean? If true, only return available parking spots
 ---@return table? parking Parking information if found, nil otherwise
 ---@usage local parking = getAirbaseParking(airbase, true)
-function getAirbaseParking(airbase, available)
+function GetAirbaseParking(airbase, available)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseParking requires valid airbase", "Airbase.getParking")
+        _HarnessInternal.log.error("GetAirbaseParking requires valid airbase", "Airbase.GetParking")
         return nil
     end
 
     local success, result = pcall(airbase.getParking, airbase, available)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase parking: " .. tostring(result), "Airbase.getParking")
+        _HarnessInternal.log.error(
+            "Failed to get airbase parking: " .. tostring(result),
+            "Airbase.GetParking"
+        )
         return nil
     end
 
@@ -124,15 +173,18 @@ end
 ---@param airbase table? Airbase object
 ---@return table? runways Runway information if found, nil otherwise
 ---@usage local runways = getAirbaseRunways(airbase)
-function getAirbaseRunways(airbase)
+function GetAirbaseRunways(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseRunways requires valid airbase", "Airbase.getRunways")
+        _HarnessInternal.log.error("GetAirbaseRunways requires valid airbase", "Airbase.GetRunways")
         return nil
     end
 
     local success, result = pcall(airbase.getRunways, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase runways: " .. tostring(result), "Airbase.getRunways")
+        _HarnessInternal.log.error(
+            "Failed to get airbase runways: " .. tostring(result),
+            "Airbase.GetRunways"
+        )
         return nil
     end
 
@@ -144,20 +196,29 @@ end
 ---@param techObjectType number Tech object type ID
 ---@return table? positions Tech object positions if found, nil otherwise
 ---@usage local positions = getAirbaseTechObjectPos(airbase, 1)
-function getAirbaseTechObjectPos(airbase, techObjectType)
+function GetAirbaseTechObjectPos(airbase, techObjectType)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseTechObjectPos requires valid airbase", "Airbase.getTechObjectPos")
+        _HarnessInternal.log.error(
+            "GetAirbaseTechObjectPos requires valid airbase",
+            "Airbase.GetTechObjectPos"
+        )
         return nil
     end
 
     if not techObjectType or type(techObjectType) ~= "number" then
-        _HarnessInternal.log.error("getAirbaseTechObjectPos requires valid tech object type", "Airbase.getTechObjectPos")
+        _HarnessInternal.log.error(
+            "GetAirbaseTechObjectPos requires valid tech object type",
+            "Airbase.GetTechObjectPos"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getTechObjectPos, airbase, techObjectType)
     if not success then
-        _HarnessInternal.log.error("Failed to get tech object positions: " .. tostring(result), "Airbase.getTechObjectPos")
+        _HarnessInternal.log.error(
+            "Failed to get tech object positions: " .. tostring(result),
+            "Airbase.GetTechObjectPos"
+        )
         return nil
     end
 
@@ -168,15 +229,21 @@ end
 ---@param airbase table? Airbase object
 ---@return table? position Tower position if found, nil otherwise
 ---@usage local towerPos = getAirbaseDispatcherTowerPos(airbase)
-function getAirbaseDispatcherTowerPos(airbase)
+function GetAirbaseDispatcherTowerPos(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseDispatcherTowerPos requires valid airbase", "Airbase.getDispatcherTowerPos")
+        _HarnessInternal.log.error(
+            "GetAirbaseDispatcherTowerPos requires valid airbase",
+            "Airbase.GetDispatcherTowerPos"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getDispatcherTowerPos, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get dispatcher tower position: " .. tostring(result), "Airbase.getDispatcherTowerPos")
+        _HarnessInternal.log.error(
+            "Failed to get dispatcher tower position: " .. tostring(result),
+            "Airbase.GetDispatcherTowerPos"
+        )
         return nil
     end
 
@@ -187,15 +254,21 @@ end
 ---@param airbase table? Airbase object
 ---@return boolean? silent True if radio silent, nil on error
 ---@usage local isSilent = getAirbaseRadioSilentMode(airbase)
-function getAirbaseRadioSilentMode(airbase)
+function GetAirbaseRadioSilentMode(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseRadioSilentMode requires valid airbase", "Airbase.getRadioSilentMode")
+        _HarnessInternal.log.error(
+            "GetAirbaseRadioSilentMode requires valid airbase",
+            "Airbase.GetRadioSilentMode"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getRadioSilentMode, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get radio silent mode: " .. tostring(result), "Airbase.getRadioSilentMode")
+        _HarnessInternal.log.error(
+            "Failed to get radio silent mode: " .. tostring(result),
+            "Airbase.GetRadioSilentMode"
+        )
         return nil
     end
 
@@ -206,21 +279,30 @@ end
 ---@param airbase table? Airbase object
 ---@param silent boolean Radio silent mode
 ---@return boolean? success True if set successfully, nil on error
----@usage setAirbaseRadioSilentMode(airbase, true)
-function setAirbaseRadioSilentMode(airbase, silent)
+---@usage SetAirbaseRadioSilentMode(airbase, true)
+function SetAirbaseRadioSilentMode(airbase, silent)
     if not airbase then
-        _HarnessInternal.log.error("setAirbaseRadioSilentMode requires valid airbase", "Airbase.setRadioSilentMode")
+        _HarnessInternal.log.error(
+            "SetAirbaseRadioSilentMode requires valid airbase",
+            "Airbase.SetRadioSilentMode"
+        )
         return nil
     end
 
     if type(silent) ~= "boolean" then
-        _HarnessInternal.log.error("setAirbaseRadioSilentMode requires boolean silent value", "Airbase.setRadioSilentMode")
+        _HarnessInternal.log.error(
+            "SetAirbaseRadioSilentMode requires boolean silent value",
+            "Airbase.SetRadioSilentMode"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.setRadioSilentMode, airbase, silent)
     if not success then
-        _HarnessInternal.log.error("Failed to set radio silent mode: " .. tostring(result), "Airbase.setRadioSilentMode")
+        _HarnessInternal.log.error(
+            "Failed to set radio silent mode: " .. tostring(result),
+            "Airbase.SetRadioSilentMode"
+        )
         return nil
     end
 
@@ -231,15 +313,18 @@ end
 ---@param airbase table? Airbase object
 ---@return table? beacon Beacon information if found, nil otherwise
 ---@usage local beacon = getAirbaseBeacon(airbase)
-function getAirbaseBeacon(airbase)
+function GetAirbaseBeacon(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseBeacon requires valid airbase", "Airbase.getBeacon")
+        _HarnessInternal.log.error("GetAirbaseBeacon requires valid airbase", "Airbase.GetBeacon")
         return nil
     end
 
     local success, result = pcall(airbase.getBeacon, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase beacon: " .. tostring(result), "Airbase.getBeacon")
+        _HarnessInternal.log.error(
+            "Failed to get airbase beacon: " .. tostring(result),
+            "Airbase.GetBeacon"
+        )
         return nil
     end
 
@@ -250,21 +335,30 @@ end
 ---@param airbase table? Airbase object
 ---@param enabled boolean Auto capture enabled
 ---@return boolean? success True if set successfully, nil on error
----@usage airbaseAutoCapture(airbase, true)
-function airbaseAutoCapture(airbase, enabled)
+---@usage AirbaseAutoCapture(airbase, true)
+function AirbaseAutoCapture(airbase, enabled)
     if not airbase then
-        _HarnessInternal.log.error("airbaseAutoCapture requires valid airbase", "Airbase.autoCapture")
+        _HarnessInternal.log.error(
+            "AirbaseAutoCapture requires valid airbase",
+            "Airbase.AutoCapture"
+        )
         return nil
     end
 
     if type(enabled) ~= "boolean" then
-        _HarnessInternal.log.error("airbaseAutoCapture requires boolean enabled value", "Airbase.autoCapture")
+        _HarnessInternal.log.error(
+            "AirbaseAutoCapture requires boolean enabled value",
+            "Airbase.AutoCapture"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.autoCapture, airbase, enabled)
     if not success then
-        _HarnessInternal.log.error("Failed to set auto capture: " .. tostring(result), "Airbase.autoCapture")
+        _HarnessInternal.log.error(
+            "Failed to set auto capture: " .. tostring(result),
+            "Airbase.AutoCapture"
+        )
         return nil
     end
 
@@ -275,15 +369,21 @@ end
 ---@param airbase table? Airbase object
 ---@return boolean? enabled True if auto capture is on, nil on error
 ---@usage local isOn = airbaseAutoCaptureIsOn(airbase)
-function airbaseAutoCaptureIsOn(airbase)
+function AirbaseAutoCaptureIsOn(airbase)
     if not airbase then
-        _HarnessInternal.log.error("airbaseAutoCaptureIsOn requires valid airbase", "Airbase.autoCaptureIsOn")
+        _HarnessInternal.log.error(
+            "AirbaseAutoCaptureIsOn requires valid airbase",
+            "Airbase.AutoCaptureIsOn"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.autoCaptureIsOn, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to check auto capture status: " .. tostring(result), "Airbase.autoCaptureIsOn")
+        _HarnessInternal.log.error(
+            "Failed to check auto capture status: " .. tostring(result),
+            "Airbase.AutoCaptureIsOn"
+        )
         return nil
     end
 
@@ -294,21 +394,30 @@ end
 ---@param airbase table? Airbase object
 ---@param coalitionId number Coalition ID
 ---@return boolean? success True if set successfully, nil on error
----@usage setAirbaseCoalition(airbase, coalition.side.BLUE)
-function setAirbaseCoalition(airbase, coalitionId)
+---@usage SetAirbaseCoalition(airbase, coalition.side.BLUE)
+function SetAirbaseCoalition(airbase, coalitionId)
     if not airbase then
-        _HarnessInternal.log.error("setAirbaseCoalition requires valid airbase", "Airbase.setCoalition")
+        _HarnessInternal.log.error(
+            "SetAirbaseCoalition requires valid airbase",
+            "Airbase.SetCoalition"
+        )
         return nil
     end
 
     if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error("setAirbaseCoalition requires valid coalition ID", "Airbase.setCoalition")
+        _HarnessInternal.log.error(
+            "SetAirbaseCoalition requires valid coalition ID",
+            "Airbase.SetCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.setCoalition, airbase, coalitionId)
     if not success then
-        _HarnessInternal.log.error("Failed to set airbase coalition: " .. tostring(result), "Airbase.setCoalition")
+        _HarnessInternal.log.error(
+            "Failed to set airbase coalition: " .. tostring(result),
+            "Airbase.SetCoalition"
+        )
         return nil
     end
 
@@ -319,15 +428,21 @@ end
 ---@param airbase table? Airbase object
 ---@return table? warehouse Warehouse object if found, nil otherwise
 ---@usage local warehouse = getAirbaseWarehouse(airbase)
-function getAirbaseWarehouse(airbase)
+function GetAirbaseWarehouse(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseWarehouse requires valid airbase", "Airbase.getWarehouse")
+        _HarnessInternal.log.error(
+            "GetAirbaseWarehouse requires valid airbase",
+            "Airbase.GetWarehouse"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getWarehouse, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase warehouse: " .. tostring(result), "Airbase.getWarehouse")
+        _HarnessInternal.log.error(
+            "Failed to get airbase warehouse: " .. tostring(result),
+            "Airbase.GetWarehouse"
+        )
         return nil
     end
 
@@ -339,15 +454,21 @@ end
 ---@param terminalType any? Terminal type filter
 ---@return table? terminal Free parking terminal if found, nil otherwise
 ---@usage local terminal = getAirbaseFreeParkingTerminal(airbase)
-function getAirbaseFreeParkingTerminal(airbase, terminalType)
+function GetAirbaseFreeParkingTerminal(airbase, terminalType)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseFreeParkingTerminal requires valid airbase", "Airbase.getFreeParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetAirbaseFreeParkingTerminal requires valid airbase",
+            "Airbase.GetFreeParkingTerminal"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getFreeParkingTerminal, airbase, terminalType)
     if not success then
-        _HarnessInternal.log.error("Failed to get free parking terminal: " .. tostring(result), "Airbase.getFreeParkingTerminal")
+        _HarnessInternal.log.error(
+            "Failed to get free parking terminal: " .. tostring(result),
+            "Airbase.GetFreeParkingTerminal"
+        )
         return nil
     end
 
@@ -360,15 +481,21 @@ end
 ---@param multiple boolean? Return multiple terminals
 ---@return table? terminals Free parking terminals if found, nil otherwise
 ---@usage local terminals = getAirbaseFreeParkingTerminalByType(airbase, type, true)
-function getAirbaseFreeParkingTerminalByType(airbase, terminalType, multiple)
+function GetAirbaseFreeParkingTerminalByType(airbase, terminalType, multiple)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseFreeParkingTerminalByType requires valid airbase", "Airbase.getFreeParkingTerminalByType")
+        _HarnessInternal.log.error(
+            "GetAirbaseFreeParkingTerminalByType requires valid airbase",
+            "Airbase.GetFreeParkingTerminalByType"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getFreeParkingTerminal, airbase, terminalType, multiple)
     if not success then
-        _HarnessInternal.log.error("Failed to get free parking terminals by type: " .. tostring(result), "Airbase.getFreeParkingTerminalByType")
+        _HarnessInternal.log.error(
+            "Failed to get free parking terminals by type: " .. tostring(result),
+            "Airbase.GetFreeParkingTerminalByType"
+        )
         return nil
     end
 
@@ -380,15 +507,21 @@ end
 ---@param terminalType any? Terminal type filter
 ---@return table? terminal Free parking terminal if found, nil otherwise
 ---@usage local terminal = getFreeAirbaseParkingTerminal(airbase)
-function getFreeAirbaseParkingTerminal(airbase, terminalType)
+function GetFreeAirbaseParkingTerminal(airbase, terminalType)
     if not airbase then
-        _HarnessInternal.log.error("getFreeAirbaseParkingTerminal requires valid airbase", "Airbase.getFreeAirbaseParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetFreeAirbaseParkingTerminal requires valid airbase",
+            "Airbase.GetFreeAirbaseParkingTerminal"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getFreeAirbaseParkingTerminal, airbase, terminalType)
     if not success then
-        _HarnessInternal.log.error("Failed to get free airbase parking terminal: " .. tostring(result), "Airbase.getFreeAirbaseParkingTerminal")
+        _HarnessInternal.log.error(
+            "Failed to get free airbase parking terminal: " .. tostring(result),
+            "Airbase.GetFreeAirbaseParkingTerminal"
+        )
         return nil
     end
 
@@ -400,20 +533,29 @@ end
 ---@param terminal number Terminal number
 ---@return table? terminal Parking terminal if found, nil otherwise
 ---@usage local terminal = getAirbaseParkingTerminal(airbase, 1)
-function getAirbaseParkingTerminal(airbase, terminal)
+function GetAirbaseParkingTerminal(airbase, terminal)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseParkingTerminal requires valid airbase", "Airbase.getParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminal requires valid airbase",
+            "Airbase.GetParkingTerminal"
+        )
         return nil
     end
 
     if not terminal or type(terminal) ~= "number" then
-        _HarnessInternal.log.error("getAirbaseParkingTerminal requires valid terminal number", "Airbase.getParkingTerminal")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminal requires valid terminal number",
+            "Airbase.GetParkingTerminal"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getParkingTerminal, airbase, terminal)
     if not success then
-        _HarnessInternal.log.error("Failed to get parking terminal: " .. tostring(result), "Airbase.getParkingTerminal")
+        _HarnessInternal.log.error(
+            "Failed to get parking terminal: " .. tostring(result),
+            "Airbase.GetParkingTerminal"
+        )
         return nil
     end
 
@@ -425,20 +567,29 @@ end
 ---@param index number Terminal index
 ---@return table? terminal Parking terminal if found, nil otherwise
 ---@usage local terminal = getAirbaseParkingTerminalByIndex(airbase, 1)
-function getAirbaseParkingTerminalByIndex(airbase, index)
+function GetAirbaseParkingTerminalByIndex(airbase, index)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseParkingTerminalByIndex requires valid airbase", "Airbase.getParkingTerminalByIndex")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminalByIndex requires valid airbase",
+            "Airbase.GetParkingTerminalByIndex"
+        )
         return nil
     end
 
     if not index or type(index) ~= "number" then
-        _HarnessInternal.log.error("getAirbaseParkingTerminalByIndex requires valid index", "Airbase.getParkingTerminalByIndex")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingTerminalByIndex requires valid index",
+            "Airbase.GetParkingTerminalByIndex"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getParkingTerminalByIndex, airbase, index)
     if not success then
-        _HarnessInternal.log.error("Failed to get parking terminal by index: " .. tostring(result), "Airbase.getParkingTerminalByIndex")
+        _HarnessInternal.log.error(
+            "Failed to get parking terminal by index: " .. tostring(result),
+            "Airbase.GetParkingTerminalByIndex"
+        )
         return nil
     end
 
@@ -449,15 +600,21 @@ end
 ---@param airbase table? Airbase object
 ---@return number? count Number of parking spots, nil on error
 ---@usage local count = getAirbaseParkingCount(airbase)
-function getAirbaseParkingCount(airbase)
+function GetAirbaseParkingCount(airbase)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseParkingCount requires valid airbase", "Airbase.getParkingCount")
+        _HarnessInternal.log.error(
+            "GetAirbaseParkingCount requires valid airbase",
+            "Airbase.GetParkingCount"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getParkingCount, airbase)
     if not success then
-        _HarnessInternal.log.error("Failed to get parking count: " .. tostring(result), "Airbase.getParkingCount")
+        _HarnessInternal.log.error(
+            "Failed to get parking count: " .. tostring(result),
+            "Airbase.GetParkingCount"
+        )
         return nil
     end
 
@@ -469,20 +626,29 @@ end
 ---@param runwayIndex number? Specific runway index
 ---@return table? details Runway details if found, nil otherwise
 ---@usage local details = getAirbaseRunwayDetails(airbase, 1)
-function getAirbaseRunwayDetails(airbase, runwayIndex)
+function GetAirbaseRunwayDetails(airbase, runwayIndex)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseRunwayDetails requires valid airbase", "Airbase.getRunwayDetails")
+        _HarnessInternal.log.error(
+            "GetAirbaseRunwayDetails requires valid airbase",
+            "Airbase.GetRunwayDetails"
+        )
         return nil
     end
 
     if runwayIndex and type(runwayIndex) ~= "number" then
-        _HarnessInternal.log.error("getAirbaseRunwayDetails runway index must be a number if provided", "Airbase.getRunwayDetails")
+        _HarnessInternal.log.error(
+            "getAirbaseRunwayDetails runway index must be a number if provided",
+            "Airbase.GetRunwayDetails"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getRunwayDetails, airbase, runwayIndex)
     if not success then
-        _HarnessInternal.log.error("Failed to get runway details: " .. tostring(result), "Airbase.getRunwayDetails")
+        _HarnessInternal.log.error(
+            "Failed to get runway details: " .. tostring(result),
+            "Airbase.GetRunwayDetails"
+        )
         return nil
     end
 
@@ -494,15 +660,18 @@ end
 ---@param height number? Height for weather data
 ---@return table? meteo Weather data if found, nil otherwise
 ---@usage local weather = getAirbaseMeteo(airbase, 100)
-function getAirbaseMeteo(airbase, height)
+function GetAirbaseMeteo(airbase, height)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseMeteo requires valid airbase", "Airbase.getMeteo")
+        _HarnessInternal.log.error("GetAirbaseMeteo requires valid airbase", "Airbase.GetMeteo")
         return nil
     end
 
     local success, result = pcall(airbase.getMeteo, airbase, height)
     if not success then
-        _HarnessInternal.log.error("Failed to get airbase meteo: " .. tostring(result), "Airbase.getMeteo")
+        _HarnessInternal.log.error(
+            "Failed to get airbase meteo: " .. tostring(result),
+            "Airbase.GetMeteo"
+        )
         return nil
     end
 
@@ -514,15 +683,21 @@ end
 ---@param height number? Height for wind data
 ---@return table? wind Wind data with turbulence if found, nil otherwise
 ---@usage local wind = getAirbaseWindWithTurbulence(airbase, 100)
-function getAirbaseWindWithTurbulence(airbase, height)
+function GetAirbaseWindWithTurbulence(airbase, height)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseWindWithTurbulence requires valid airbase", "Airbase.getWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "GetAirbaseWindWithTurbulence requires valid airbase",
+            "Airbase.GetWindWithTurbulence"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getWindWithTurbulence, airbase, height)
     if not success then
-        _HarnessInternal.log.error("Failed to get wind with turbulence: " .. tostring(result), "Airbase.getWindWithTurbulence")
+        _HarnessInternal.log.error(
+            "Failed to get wind with turbulence: " .. tostring(result),
+            "Airbase.GetWindWithTurbulence"
+        )
         return nil
     end
 
@@ -534,20 +709,29 @@ end
 ---@param service number Service type ID
 ---@return boolean? provided True if service is provided, nil on error
 ---@usage local hasService = getAirbaseIsServiceProvided(airbase, 1)
-function getAirbaseIsServiceProvided(airbase, service)
+function GetAirbaseIsServiceProvided(airbase, service)
     if not airbase then
-        _HarnessInternal.log.error("getAirbaseIsServiceProvided requires valid airbase", "Airbase.getIsServiceProvided")
+        _HarnessInternal.log.error(
+            "GetAirbaseIsServiceProvided requires valid airbase",
+            "Airbase.GetIsServiceProvided"
+        )
         return nil
     end
 
     if not service or type(service) ~= "number" then
-        _HarnessInternal.log.error("getAirbaseIsServiceProvided requires valid service type", "Airbase.getIsServiceProvided")
+        _HarnessInternal.log.error(
+            "GetAirbaseIsServiceProvided requires valid service type",
+            "Airbase.GetIsServiceProvided"
+        )
         return nil
     end
 
     local success, result = pcall(airbase.getIsServiceProvided, airbase, service)
     if not success then
-        _HarnessInternal.log.error("Failed to check service availability: " .. tostring(result), "Airbase.getIsServiceProvided")
+        _HarnessInternal.log.error(
+            "Failed to check service availability: " .. tostring(result),
+            "Airbase.GetIsServiceProvided"
+        )
         return nil
     end
 

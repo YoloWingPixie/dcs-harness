@@ -1,0 +1,69 @@
+name: Build and Deploy Sphinx Docs
+
+on:
+  push:
+    branches:
+      - main
+      - dev/**
+      - dev/0.2.0
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (release tag)
+        if: github.event_name == 'release'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Checkout (ref)
+        if: github.event_name != 'release'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Create virtual environment (uv)
+        run: |
+          uv venv
+
+      - name: Install documentation dependencies (uv)
+        run: |
+          uv pip install -e .[docs]
+
+      - name: Build Sphinx HTML
+        run: |
+          uv run sphinx-build -b html docs docs/_build/html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+

@@ -5,19 +5,28 @@
     including object queries, destruction, and property access.
 ]]
 
+require("logger")
+require("coalition")
+
 --- Gets a static object by its name
 ---@param name string The name of the static object
 ---@return table? staticObject The static object or nil if not found
 ---@usage local static = GetStaticByName("Warehouse01")
 function GetStaticByName(name)
     if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error("GetStaticByName requires valid name string", "StaticObject.GetByName")
+        _HarnessInternal.log.error(
+            "GetStaticByName requires valid name string",
+            "StaticObject.GetByName"
+        )
         return nil
     end
 
     local success, result = pcall(StaticObject.getByName, name)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object by name: " .. tostring(result), "StaticObject.GetByName")
+        _HarnessInternal.log.error(
+            "Failed to get static object by name: " .. tostring(result),
+            "StaticObject.GetByName"
+        )
         return nil
     end
 
@@ -28,7 +37,7 @@ end
 ---@param staticObject table The static object
 ---@return number? id The ID of the static object or nil on error
 ---@usage local id = GetStaticID(staticObj)
-function GetStaticID(staticObject) 
+function GetStaticID(staticObject)
     if not staticObject then
         _HarnessInternal.log.error("GetStaticID requires valid static object", "StaticObject.GetID")
         return nil
@@ -36,7 +45,10 @@ function GetStaticID(staticObject)
 
     local success, result = pcall(staticObject.getID, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object ID: " .. tostring(result), "StaticObject.GetID")
+        _HarnessInternal.log.error(
+            "Failed to get static object ID: " .. tostring(result),
+            "StaticObject.GetID"
+        )
         return nil
     end
 
@@ -49,13 +61,19 @@ end
 ---@usage local life = GetStaticLife(staticObj)
 function GetStaticLife(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticLife requires valid static object", "StaticObject.GetLife")
+        _HarnessInternal.log.error(
+            "GetStaticLife requires valid static object",
+            "StaticObject.GetLife"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getLife, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object life: " .. tostring(result), "StaticObject.GetLife")
+        _HarnessInternal.log.error(
+            "Failed to get static object life: " .. tostring(result),
+            "StaticObject.GetLife"
+        )
         return nil
     end
 
@@ -68,13 +86,19 @@ end
 ---@usage local cargoName = GetStaticCargoDisplayName(staticObj)
 function GetStaticCargoDisplayName(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCargoDisplayName requires valid static object", "StaticObject.GetCargoDisplayName")
+        _HarnessInternal.log.error(
+            "GetStaticCargoDisplayName requires valid static object",
+            "StaticObject.GetCargoDisplayName"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCargoDisplayName, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get cargo display name: " .. tostring(result), "StaticObject.GetCargoDisplayName")
+        _HarnessInternal.log.error(
+            "Failed to get cargo display name: " .. tostring(result),
+            "StaticObject.GetCargoDisplayName"
+        )
         return nil
     end
 
@@ -87,13 +111,19 @@ end
 ---@usage local weight = GetStaticCargoWeight(staticObj)
 function GetStaticCargoWeight(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCargoWeight requires valid static object", "StaticObject.GetCargoWeight")
+        _HarnessInternal.log.error(
+            "GetStaticCargoWeight requires valid static object",
+            "StaticObject.GetCargoWeight"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCargoWeight, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get cargo weight: " .. tostring(result), "StaticObject.GetCargoWeight")
+        _HarnessInternal.log.error(
+            "Failed to get cargo weight: " .. tostring(result),
+            "StaticObject.GetCargoWeight"
+        )
         return nil
     end
 
@@ -103,19 +133,29 @@ end
 --- Destroys a static object
 ---@param staticObject table The static object to destroy
 ---@return boolean? success Returns true if successful, nil on error
----@usage DestroyStatic(staticObj)
-function DestroyStatic(staticObject)
+---@usage DestroyStaticObject(staticObj)
+function DestroyStaticObject(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("DestroyStatic requires valid static object", "StaticObject.Destroy")
+        _HarnessInternal.log.error(
+            "DestroyStatic requires valid static object",
+            "StaticObject.Destroy"
+        )
         return nil
     end
+
+    -- Log that delete API was triggered
+    _HarnessInternal.log.info("DestroyStaticObject triggered", "StaticObject.Destroy")
 
     local success, result = pcall(staticObject.destroy, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy static object: " .. tostring(result), "StaticObject.Destroy")
+        _HarnessInternal.log.error(
+            "Failed to destroy static object: " .. tostring(result),
+            "StaticObject.Destroy"
+        )
         return nil
     end
 
+    _HarnessInternal.log.info("Static object destroyed", "StaticObject.Destroy")
     return true
 end
 
@@ -125,13 +165,19 @@ end
 ---@usage local category = GetStaticCategory(staticObj)
 function GetStaticCategory(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCategory requires valid static object", "StaticObject.GetCategory")
+        _HarnessInternal.log.error(
+            "GetStaticCategory requires valid static object",
+            "StaticObject.GetCategory"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCategory, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object category: " .. tostring(result), "StaticObject.GetCategory")
+        _HarnessInternal.log.error(
+            "Failed to get static object category: " .. tostring(result),
+            "StaticObject.GetCategory"
+        )
         return nil
     end
 
@@ -144,13 +190,19 @@ end
 ---@usage local typeName = GetStaticTypeName(staticObj)
 function GetStaticTypeName(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticTypeName requires valid static object", "StaticObject.GetTypeName")
+        _HarnessInternal.log.error(
+            "GetStaticTypeName requires valid static object",
+            "StaticObject.GetTypeName"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getTypeName, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object type name: " .. tostring(result), "StaticObject.GetTypeName")
+        _HarnessInternal.log.error(
+            "Failed to get static object type name: " .. tostring(result),
+            "StaticObject.GetTypeName"
+        )
         return nil
     end
 
@@ -163,13 +215,19 @@ end
 ---@usage local desc = GetStaticDesc(staticObj)
 function GetStaticDesc(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticDesc requires valid static object", "StaticObject.GetDesc")
+        _HarnessInternal.log.error(
+            "GetStaticDesc requires valid static object",
+            "StaticObject.GetDesc"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getDesc, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object description: " .. tostring(result), "StaticObject.GetDesc")
+        _HarnessInternal.log.error(
+            "Failed to get static object description: " .. tostring(result),
+            "StaticObject.GetDesc"
+        )
         return nil
     end
 
@@ -182,13 +240,19 @@ end
 ---@usage local exists = IsStaticExist(staticObj)
 function IsStaticExist(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("IsStaticExist requires valid static object", "StaticObject.IsExist")
+        _HarnessInternal.log.error(
+            "IsStaticExist requires valid static object",
+            "StaticObject.IsExist"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.isExist, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to check static object existence: " .. tostring(result), "StaticObject.IsExist")
+        _HarnessInternal.log.error(
+            "Failed to check static object existence: " .. tostring(result),
+            "StaticObject.IsExist"
+        )
         return nil
     end
 
@@ -201,13 +265,19 @@ end
 ---@usage local coalition = GetStaticCoalition(staticObj)
 function GetStaticCoalition(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCoalition requires valid static object", "StaticObject.GetCoalition")
+        _HarnessInternal.log.error(
+            "GetStaticCoalition requires valid static object",
+            "StaticObject.GetCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCoalition, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object coalition: " .. tostring(result), "StaticObject.GetCoalition")
+        _HarnessInternal.log.error(
+            "Failed to get static object coalition: " .. tostring(result),
+            "StaticObject.GetCoalition"
+        )
         return nil
     end
 
@@ -220,13 +290,19 @@ end
 ---@usage local country = GetStaticCountry(staticObj)
 function GetStaticCountry(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticCountry requires valid static object", "StaticObject.GetCountry")
+        _HarnessInternal.log.error(
+            "GetStaticCountry requires valid static object",
+            "StaticObject.GetCountry"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getCountry, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object country: " .. tostring(result), "StaticObject.GetCountry")
+        _HarnessInternal.log.error(
+            "Failed to get static object country: " .. tostring(result),
+            "StaticObject.GetCountry"
+        )
         return nil
     end
 
@@ -239,13 +315,19 @@ end
 ---@usage local point = GetStaticPoint(staticObj)
 function GetStaticPoint(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticPoint requires valid static object", "StaticObject.GetPoint")
+        _HarnessInternal.log.error(
+            "GetStaticPoint requires valid static object",
+            "StaticObject.GetPoint"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getPoint, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object point: " .. tostring(result), "StaticObject.GetPoint")
+        _HarnessInternal.log.error(
+            "Failed to get static object point: " .. tostring(result),
+            "StaticObject.GetPoint"
+        )
         return nil
     end
 
@@ -258,13 +340,19 @@ end
 ---@usage local pos = GetStaticPosition(staticObj)
 function GetStaticPosition(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticPosition requires valid static object", "StaticObject.GetPosition")
+        _HarnessInternal.log.error(
+            "GetStaticPosition requires valid static object",
+            "StaticObject.GetPosition"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getPosition, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object position: " .. tostring(result), "StaticObject.GetPosition")
+        _HarnessInternal.log.error(
+            "Failed to get static object position: " .. tostring(result),
+            "StaticObject.GetPosition"
+        )
         return nil
     end
 
@@ -277,43 +365,90 @@ end
 ---@usage local vel = GetStaticVelocity(staticObj)
 function GetStaticVelocity(staticObject)
     if not staticObject then
-        _HarnessInternal.log.error("GetStaticVelocity requires valid static object", "StaticObject.GetVelocity")
+        _HarnessInternal.log.error(
+            "GetStaticVelocity requires valid static object",
+            "StaticObject.GetVelocity"
+        )
         return nil
     end
 
     local success, result = pcall(staticObject.getVelocity, staticObject)
     if not success then
-        _HarnessInternal.log.error("Failed to get static object velocity: " .. tostring(result), "StaticObject.GetVelocity")
+        _HarnessInternal.log.error(
+            "Failed to get static object velocity: " .. tostring(result),
+            "StaticObject.GetVelocity"
+        )
         return nil
     end
 
     return result
 end
 
---- Creates a new static object
----@param staticData table Static object data table with type, x, y, country, etc.
+--- Creates a new static object (DCS-native signature)
+---@param countryId number The country ID that will own the static object
+---@param staticData table Static object data table with required fields: name, type, x, y
 ---@return table? staticObject The created static object or nil on error
----@usage local static = CreateStaticObject({type="Warehouse", x=1000, y=2000, country=2})
-function CreateStaticObject(staticData)
+---@usage local static = CreateStaticObject(country.id.USA, { name = "dyn", type = "Cafe", x = 1000, y = 2000 })
+function CreateStaticObject(countryId, staticData)
+    if not countryId or type(countryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid numeric country ID",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+
     if not staticData or type(staticData) ~= "table" then
-        _HarnessInternal.log.error("CreateStaticObject requires valid static data table", "StaticObject.Create")
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid static data table",
+            "StaticObject.Create"
+        )
         return nil
     end
 
+    -- Validate required DCS fields
     if not staticData.type or type(staticData.type) ~= "string" then
-        _HarnessInternal.log.error("CreateStaticObject requires valid type in static data", "StaticObject.Create")
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid type in static data",
+            "StaticObject.Create"
+        )
         return nil
     end
 
-    if not staticData.x or not staticData.y then
-        _HarnessInternal.log.error("CreateStaticObject requires valid x and y coordinates", "StaticObject.Create")
+    if type(staticData.x) ~= "number" or type(staticData.y) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid x and y coordinates",
+            "StaticObject.Create"
+        )
         return nil
     end
 
-    if not staticData.country or type(staticData.country) ~= "number" then
-        _HarnessInternal.log.error("CreateStaticObject requires valid country ID", "StaticObject.Create")
+    -- Heading is radians per schema; default to 0 if missing or invalid
+    if staticData.heading ~= nil and type(staticData.heading) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject heading must be a number (radians) if provided",
+            "StaticObject.Create"
+        )
         return nil
     end
+    if staticData.heading == nil then
+        staticData.heading = 0
+    end
 
-    return AddCoalitionStaticObject(staticData.country, staticData)
+    -- Log that create API was triggered
+    _HarnessInternal.log.info(
+        "CreateStaticObject triggered: type="
+            .. tostring(staticData.type)
+            .. " country="
+            .. tostring(countryId)
+            .. " name="
+            .. tostring(staticData.name),
+        "StaticObject.Create"
+    )
+
+    local created = AddCoalitionStaticObject(countryId, staticData)
+    if created then
+        _HarnessInternal.log.info("Static object created", "StaticObject.Create")
+    end
+    return created
 end

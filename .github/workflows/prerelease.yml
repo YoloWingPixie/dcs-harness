@@ -1,0 +1,73 @@
+name: Prerelease (PR builds)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  prerelease:
+    name: Build and tag prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        
+
+      - name: Set up Task
+        uses: arduino/setup-task@v1
+
+      - name: Install Lua and LuaRocks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks
+
+      - name: Install Lua tooling (luacheck)
+        run: |
+          sudo luarocks install luacheck
+
+      - name: Build (CD)
+        run: |
+          task build:cd
+
+      - name: Compute artifact name
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -e
+          TS=$(date -u +%Y%m%dT%H%M%SZ)
+          SHORT_SHA=${GITHUB_SHA::7}
+          BRANCH=$(echo $GITHUB_HEAD_REF | tr '/' '-')
+          echo "ART_NAME=harness-prerelease-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${BRANCH}-${SHORT_SHA}-${TS}" >> $GITHUB_ENV
+
+      - name: Create prerelease tag
+        if: success()
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          # Read version stamped into dist/harness.lua header (fallback to date)
+          VERSION=$(grep -Eo 'HARNESS_VERSION\s*=\s*"[^"]+"' dist/harness.lua | sed -E 's/.*"(.*)"/\1/')
+          if [ -z "$VERSION" ]; then VERSION=$(date +%Y.%m.%d); fi
+          SHA=${GITHUB_SHA::7}
+          TAG="v$VERSION-prerelease.$(echo $GITHUB_HEAD_REF | tr '/' '-')+$SHA"
+          echo "Creating prerelease tag $TAG"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push -f origin "$TAG"
+
+      - name: Upload prerelease artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ART_NAME }}
+          path: dist/harness.lua
+

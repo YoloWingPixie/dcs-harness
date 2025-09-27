@@ -4,7 +4,7 @@
     Miscellaneous utility functions
 ==================================================================================================
 ]]
-
+require("logger")
 --- Deep copy a table
 ---@param original any Value to copy (tables are copied recursively)
 ---@return any copy Deep copy of the original
@@ -13,12 +13,12 @@ function DeepCopy(original)
     if type(original) ~= "table" then
         return original
     end
-    
+
     local copy = {}
     for key, value in pairs(original) do
         copy[key] = DeepCopy(value)
     end
-    
+
     return copy
 end
 
@@ -30,12 +30,12 @@ function ShallowCopy(original)
     if type(original) ~= "table" then
         return original
     end
-    
+
     local copy = {}
     for key, value in pairs(original) do
         copy[key] = value
     end
-    
+
     return copy
 end
 
@@ -48,13 +48,13 @@ function Contains(table, value)
     if type(table) ~= "table" then
         return false
     end
-    
+
     for _, v in pairs(table) do
         if v == value then
             return true
         end
     end
-    
+
     return false
 end
 
@@ -67,7 +67,7 @@ function ContainsKey(table, key)
     if type(table) ~= "table" then
         return false
     end
-    
+
     return table[key] ~= nil
 end
 
@@ -79,12 +79,12 @@ function TableSize(t)
     if type(t) ~= "table" then
         return 0
     end
-    
+
     local count = 0
     for _ in pairs(t) do
         count = count + 1
     end
-    
+
     return count
 end
 
@@ -96,12 +96,12 @@ function TableKeys(t)
     if type(t) ~= "table" then
         return {}
     end
-    
+
     local keys = {}
     for key, _ in pairs(t) do
         table.insert(keys, key)
     end
-    
+
     return keys
 end
 
@@ -113,12 +113,12 @@ function TableValues(t)
     if type(t) ~= "table" then
         return {}
     end
-    
+
     local values = {}
     for _, value in pairs(t) do
         table.insert(values, value)
     end
-    
+
     return values
 end
 
@@ -131,17 +131,17 @@ function MergeTables(t1, t2)
     if type(t1) ~= "table" then
         t1 = {}
     end
-    
+
     if type(t2) ~= "table" then
         return t1
     end
-    
+
     local merged = DeepCopy(t1)
-    
+
     for key, value in pairs(t2) do
         merged[key] = value
     end
-    
+
     return merged
 end
 
@@ -154,15 +154,15 @@ function FilterTable(t, predicate)
     if type(t) ~= "table" or type(predicate) ~= "function" then
         return {}
     end
-    
+
     local filtered = {}
-    
+
     for key, value in pairs(t) do
         if predicate(value, key) then
             filtered[key] = value
         end
     end
-    
+
     return filtered
 end
 
@@ -175,13 +175,13 @@ function MapTable(t, func)
     if type(t) ~= "table" or type(func) ~= "function" then
         return {}
     end
-    
+
     local mapped = {}
-    
+
     for key, value in pairs(t) do
         mapped[key] = func(value, key)
     end
-    
+
     return mapped
 end
 
@@ -196,7 +196,7 @@ function Clamp(value, min, max)
         _HarnessInternal.log.error("Clamp requires three numbers", "Clamp")
         return min
     end
-    
+
     return math.max(min, math.min(max, value))
 end
 
@@ -211,7 +211,7 @@ function Lerp(a, b, t)
         _HarnessInternal.log.error("Lerp requires three numbers", "Lerp")
         return a or 0
     end
-    
+
     return a + (b - a) * t
 end
 
@@ -225,7 +225,7 @@ function Round(value, decimals)
         _HarnessInternal.log.error("Round requires number", "Round")
         return 0
     end
-    
+
     decimals = decimals or 0
     local mult = 10 ^ decimals
     return math.floor(value * mult + 0.5) / mult
@@ -241,7 +241,7 @@ function RandomFloat(min, max)
         _HarnessInternal.log.error("RandomFloat requires two numbers", "RandomFloat")
         return 0
     end
-    
+
     return min + math.random() * (max - min)
 end
 
@@ -255,7 +255,7 @@ function RandomInt(min, max)
         _HarnessInternal.log.error("RandomInt requires two numbers", "RandomInt")
         return 0
     end
-    
+
     return math.random(min, max)
 end
 
@@ -267,7 +267,7 @@ function RandomChoice(choices)
     if type(choices) ~= "table" or #choices == 0 then
         return nil
     end
-    
+
     return choices[math.random(1, #choices)]
 end
 
@@ -279,13 +279,13 @@ function Shuffle(array)
     if type(array) ~= "table" then
         return array
     end
-    
+
     local n = #array
     for i = n, 2, -1 do
         local j = math.random(1, i)
         array[i], array[j] = array[j], array[i]
     end
-    
+
     return array
 end
 
@@ -297,12 +297,12 @@ function ShuffledCopy(array)
     if type(array) ~= "table" then
         return {}
     end
-    
+
     local copy = {}
     for i, v in ipairs(array) do
         copy[i] = v
     end
-    
+
     return Shuffle(copy)
 end
 
@@ -315,16 +315,16 @@ function SplitString(str, delimiter)
     if type(str) ~= "string" then
         return {}
     end
-    
+
     delimiter = delimiter or ","
-    
+
     local result = {}
     local pattern = string.format("([^%s]+)", delimiter)
-    
+
     for match in string.gmatch(str, pattern) do
         table.insert(result, match)
     end
-    
+
     return result
 end
 
@@ -336,7 +336,7 @@ function TrimString(str)
     if type(str) ~= "string" then
         return ""
     end
-    
+
     return str:match("^%s*(.-)%s*$")
 end
 
@@ -349,7 +349,7 @@ function StartsWith(str, prefix)
     if type(str) ~= "string" or type(prefix) ~= "string" then
         return false
     end
-    
+
     return string.sub(str, 1, string.len(prefix)) == prefix
 end
 
@@ -362,7 +362,7 @@ function EndsWith(str, suffix)
     if type(str) ~= "string" or type(suffix) ~= "string" then
         return false
     end
-    
+
     return string.sub(str, -string.len(suffix)) == suffix
 end
 
@@ -377,15 +377,15 @@ function NormalizeAngle(angle)
         _HarnessInternal.log.error("NormalizeAngle requires number", "NormalizeAngle")
         return 0
     end
-    
+
     while angle < 0 do
         angle = angle + 360
     end
-    
+
     while angle >= 360 do
         angle = angle - 360
     end
-    
+
     return angle
 end
 
@@ -399,17 +399,17 @@ function AngleDiff(angle1, angle2)
         _HarnessInternal.log.error("AngleDiff requires two numbers", "AngleDiff")
         return 0
     end
-    
+
     local diff = angle2 - angle1
-    
+
     while diff > 180 do
         diff = diff - 360
     end
-    
+
     while diff < -180 do
         diff = diff + 360
     end
-    
+
     return diff
 end
 
@@ -422,25 +422,25 @@ function TableToString(tbl, indent)
     if type(tbl) ~= "table" then
         return tostring(tbl)
     end
-    
+
     indent = indent or 0
     local indentStr = string.rep("  ", indent)
     local result = "{\n"
-    
+
     for key, value in pairs(tbl) do
         result = result .. indentStr .. "  [" .. tostring(key) .. "] = "
-        
+
         if type(value) == "table" then
             result = result .. TableToString(value, indent + 1)
         else
             result = result .. tostring(value)
         end
-        
+
         result = result .. ",\n"
     end
-    
+
     result = result .. indentStr .. "}"
-    
+
     return result
 end
 

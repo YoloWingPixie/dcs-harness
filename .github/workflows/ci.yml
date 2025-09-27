@@ -24,7 +24,6 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
-        
 
       - name: Set up Task
         uses: arduino/setup-task@v1
@@ -34,20 +33,36 @@ jobs:
         with:
           luaVersion: "5.1"
 
-      - name: Lint Lua with Selene
-        uses: YoloWingPixie/selene-lua-linter-action@v1
-        with:
-          config-path: 'selene.toml'
-          lint-path: 'src/'
-          report-as-annotations: 'true'
-          working-directory: '.'
+      - name: Set up LuaRocks
+        uses: leafo/gh-actions-luarocks@v4
 
-      - name: Run format, tests, and build
+      - name: Install luacheck
+        run: |
+          luarocks install luacheck
+          
+      - name: Cache Lua toolchain
+        uses: actions/cache@v4
+        with:
+          path: .lua
+          key: lua-${{ runner.os }}-5.1-ghactionslua-v10
+          restore-keys: |
+            lua-${{ runner.os }}-5.1-
+            lua-${{ runner.os }}-
+        
+      - name: Cache LuaRocks tree
+        uses: actions/cache@v4
+        with:
+          path: .luarocks
+          key: luarocks-${{ runner.os }}-lua5.1-${{ hashFiles('**/*.rockspec', '**/luarocks.lock', '.luacheckrc') }}
+          restore-keys: |
+            luarocks-${{ runner.os }}-lua5.1-
+
+      - name: CI task (format, lint, test)
         run: |
           chmod +x stylua/stylua || true
           task format:check
+          task lint
           task test
-          task build:cd
 
       - name: Compute artifact name
         if: ${{ success() }}
@@ -57,6 +72,18 @@ jobs:
           TS=$(date -u +%Y%m%dT%H%M%SZ)
           SHORT_SHA=${GITHUB_SHA::7}
           echo "ART_NAME=harness-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${SHORT_SHA}-${TS}" >> $GITHUB_ENV
+
+      - name: Build artifact
+        run: |
+          task build:cd
+
+      - name: Lint built artifact with Selene
+        uses: YoloWingPixie/selene-lua-linter-action@v1
+        with:
+          config-path: 'selene.toml'
+          lint-path: 'dist/harness.lua'
+          report-as-annotations: 'true'
+          working-directory: '.'
 
       - name: Upload build artifact
         if: ${{ success() && hashFiles('dist/harness.lua') != '' }}

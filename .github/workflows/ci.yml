@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev/**
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Lint, Test, Build (Taskfile)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Task
+        uses: arduino/setup-task@v1
+
+      - name: Install Lua and LuaRocks
+        shell: powershell
+        run: |
+          choco install -y lua
+          choco install -y luarocks
+
+      - name: Install Lua tooling (luacheck, luacov)
+        shell: powershell
+        run: |
+          refreshenv
+          luarocks install luacheck
+          luarocks install luacov
+
+      - name: Run CI task
+        shell: powershell
+        run: |
+          task ci
+
+      - name: Upload build artifact
+        if: success() && exists('dist/harness.lua')
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness.lua
+          path: dist/harness.lua
+

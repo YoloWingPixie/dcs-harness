@@ -67,11 +67,12 @@ coord = {
     LLtoLO = function(lat, lon, alt)
         return { x = 1000, y = alt or 0, z = 2000 }
     end,
-    LOtoMGRS = function(vec3)
+    -- Provide only documented functions; test code composes through LL
+    LLtoMGRS = function(lat, lon)
         return { UTMZone = "37T", MGRSDigraph = "CK", Easting = 12345, Northing = 67890 }
     end,
-    MGRStoLO = function(mgrsString)
-        return { x = 1000, y = 0, z = 2000 }
+    MGRStoLL = function(mgrsString)
+        return { lat = 43.5, lon = 41.2 }
     end,
 }
 

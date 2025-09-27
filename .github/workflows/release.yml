@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Task
+        uses: arduino/setup-task@v1
+
+      - name: Install Lua and LuaRocks
+        shell: powershell
+        run: |
+          choco install -y lua
+          choco install -y luarocks
+
+      - name: Install Lua tooling (luacheck)
+        shell: powershell
+        run: |
+          refreshenv
+          luarocks install luacheck
+
+      - name: Build (CD)
+        shell: powershell
+        run: |
+          task build:cd
+
+      - name: Determine version and floating tags
+        id: vars
+        shell: bash
+        run: |
+          TAG_REF=${GITHUB_REF#refs/tags/}
+          echo "tag_ref=$TAG_REF" >> $GITHUB_OUTPUT
+          # Expect format vMAJOR.MINOR.PATCH or vMAJOR
+          MAJOR=$(echo "$TAG_REF" | sed -E 's/^v([0-9]+).*/\1/')
+          echo "major=v$MAJOR" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.vars.outputs.tag_ref }}
+          tag_name: ${{ steps.vars.outputs.tag_ref }}
+          files: dist/harness.lua
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Move floating tags (latest and vMAJOR)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG=${{ steps.vars.outputs.tag_ref }}
+          MAJOR=${{ steps.vars.outputs.major }}
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          # Force-update lightweight tags
+          git tag -f "$MAJOR" "$GITHUB_SHA"
+          git tag -f latest "$GITHUB_SHA"
+          git push -f origin "$MAJOR"
+          git push -f origin latest
+

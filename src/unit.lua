@@ -8,6 +8,18 @@
 require("logger")
 require("cache")
 require("vector")
+require("terrain")
+require("conversion")
+
+-- Ensure minimal cache structure in case environment hasn't initialized it yet
+_HarnessInternal = _HarnessInternal or {}
+_HarnessInternal.cache = _HarnessInternal.cache or {}
+_HarnessInternal.cache.units = _HarnessInternal.cache.units or {}
+_HarnessInternal.cache.groups = _HarnessInternal.cache.groups or {}
+_HarnessInternal.cache.controllers = _HarnessInternal.cache.controllers or {}
+_HarnessInternal.cache.airbases = _HarnessInternal.cache.airbases or {}
+_HarnessInternal.cache.stats = _HarnessInternal.cache.stats
+    or { hits = 0, misses = 0, evictions = 0 }
 
 --- Get unit by name with validation and error handling
 ---@param unitName string The name of the unit to retrieve
@@ -17,6 +29,24 @@ function GetUnit(unitName)
     if not unitName or type(unitName) ~= "string" then
         _HarnessInternal.log.error("GetUnit requires string unit name", "GetUnit")
         return nil
+    end
+
+    -- Ensure cache tables are available
+    if not _HarnessInternal.cache then
+        _HarnessInternal.cache = {
+            units = {},
+            groups = {},
+            controllers = {},
+            airbases = {},
+            stats = { hits = 0, misses = 0, evictions = 0 },
+        }
+    else
+        _HarnessInternal.cache.units = _HarnessInternal.cache.units or {}
+        _HarnessInternal.cache.groups = _HarnessInternal.cache.groups or {}
+        _HarnessInternal.cache.controllers = _HarnessInternal.cache.controllers or {}
+        _HarnessInternal.cache.airbases = _HarnessInternal.cache.airbases or {}
+        _HarnessInternal.cache.stats = _HarnessInternal.cache.stats
+            or { hits = 0, misses = 0, evictions = 0 }
     end
 
     -- Check cache first
@@ -163,6 +193,74 @@ function GetUnitVelocity(unitName)
     end
 
     return velocity
+end
+
+-- =========================================
+-- Convenience Getters (Speed / Altitude)
+-- =========================================
+
+--- Get unit speed magnitude in meters per second
+---@param unitName string
+---@return number? speedMps
+---@usage local v = GetUnitSpeedMps("Player")
+function GetUnitSpeedMps(unitName)
+    local v = GetUnitVelocity(unitName)
+    if not v or type(v.x) ~= "number" or type(v.y) ~= "number" or type(v.z) ~= "number" then
+        return nil
+    end
+    return math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+end
+
+--- Get unit speed magnitude in knots
+---@param unitName string
+---@return number? speedKts
+---@usage local kts = GetUnitSpeedKnots("Player")
+function GetUnitSpeedKnots(unitName)
+    local mps = GetUnitSpeedMps(unitName)
+    if type(mps) ~= "number" then
+        return nil
+    end
+    return MpsToKnots(mps)
+end
+
+--- Get unit vertical speed in feet per second
+---@param unitName string
+---@return number? feetPerSecond
+---@usage local vs = GetUnitVerticalSpeedFeet("Player")
+function GetUnitVerticalSpeedFeet(unitName)
+    local v = GetUnitVelocity(unitName)
+    if not v or type(v.y) ~= "number" then
+        return nil
+    end
+    return MetersToFeet(v.y)
+end
+
+--- Get unit altitude MSL in feet
+---@param unitName string
+---@return number? feetMSL
+---@usage local alt = GetUnitAltitudeMSLFeet("Player")
+function GetUnitAltitudeMSLFeet(unitName)
+    local pos = GetUnitPosition(unitName)
+    if not pos or type(pos.y) ~= "number" then
+        return nil
+    end
+    return MetersToFeet(pos.y)
+end
+
+--- Get unit altitude AGL in feet
+---@param unitName string
+---@return number? feetAGL
+---@usage local agl = GetUnitAltitudeAGLFeet("Player")
+function GetUnitAltitudeAGLFeet(unitName)
+    local pos = GetUnitPosition(unitName)
+    if not pos then
+        return nil
+    end
+    local aglMeters = GetAGL(pos)
+    if type(aglMeters) ~= "number" then
+        return nil
+    end
+    return MetersToFeet(aglMeters)
 end
 
 --- Get unit type name

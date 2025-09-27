@@ -1,2 +1,5 @@
-std = "./tools/selene/dcs.yml"
+std = "tools/selene/dcs.yml"
 
+[lints]
+multiple_statements = "allow"
+unscoped_variables = "allow"

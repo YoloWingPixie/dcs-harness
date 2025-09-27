@@ -1,0 +1,114 @@
+version: '3'
+
+vars:
+  TEST_DIR: tests
+  BUILD_DIR: build
+  SRC_DIR: src
+
+tasks:
+  default:
+    desc: Run all tests
+    cmds:
+      - task: test
+
+  test:
+    desc: Run all unit tests
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - lua test_runner.lua
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - '{{.TEST_DIR}}/**/*.lua'
+
+  test:single:
+    desc: Run a single test file
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - lua {{.CLI_ARGS}}
+    requires:
+      vars: [CLI_ARGS]
+
+  test:watch:
+    desc: Watch files and run tests on changes
+    watch: true
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - '{{.TEST_DIR}}/**/*.lua'
+    cmds:
+      - task: test
+
+  build:
+    desc: Format then build dist/harness.lua (developer build)
+    cmds:
+      - task: format
+      - python build/scripts/build_single_lua_release.py
+      - python build/scripts/stamp_harness_version.py
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - 'build/scripts/build_single_lua_release.py'
+      - 'build/scripts/stamp_harness_version.py'
+      - '.buildrc'
+    generates:
+      - 'dist/harness.lua'
+
+  build:cd:
+    desc: Build dist/harness.lua without formatting (CI/CD build)
+    cmds:
+      - python build/scripts/build_single_lua_release.py
+      - python build/scripts/stamp_harness_version.py
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - 'build/scripts/build_single_lua_release.py'
+      - 'build/scripts/stamp_harness_version.py'
+      - '.buildrc'
+    generates:
+      - 'dist/harness.lua'
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -f {{.BUILD_DIR}}/*.lua
+
+  lint:
+    desc: Run linter on source files
+    cmds:
+      - luacheck {{.SRC_DIR}} {{.TEST_DIR}} luaunit --exclude-files {{.TEST_DIR}}/luaunit.lua --exclude-files {{.TEST_DIR}}/luaunit_LICENSE.txt
+
+  format:
+    desc: Format Lua sources with Stylua (vendored)
+    cmds:
+      - cmd: ./stylua/stylua src tests test_mission_scripts
+        platforms: [linux, darwin]
+      - cmd: ./stylua/stylua.exe src tests test_mission_scripts
+        platforms: [windows]
+
+  format:check:
+    desc: Check formatting with Stylua (vendored)
+    cmds:
+      - cmd: ./stylua/stylua --check src tests test_mission_scripts
+        platforms: [linux, darwin]
+      - cmd: ./stylua/stylua.exe --check src tests test_mission_scripts
+        platforms: [windows]
+
+  coverage:
+    desc: Run tests with coverage reporting
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - lua -lluacov test_runner.lua
+      - luacov
+    sources:
+      - '{{.SRC_DIR}}/**/*.lua'
+      - '{{.TEST_DIR}}/**/*.lua'
+
+  ci:
+    desc: Run CI pipeline (format check, lint, test, build without format)
+    cmds:
+      - task: format:check
+      - task: lint
+      - task: test
+      - task: build:cd
+
+  help:
+    desc: Show available tasks
+    cmds:
+      - task --list

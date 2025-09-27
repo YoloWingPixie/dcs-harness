@@ -5,6 +5,9 @@
     including weapon tracking, target queries, and launcher information.
 ]]
 
+require("logger")
+-- require("vector")
+
 --- Gets the type name of a weapon
 ---@param weapon table The weapon object
 ---@return string? typeName The weapon type name or nil on error
@@ -17,7 +20,10 @@ function GetWeaponTypeName(weapon)
 
     local success, result = pcall(weapon.getTypeName, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon type name: " .. tostring(result), "Weapon.GetTypeName")
+        _HarnessInternal.log.error(
+            "Failed to get weapon type name: " .. tostring(result),
+            "Weapon.GetTypeName"
+        )
         return nil
     end
 
@@ -36,7 +42,10 @@ function GetWeaponDesc(weapon)
 
     local success, result = pcall(weapon.getDesc, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon description: " .. tostring(result), "Weapon.GetDesc")
+        _HarnessInternal.log.error(
+            "Failed to get weapon description: " .. tostring(result),
+            "Weapon.GetDesc"
+        )
         return nil
     end
 
@@ -55,7 +64,10 @@ function GetWeaponLauncher(weapon)
 
     local success, result = pcall(weapon.getLauncher, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon launcher: " .. tostring(result), "Weapon.GetLauncher")
+        _HarnessInternal.log.error(
+            "Failed to get weapon launcher: " .. tostring(result),
+            "Weapon.GetLauncher"
+        )
         return nil
     end
 
@@ -74,7 +86,10 @@ function GetWeaponTarget(weapon)
 
     local success, result = pcall(weapon.getTarget, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon target: " .. tostring(result), "Weapon.GetTarget")
+        _HarnessInternal.log.error(
+            "Failed to get weapon target: " .. tostring(result),
+            "Weapon.GetTarget"
+        )
         return nil
     end
 
@@ -93,7 +108,10 @@ function GetWeaponCategory(weapon)
 
     local success, result = pcall(weapon.getCategory, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon category: " .. tostring(result), "Weapon.GetCategory")
+        _HarnessInternal.log.error(
+            "Failed to get weapon category: " .. tostring(result),
+            "Weapon.GetCategory"
+        )
         return nil
     end
 
@@ -112,7 +130,10 @@ function IsWeaponExist(weapon)
 
     local success, result = pcall(weapon.isExist, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to check weapon existence: " .. tostring(result), "Weapon.IsExist")
+        _HarnessInternal.log.error(
+            "Failed to check weapon existence: " .. tostring(result),
+            "Weapon.IsExist"
+        )
         return nil
     end
 
@@ -125,13 +146,19 @@ end
 ---@usage local coalition = GetWeaponCoalition(weapon)
 function GetWeaponCoalition(weapon)
     if not weapon then
-        _HarnessInternal.log.error("GetWeaponCoalition requires valid weapon", "Weapon.GetCoalition")
+        _HarnessInternal.log.error(
+            "GetWeaponCoalition requires valid weapon",
+            "Weapon.GetCoalition"
+        )
         return nil
     end
 
     local success, result = pcall(weapon.getCoalition, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon coalition: " .. tostring(result), "Weapon.GetCoalition")
+        _HarnessInternal.log.error(
+            "Failed to get weapon coalition: " .. tostring(result),
+            "Weapon.GetCoalition"
+        )
         return nil
     end
 
@@ -150,7 +177,10 @@ function GetWeaponCountry(weapon)
 
     local success, result = pcall(weapon.getCountry, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon country: " .. tostring(result), "Weapon.GetCountry")
+        _HarnessInternal.log.error(
+            "Failed to get weapon country: " .. tostring(result),
+            "Weapon.GetCountry"
+        )
         return nil
     end
 
@@ -169,7 +199,10 @@ function GetWeaponPoint(weapon)
 
     local success, result = pcall(weapon.getPoint, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon point: " .. tostring(result), "Weapon.GetPoint")
+        _HarnessInternal.log.error(
+            "Failed to get weapon point: " .. tostring(result),
+            "Weapon.GetPoint"
+        )
         return nil
     end
 
@@ -188,7 +221,10 @@ function GetWeaponPosition(weapon)
 
     local success, result = pcall(weapon.getPosition, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon position: " .. tostring(result), "Weapon.GetPosition")
+        _HarnessInternal.log.error(
+            "Failed to get weapon position: " .. tostring(result),
+            "Weapon.GetPosition"
+        )
         return nil
     end
 
@@ -207,7 +243,10 @@ function GetWeaponVelocity(weapon)
 
     local success, result = pcall(weapon.getVelocity, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon velocity: " .. tostring(result), "Weapon.GetVelocity")
+        _HarnessInternal.log.error(
+            "Failed to get weapon velocity: " .. tostring(result),
+            "Weapon.GetVelocity"
+        )
         return nil
     end
 
@@ -226,7 +265,10 @@ function GetWeaponName(weapon)
 
     local success, result = pcall(weapon.getName, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon name: " .. tostring(result), "Weapon.GetName")
+        _HarnessInternal.log.error(
+            "Failed to get weapon name: " .. tostring(result),
+            "Weapon.GetName"
+        )
         return nil
     end
 
@@ -245,7 +287,10 @@ function DestroyWeapon(weapon)
 
     local success, result = pcall(weapon.destroy, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy weapon: " .. tostring(result), "Weapon.Destroy")
+        _HarnessInternal.log.error(
+            "Failed to destroy weapon: " .. tostring(result),
+            "Weapon.Destroy"
+        )
         return nil
     end
 
@@ -258,13 +303,19 @@ end
 ---@usage local catName = GetWeaponCategoryName(weapon)
 function GetWeaponCategoryName(weapon)
     if not weapon then
-        _HarnessInternal.log.error("GetWeaponCategoryName requires valid weapon", "Weapon.GetCategoryName")
+        _HarnessInternal.log.error(
+            "GetWeaponCategoryName requires valid weapon",
+            "Weapon.GetCategoryName"
+        )
         return nil
     end
 
     local success, result = pcall(weapon.getCategoryName, weapon)
     if not success then
-        _HarnessInternal.log.error("Failed to get weapon category name: " .. tostring(result), "Weapon.GetCategoryName")
+        _HarnessInternal.log.error(
+            "Failed to get weapon category name: " .. tostring(result),
+            "Weapon.GetCategoryName"
+        )
         return nil
     end
 
@@ -281,11 +332,27 @@ function IsWeaponActive(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.isActive, weapon)
-    if not success then
-        _HarnessInternal.log.error("Failed to check if weapon is active: " .. tostring(result), "Weapon.IsActive")
-        return nil
+    -- Some DCS builds do not expose weapon.isActive; prefer it when present,
+    -- otherwise fall back to existence as a proxy for activity to avoid errors.
+    if type(weapon.isActive) == "function" then
+        local success, result = pcall(weapon.isActive, weapon)
+        if not success then
+            _HarnessInternal.log.error(
+                "Failed to check if weapon is active: " .. tostring(result),
+                "Weapon.IsActive"
+            )
+            return nil
+        end
+        return result
     end
 
-    return result
+    local okExist, exists = pcall(weapon.isExist, weapon)
+    if not okExist then
+        _HarnessInternal.log.error(
+            "Failed to check weapon existence as activity proxy: " .. tostring(exists),
+            "Weapon.IsActive"
+        )
+        return nil
+    end
+    return exists == true
 end

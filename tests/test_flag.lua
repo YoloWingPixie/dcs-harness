@@ -1,12 +1,12 @@
 -- test_flag.lua
-local lu = require('luaunit')
+local lu = require("luaunit")
 
 -- Setup test environment
-package.path = package.path .. ';../src/?.lua'
-require('mock_dcs')
-require('_header')
-require('logger')
-require('flag')
+package.path = package.path .. ";../src/?.lua"
+require("mock_dcs")
+require("_header")
+require("logger")
+require("flag")
 
 TestFlag = {}
 
@@ -14,15 +14,15 @@ function TestFlag:setUp()
     -- Reset mock behavior before each test
     self.original_getUserFlag = trigger.misc.getUserFlag
     self.original_setUserFlag = trigger.action.setUserFlag
-    
+
     -- Mock flag storage
     self.flagStorage = {}
-    
+
     -- Override mock functions to use storage
     trigger.misc.getUserFlag = function(flagName)
         return self.flagStorage[flagName] or 0
     end
-    
+
     trigger.action.setUserFlag = function(flagName, value)
         self.flagStorage[flagName] = value
         return true
@@ -236,7 +236,7 @@ function TestFlag:testSetFlags_ValidTable()
     local flags = {
         flag1 = 10,
         flag2 = 20,
-        flag3 = 0
+        flag3 = 0,
     }
     local success = SetFlags(flags)
     lu.assertTrue(success)
@@ -265,10 +265,10 @@ function TestFlag:testSetFlags_PartialFailure()
         self.flagStorage[flagName] = value
         return true
     end
-    
-    local flags = {flag1 = 10, flag2 = 20, flag3 = 30}
+
+    local flags = { flag1 = 10, flag2 = 20, flag3 = 30 }
     local success = SetFlags(flags)
-    lu.assertFalse(success)  -- Overall failure
+    lu.assertFalse(success) -- Overall failure
     -- First flag should be set
     lu.assertTrue(self.flagStorage["flag1"] == 10 or self.flagStorage["flag3"] == 30)
 end
@@ -277,8 +277,8 @@ function TestFlag:testGetFlags_ValidArray()
     self.flagStorage["flag1"] = 10
     self.flagStorage["flag2"] = 20
     self.flagStorage["flag3"] = 0
-    
-    local values = GetFlags({"flag1", "flag2", "flag3", "nonExistent"})
+
+    local values = GetFlags({ "flag1", "flag2", "flag3", "nonExistent" })
     lu.assertEquals(values["flag1"], 10)
     lu.assertEquals(values["flag2"], 20)
     lu.assertEquals(values["flag3"], 0)
@@ -288,13 +288,13 @@ end
 function TestFlag:testGetFlags_EmptyArray()
     local values = GetFlags({})
     lu.assertEquals(type(values), "table")
-    lu.assertEquals(next(values), nil)  -- Empty table
+    lu.assertEquals(next(values), nil) -- Empty table
 end
 
 function TestFlag:testGetFlags_InvalidInput()
     local values = GetFlags("not a table")
     lu.assertEquals(type(values), "table")
-    lu.assertEquals(next(values), nil)  -- Empty table
+    lu.assertEquals(next(values), nil) -- Empty table
 end
 
 -- Clear flag operations
@@ -309,8 +309,8 @@ function TestFlag:testClearFlags_ValidArray()
     self.flagStorage["flag1"] = 10
     self.flagStorage["flag2"] = 20
     self.flagStorage["flag3"] = 30
-    
-    local success = ClearFlags({"flag1", "flag2", "flag3"})
+
+    local success = ClearFlags({ "flag1", "flag2", "flag3" })
     lu.assertTrue(success)
     lu.assertEquals(self.flagStorage["flag1"], 0)
     lu.assertEquals(self.flagStorage["flag2"], 0)
@@ -337,9 +337,9 @@ function TestFlag:testClearFlags_PartialFailure()
         self.flagStorage[flagName] = value
         return true
     end
-    
-    local success = ClearFlags({"flag1", "flag2", "flag3"})
-    lu.assertFalse(success)  -- Overall failure
+
+    local success = ClearFlags({ "flag1", "flag2", "flag3" })
+    lu.assertFalse(success) -- Overall failure
 end
 
 -- Edge cases

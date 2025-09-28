@@ -3,14 +3,22 @@ local lu = require("luaunit")
 TestCPA = {}
 
 function TestCPA:testCPAToPoint_stationary()
-    local t, d, p = EstimateCPAToPoint({ x = 0, y = 0, z = 0 }, { x = 0, y = 0, z = 0 }, { x = 10, y = 0, z = 0 })
+    local t, d, p = EstimateCPAToPoint(
+        { x = 0, y = 0, z = 0 },
+        { x = 0, y = 0, z = 0 },
+        { x = 10, y = 0, z = 0 }
+    )
     lu.assertEquals(t, 0)
     lu.assertAlmostEquals(d, 10, 1e-6)
     lu.assertEquals(p.x, 0)
 end
 
 function TestCPA:testCPAToPoint_movingToward()
-    local t, d, p = EstimateCPAToPoint({ x = 0, y = 0, z = 0 }, { x = 1, y = 0, z = 0 }, { x = 10, y = 0, z = 0 })
+    local t, d, p = EstimateCPAToPoint(
+        { x = 0, y = 0, z = 0 },
+        { x = 1, y = 0, z = 0 },
+        { x = 10, y = 0, z = 0 }
+    )
     lu.assertAlmostEquals(t, 10, 1e-6)
     lu.assertAlmostEquals(d, 0, 1e-6)
     lu.assertAlmostEquals(p.x, 10, 1e-6)
@@ -30,7 +38,12 @@ function TestCPA:testTwoBodyCPA_headOn()
 end
 
 function TestCPA:testCPAToCircle()
-    local t, d = EstimateCPAToCircle({ x = 0, y = 0, z = 0 }, { x = 1, y = 0, z = 0 }, { x = 10, y = 0, z = 0 }, 2)
+    local t, d = EstimateCPAToCircle(
+        { x = 0, y = 0, z = 0 },
+        { x = 1, y = 0, z = 0 },
+        { x = 10, y = 0, z = 0 },
+        2
+    )
     lu.assertAlmostEquals(t, 8, 1e-6)
     lu.assertAlmostEquals(d, 0, 1e-6)
 end
@@ -43,5 +56,3 @@ function TestCPA:testCPAToPolygon_square()
 end
 
 return TestCPA
-
-

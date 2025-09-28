@@ -14,7 +14,7 @@ end
 function TestJson:testEncodeArray()
     local json = EncodeJson({ 1, 2, "a" })
     -- Accept either exact or minimal spacing variants; fallback emits no spaces
-    lu.assertEquals(json, "[1,2,\"a\"]")
+    lu.assertEquals(json, '[1,2,"a"]')
 end
 
 function TestJson:testEncodeObject()
@@ -34,7 +34,7 @@ function TestJson:testDecodePrimitives()
 end
 
 function TestJson:testDecodeArray()
-    local arr = DecodeJson('[1,2,3]')
+    local arr = DecodeJson("[1,2,3]")
     lu.assertEquals(arr, { 1, 2, 3 })
 end
 
@@ -45,5 +45,3 @@ function TestJson:testDecodeObjectFlat()
 end
 
 return TestJson
-
-

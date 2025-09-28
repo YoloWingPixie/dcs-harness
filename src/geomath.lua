@@ -665,7 +665,10 @@ end
 ---@return table pointAtT Pos at tStar
 function EstimateCPAToPoint(pos, vel, target)
     if not pos or not vel or not target then
-        _HarnessInternal.log.error("EstimateCPAToPoint requires pos, vel, target", "GeoMath.CPA.Point")
+        _HarnessInternal.log.error(
+            "EstimateCPAToPoint requires pos, vel, target",
+            "GeoMath.CPA.Point"
+        )
         return 0, math.huge, pos
     end
     local rx = ((pos and pos.x) or 0) - ((target and target.x) or 0)
@@ -679,8 +682,8 @@ function EstimateCPAToPoint(pos, vel, target)
     end
     local px = ((pos and pos.x) or 0) + vx * tStar
     local pz = ((pos and pos.z) or 0) + vz * tStar
-    local dx = px - (((target and target.x) or 0))
-    local dz = pz - (((target and target.z) or 0))
+    local dx = px - ((target and target.x) or 0)
+    local dz = pz - ((target and target.z) or 0)
     local d = math.sqrt(dx * dx + dz * dz)
     return tStar, d, { x = px, y = pos.y or 0, z = pz }
 end
@@ -710,8 +713,12 @@ function EstimateCPAToCircle(pos, vel, center, radius)
             local t1 = (-b - sqrtDisc) / (2 * a)
             local t2 = (-b + sqrtDisc) / (2 * a)
             local tEntry = math.huge
-            if t1 >= 0 then tEntry = math.min(tEntry, t1) end
-            if t2 >= 0 then tEntry = math.min(tEntry, t2) end
+            if t1 >= 0 then
+                tEntry = math.min(tEntry, t1)
+            end
+            if t2 >= 0 then
+                tEntry = math.min(tEntry, t2)
+            end
             if tEntry < math.huge then
                 local px = (((pos and pos.x) or 0) + vx * tEntry)
                 local pz = (((pos and pos.z) or 0) + vz * tEntry)
@@ -785,7 +792,10 @@ end
 ---@return table bAtT Position B at tStar
 function EstimateTwoBodyCPA(posA, velA, posB, velB)
     if not posA or not velA or not posB or not velB then
-        _HarnessInternal.log.error("EstimateTwoBodyCPA requires posA, velA, posB, velB", "GeoMath.CPA.TwoBody")
+        _HarnessInternal.log.error(
+            "EstimateTwoBodyCPA requires posA, velA, posB, velB",
+            "GeoMath.CPA.TwoBody"
+        )
         return 0, math.huge, posA, posB
     end
     local rx = (((posA and posA.x) or 0) - ((posB and posB.x) or 0))
@@ -797,8 +807,16 @@ function EstimateTwoBodyCPA(posA, velA, posB, velB)
     if v2 > 1e-9 then
         tStar = math.max(0, -((rx * vx + rz * vz) / v2))
     end
-    local aAtT = { x = (((posA and posA.x) or 0) + (((velA and velA.x) or 0) * tStar)), y = (posA and posA.y) or 0, z = (((posA and posA.z) or 0) + (((velA and velA.z) or 0) * tStar)) }
-    local bAtT = { x = (((posB and posB.x) or 0) + (((velB and velB.x) or 0) * tStar)), y = (posB and posB.y) or 0, z = (((posB and posB.z) or 0) + (((velB and velB.z) or 0) * tStar)) }
+    local aAtT = {
+        x = (((posA and posA.x) or 0) + (((velA and velA.x) or 0) * tStar)),
+        y = (posA and posA.y) or 0,
+        z = (((posA and posA.z) or 0) + (((velA and velA.z) or 0) * tStar)),
+    }
+    local bAtT = {
+        x = (((posB and posB.x) or 0) + (((velB and velB.x) or 0) * tStar)),
+        y = (posB and posB.y) or 0,
+        z = (((posB and posB.z) or 0) + (((velB and velB.z) or 0) * tStar)),
+    }
     local dx = aAtT.x - bAtT.x
     local dz = aAtT.z - bAtT.z
     local d = math.sqrt(dx * dx + dz * dz)
@@ -817,7 +835,10 @@ end
 ---@return table|nil requiredVelocity Required pursuer velocity vector {x,y,z}
 function EstimateInterceptForSpeed(posA, speedA, posB, velB)
     if not posA or not posB or type(speedA) ~= "number" or not velB then
-        _HarnessInternal.log.error("EstimateInterceptForSpeed requires posA, speedA, posB, velB", "GeoMath.Intercept")
+        _HarnessInternal.log.error(
+            "EstimateInterceptForSpeed requires posA, speedA, posB, velB",
+            "GeoMath.Intercept"
+        )
         return nil, nil, nil
     end
 
@@ -858,8 +879,12 @@ function EstimateInterceptForSpeed(posA, speedA, posB, velB)
         local t2 = (-b + sqrtDisc) / (2 * a)
         -- choose smallest non-negative
         local best = math.huge
-        if t1 and t1 >= 0 then best = math.min(best, t1) end
-        if t2 and t2 >= 0 then best = math.min(best, t2) end
+        if t1 and t1 >= 0 then
+            best = math.min(best, t1)
+        end
+        if t2 and t2 >= 0 then
+            best = math.min(best, t2)
+        end
         if best == math.huge then
             return nil, nil, nil
         end
@@ -869,8 +894,8 @@ function EstimateInterceptForSpeed(posA, speedA, posB, velB)
     -- Intercept point and required velocity
     local interceptX = (((posB and posB.x) or 0) + vX * (t or 0))
     local interceptZ = (((posB and posB.z) or 0) + vZ * (t or 0))
-    local dx = interceptX - (((posA and posA.x) or 0))
-    local dz = interceptZ - (((posA and posA.z) or 0))
+    local dx = interceptX - ((posA and posA.x) or 0)
+    local dz = interceptZ - ((posA and posA.z) or 0)
     local reqVX, reqVZ
     if (t or 0) > eps then
         reqVX = dx / t
@@ -886,7 +911,8 @@ function EstimateInterceptForSpeed(posA, speedA, posB, velB)
         reqVZ = reqVZ * (s / mag)
     end
 
-    return t, { x = interceptX, y = (posA and posA.y) or 0, z = interceptZ },
+    return t,
+        { x = interceptX, y = (posA and posA.y) or 0, z = interceptZ },
         { x = reqVX, y = (posA and posA.y) or 0, z = reqVZ }
 end
 
@@ -903,7 +929,9 @@ end
 function EstimateInterceptDeltaV(posA, velA, posB, velB, speedA)
     if type(speedA) == "number" then
         local t, p, reqV = EstimateInterceptForSpeed(posA, speedA, posB, velB)
-        if not t then return nil, nil, nil, nil end
+        if not t then
+            return nil, nil, nil, nil
+        end
         local dV = {
             x = (reqV.x or 0) - ((velA and velA.x) or 0),
             y = (reqV.y or 0) - ((velA and velA.y) or 0),
@@ -916,9 +944,13 @@ function EstimateInterceptDeltaV(posA, velA, posB, velB, speedA)
         local vAz = (velA and velA.z) or 0
         local speedGuess = math.sqrt(vAx * vAx + vAz * vAz)
         -- If stationary, use distance/time heuristic by assuming time from CPA to point
-        if speedGuess < 1e-6 then speedGuess = 1 end
+        if speedGuess < 1e-6 then
+            speedGuess = 1
+        end
         local t, p, reqV = EstimateInterceptForSpeed(posA, speedGuess, posB, velB)
-        if not t then return nil, nil, nil, nil end
+        if not t then
+            return nil, nil, nil, nil
+        end
         local dV = {
             x = (reqV.x or 0) - vAx,
             y = (reqV.y or 0) - ((velA and velA.y) or 0),
@@ -927,4 +959,3 @@ function EstimateInterceptDeltaV(posA, velA, posB, velB, speedA)
         return dV, t, p, reqV
     end
 end
-

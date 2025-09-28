@@ -5,6 +5,150 @@
     including country queries, group management, and unit spawning.
 ]]
 require("logger")
+
+--- Build a unit entry for use in GroupSpawnData
+--- @param typeName string DCS unit type name (e.g., "F-15C", "M-1 Abrams")
+--- @param unitName string Unique unit name
+--- @param posX number 2D map X coordinate (meters)
+--- @param posY number 2D map Y coordinate (meters)
+--- @param altitude number Altitude in meters AGL/MSL per alt_type
+--- @param heading number Heading in radians (0 = east, math.pi/2 = north)
+--- @param opts table|nil Optional overrides: { skill, payload, callsign, onboard_num, alt_type, psi }
+--- @return table|nil unit Unit table suitable for GroupSpawnData or nil on error
+function BuildUnitEntry(typeName, unitName, posX, posY, altitude, heading, opts)
+    if type(typeName) ~= "string" or type(unitName) ~= "string" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires string typeName and unitName",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+    if type(posX) ~= "number" or type(posY) ~= "number" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires numeric posX and posY",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+    if type(altitude) ~= "number" or type(heading) ~= "number" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires numeric altitude and heading",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+
+    local options = opts or {}
+
+    local unit = {
+        type = typeName,
+        skill = options.skill or (AI and AI.Skill and AI.Skill.AVERAGE) or "Average",
+        y = posY,
+        x = posX,
+        alt = altitude,
+        heading = heading,
+        payload = options.payload or {},
+        name = unitName,
+        alt_type = options.alt_type or "BARO",
+        callsign = options.callsign,
+        psi = options.psi or 0,
+        onboard_num = options.onboard_num,
+    }
+
+    return unit
+end
+
+--- Build a standard Turning Point waypoint
+--- @param x number 2D map X coordinate (meters)
+--- @param y number 2D map Y coordinate (meters)
+--- @param altitude number Altitude in meters
+--- @param speed number Speed in m/s
+--- @param tasks table|nil Optional array of task entries to attach (ComboTask)
+--- @return table waypoint Waypoint table
+function BuildWaypoint(x, y, altitude, speed, tasks)
+    local wp = {
+        x = x,
+        y = altitude,
+        z = y,
+        action = "Turning Point",
+        speed = speed,
+        type = "Turning Point",
+        ETA = 0,
+        ETA_locked = false,
+        formation_template = "",
+        alt = altitude,
+        alt_type = "BARO",
+        speed_locked = true,
+        task = { id = "ComboTask", params = { tasks = {} } },
+    }
+
+    if tasks and type(tasks) == "table" then
+        for _, t in ipairs(tasks) do
+            wp.task.params.tasks[#wp.task.params.tasks + 1] = t
+        end
+    end
+
+    return wp
+end
+
+--- Build a route table for GroupSpawnData
+--- @param waypoints table Array of waypoint tables (from BuildWaypoint or compatible)
+--- @param opts table|nil Optional overrides: none currently, reserved for future
+--- @return table route Route table with points array
+function BuildRoute(waypoints, opts)
+    if type(waypoints) ~= "table" then
+        _HarnessInternal.log.error("BuildRoute requires waypoints array", "Coalition.BuildRoute")
+        return { points = {} }
+    end
+    return { points = waypoints }
+end
+
+--- Build a GroupSpawnData table
+--- @param groupName string Unique group name
+--- @param task string Group task (e.g., "CAP", "Ground Nothing")
+--- @param units table Array of unit tables (from BuildUnitEntry or compatible)
+--- @param routePoints table|nil Array of waypoint tables; if nil, an empty route is used
+--- @param opts table|nil Optional overrides: { visible, taskSelected, communication, start_time, frequency, modulation }
+--- @return table|nil groupData GroupSpawnData or nil on error
+function BuildGroupData(groupName, task, units, routePoints, opts)
+    if type(groupName) ~= "string" or groupName == "" then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty string groupName",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+    if type(task) ~= "string" or task == "" then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty string task",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+    if type(units) ~= "table" or #units == 0 then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty units array",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+
+    local options = opts or {}
+    local groupData = {
+        visible = options.visible == nil and false or not not options.visible,
+        taskSelected = options.taskSelected == nil and true or not not options.taskSelected,
+        task = task,
+        modulation = options.modulation or 0,
+        units = units,
+        name = groupName,
+        communication = options.communication == nil and true or not not options.communication,
+        start_time = options.start_time or 0,
+        route = { points = routePoints or {} },
+        frequency = options.frequency,
+    }
+
+    return groupData
+end
 --- Get the coalition ID for a given country
 --- @param countryId number The country ID to query
 --- @return number|nil coalitionId The coalition ID (0=neutral, 1=red, 2=blue) or nil on error

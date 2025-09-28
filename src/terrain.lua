@@ -86,6 +86,50 @@ function HasLOS(from, to)
     return visible == true
 end
 
+--- Estimate terrain grade (slope) around a point by sampling heights
+---@param point table Vec3 center position
+---@param radius number? Sampling radius in meters (default: 5)
+---@param step number? Angular step in degrees for ring sampling (default: 45)
+---@return table result {slopeDeg:number, slopePercent:number, dzdx:number, dzdz:number}
+---@usage local g = GetTerrainGrade(pos, 10, 30)
+function GetTerrainGrade(point, radius, step)
+    if not IsVec3(point) then
+        _HarnessInternal.log.error("GetTerrainGrade requires Vec3 point", "GetTerrainGrade")
+        return { slopeDeg = 0, slopePercent = 0, dzdx = 0, dzdz = 0 }
+    end
+
+    radius = tonumber(radius) or 5
+    step = tonumber(step) or 45
+    if step <= 0 then
+        step = 45
+    end
+
+    local centerH = GetTerrainHeight(point)
+
+    -- Finite-difference gradient estimate using samples along +x/-x and +z/-z axes
+    local dx = radius
+    local dz = radius
+
+    local px = { x = (point.x or 0) + dx, y = 0, z = point.z or 0 }
+    local nx = { x = (point.x or 0) - dx, y = 0, z = point.z or 0 }
+    local pz = { x = point.x or 0, y = 0, z = (point.z or 0) + dz }
+    local nz = { x = point.x or 0, y = 0, z = (point.z or 0) - dz }
+
+    local hx = GetTerrainHeight(px)
+    local hnx = GetTerrainHeight(nx)
+    local hz = GetTerrainHeight(pz)
+    local hnz = GetTerrainHeight(nz)
+
+    local dzdx = ((hx or centerH) - (hnx or centerH)) / (2 * dx)
+    local dzdz = ((hz or centerH) - (hnz or centerH)) / (2 * dz)
+
+    local slopeMag = math.sqrt(dzdx * dzdx + dzdz * dzdz)
+    local slopeDeg = math.deg(math.atan(slopeMag))
+    local slopePercent = slopeMag * 100
+
+    return { slopeDeg = slopeDeg, slopePercent = slopePercent, dzdx = dzdx, dzdz = dzdz }
+end
+
 --- Get surface type at position
 ---@param position table Vec2 or Vec3 position
 ---@return number? surfaceType Surface type ID (1=land, 2=shallow water, 3=water, 4=road, 5=runway)

@@ -380,6 +380,66 @@ function TestDataStructures:testPriorityQueue()
     lu.assertEquals(p.score, 150)
 end
 
+-- RingBuffer Tests
+function TestDataStructures:testRingBufferBasic()
+    local rb = RingBuffer(3)
+
+    -- Empty state
+    lu.assertTrue(rb:isEmpty())
+    lu.assertFalse(rb:isFull())
+    lu.assertEquals(rb:size(), 0)
+    lu.assertEquals(rb:capacity(), 3)
+    lu.assertNil(rb:peek())
+    lu.assertNil(rb:pop())
+
+    -- Push within capacity
+    local ok, ev = rb:push(1)
+    lu.assertTrue(ok)
+    lu.assertNil(ev)
+    rb:push(2)
+    rb:push(3)
+
+    lu.assertFalse(rb:isEmpty())
+    lu.assertTrue(rb:isFull())
+    lu.assertEquals(rb:size(), 3)
+    lu.assertEquals(rb:peek(), 1)
+    lu.assertEquals(rb:get(1), 1)
+    lu.assertEquals(rb:get(2), 2)
+    lu.assertEquals(rb:get(3), 3)
+
+    -- Overwrite when full
+    ok, ev = rb:push(4)
+    lu.assertTrue(ok)
+    lu.assertEquals(ev, 1)
+    lu.assertEquals(rb:toArray(), { 2, 3, 4 })
+
+    -- Pop in order
+    lu.assertEquals(rb:pop(), 2)
+    lu.assertEquals(rb:pop(), 3)
+    lu.assertEquals(rb:pop(), 4)
+    lu.assertTrue(rb:isEmpty())
+
+    -- Reset behavior
+    rb:push("a")
+    rb:push("b")
+    lu.assertEquals(rb:toArray(), { "a", "b" })
+    rb:clear()
+    lu.assertTrue(rb:isEmpty())
+end
+
+function TestDataStructures:testRingBufferNoOverwrite()
+    local rb = RingBuffer(2, false)
+    lu.assertTrue(rb:push(10))
+    lu.assertTrue(rb:push(20))
+    local ok, ev = rb:push(30)
+    lu.assertFalse(ok)
+    lu.assertNil(ev)
+    lu.assertEquals(rb:toArray(), { 10, 20 })
+    lu.assertEquals(rb:pop(), 10)
+    lu.assertTrue(rb:push(30))
+    lu.assertEquals(rb:toArray(), { 20, 30 })
+end
+
 -- Memoize Tests
 function TestDataStructures:testMemoize()
     -- Test basic memoization

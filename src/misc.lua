@@ -461,7 +461,10 @@ function EncodeJson(value)
         if ok then
             return res
         end
-        _HarnessInternal.log.error("EncodeJson failed via net.lua2json: " .. tostring(res), "EncodeJson")
+        _HarnessInternal.log.error(
+            "EncodeJson failed via net.lua2json: " .. tostring(res),
+            "EncodeJson"
+        )
         return nil
     end
 
@@ -473,7 +476,7 @@ function EncodeJson(value)
         return tostring(value)
     elseif t == "string" then
         local s = value
-        s = s:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n'):gsub('\r', '\\r')
+        s = s:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n"):gsub("\r", "\\r")
         return '"' .. s .. '"'
     elseif t == "table" then
         -- Detect array-like table
@@ -528,7 +531,10 @@ function DecodeJson(json)
         if ok then
             return res
         end
-        _HarnessInternal.log.error("DecodeJson failed via net.json2lua: " .. tostring(res), "DecodeJson")
+        _HarnessInternal.log.error(
+            "DecodeJson failed via net.json2lua: " .. tostring(res),
+            "DecodeJson"
+        )
         return nil
     end
 
@@ -551,7 +557,7 @@ function DecodeJson(json)
     -- quoted string
     local s = str:match('^"(.*)"$')
     if s ~= nil then
-        s = s:gsub('\\n', '\n'):gsub('\\r', '\r'):gsub('\\"', '"'):gsub('\\\\', '\\')
+        s = s:gsub("\\n", "\n"):gsub("\\r", "\r"):gsub('\\"', '"'):gsub("\\\\", "\\")
         return s
     end
 
@@ -567,7 +573,7 @@ function DecodeJson(json)
                 table.insert(buf, ch)
                 if escape then
                     escape = false
-                elseif ch == '\\' then
+                elseif ch == "\\" then
                     escape = true
                 elseif ch == '"' then
                     inString = false
@@ -576,7 +582,7 @@ function DecodeJson(json)
                 if ch == '"' then
                     inString = true
                     table.insert(buf, ch)
-                elseif ch == ',' then
+                elseif ch == "," then
                     parts[#parts + 1] = table.concat(buf)
                     buf = {}
                 else

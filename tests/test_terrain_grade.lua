@@ -24,5 +24,3 @@ function TestTerrainGrade:testGetTerrainGrade_basic()
 end
 
 return TestTerrainGrade
-
-

@@ -24,7 +24,7 @@ function TestIntercept:testInterceptForSpeed_movingTarget()
     )
     lu.assertNotNil(t)
     lu.assertTrue(t > 0)
-    lu.assertAlmostEquals(p.x, ((10) + 1 * t), 1e-4)
+    lu.assertAlmostEquals(p.x, (10 + 1 * t), 1e-4)
     -- required velocity magnitude approx 2
     local mag = math.sqrt(v.x * v.x + v.z * v.z)
     lu.assertAlmostEquals(mag, 2, 1e-6)
@@ -44,5 +44,3 @@ function TestIntercept:testDeltaV_withSpeed()
 end
 
 return TestIntercept
-
-

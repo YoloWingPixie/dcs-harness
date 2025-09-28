@@ -38,6 +38,27 @@ function TestMisc:testDeepCopy()
     lu.assertEquals(t2_copy.y.z, 999)
 end
 
+-- Test DeepCopy preserves metatable
+function TestMisc:testDeepCopyPreservesMetatable()
+    local mt = {
+        __index = function(self, key)
+            if key == "sum" then
+                return (self.a or 0) + (self.b or 0)
+            end
+        end,
+    }
+
+    local t = { a = 1, b = 2 }
+    setmetatable(t, mt)
+
+    local copy = DeepCopy(t)
+
+    -- Metatable reference is preserved
+    lu.assertIs(getmetatable(copy), mt)
+    -- Metamethod behavior remains intact
+    lu.assertEquals(copy.sum, 3)
+end
+
 -- Test ShallowCopy
 function TestMisc:testShallowCopy()
     -- Test simple values
@@ -295,6 +316,81 @@ function TestMisc:testRound()
     -- Edge cases
     lu.assertEquals(Round(0.999, 2), 1.00)
     lu.assertEquals(Round(-0.5, 0), 0) -- Rounds toward positive
+end
+
+-- Test Retry decorator basic success and retries
+function TestMisc:testRetryDecorator()
+    local attempts = 0
+    local function flaky(x)
+        attempts = attempts + 1
+        if attempts < 3 then
+            error("temporary")
+        end
+        return x * 2
+    end
+
+    local retried = Retry(flaky, { retries = 5 })
+    local result = retried(7)
+    lu.assertEquals(result, 14)
+    lu.assertTrue(attempts >= 3)
+
+    -- shouldRetry based on return value (retry until even result > 0)
+    attempts = 0
+    local function notErrorButBad(x)
+        attempts = attempts + 1
+        return attempts -- returns 1,2,3,...
+    end
+    local retried2 = Retry(notErrorButBad, {
+        retries = 3,
+        shouldRetry = function(success, v)
+            return success and v < 2
+        end,
+    })
+    local v = retried2()
+    lu.assertTrue(v >= 2)
+end
+
+-- Test CircuitBreaker decorator
+function TestMisc:testCircuitBreaker()
+    -- Controlled time provider
+    local now = 100
+    local function tp()
+        return now
+    end
+
+    local failCount = 0
+    local function alwaysFail()
+        failCount = failCount + 1
+        error("boom" .. failCount)
+    end
+
+    local cb =
+        CircuitBreaker(alwaysFail, { failureThreshold = 2, cooldown = 10, timeProvider = tp })
+
+    -- First two calls fail; after threshold, circuit opens
+    lu.assertNil(cb())
+    lu.assertNil(cb())
+    -- Now circuit should be open; immediate call is short-circuited
+    lu.assertNil(cb())
+
+    -- Advance time past cooldown; next call transitions to half-open and fails -> open again
+    now = now + 11
+    lu.assertNil(cb())
+
+    -- Replace with success function to close the circuit on next half-open trial
+    local okFunc = function(x)
+        return x + 1
+    end
+    local cb2 = CircuitBreaker(okFunc, { failureThreshold = 2, cooldown = 5, timeProvider = tp })
+
+    -- Start with open by forcing failures first
+    local tmp =
+        CircuitBreaker(alwaysFail, { failureThreshold = 1, cooldown = 5, timeProvider = tp })
+    lu.assertNil(tmp()) -- opens
+    -- Use time jump to half-open and succeed
+    now = now + 6
+    local res = cb2(41)
+    lu.assertEquals(res, 42)
 end
 
 -- Test RandomFloat

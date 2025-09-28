@@ -131,7 +131,6 @@ function TestNet:testGetPlayerInfo()
     ---@diagnostic enable:param-type-mismatch
 end
 
-
 function TestNet:testKickPlayer()
     -- Test valid kick
     lu.assertTrue(KickPlayer(1))

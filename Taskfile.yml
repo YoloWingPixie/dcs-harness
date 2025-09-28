@@ -2,7 +2,7 @@ version: '3'
 
 vars:
   TEST_DIR: tests
-  BUILD_DIR: build
+  BUILD_DIR: dist
   SRC_DIR: src
 
 tasks:
@@ -70,9 +70,10 @@ tasks:
       - rm -f {{.BUILD_DIR}}/*.lua
 
   lint:
+    deps: [build:cd]
     desc: Run linter on source files
     cmds:
-      - luacheck {{.SRC_DIR}} {{.TEST_DIR}} luaunit --exclude-files {{.TEST_DIR}}/luaunit.lua --exclude-files {{.TEST_DIR}}/luaunit_LICENSE.txt
+      - selene --config selene.toml {{.BUILD_DIR}}/harness.lua
 
   format:
     desc: Format Lua sources with Stylua (vendored)

@@ -1,8 +1,8 @@
-if log and log.info then log.info("harness: 0.2.0 loading...", "Build") end
+if env and env.info then env.info("harness: 0.2.1 loading...", true) end
 
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.2.0"
+HARNESS_VERSION = "0.2.1"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -2393,16 +2393,20 @@ function GetCoalitionCountries(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getCountries, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition countries: " .. tostring(result),
-            "Coalition.GetCoalitionCountries"
-        )
-        return nil
+    -- Derive based on documented APIs: iterate country.id and match coalition
+    local countries = {}
+    if not country or not country.id then
+        return countries
     end
-
-    return result
+    for _, id in pairs(country.id) do
+        if type(id) == "number" then
+            local ok, side = pcall(coalition.getCountryCoalition, id)
+            if ok and side == coalitionId then
+                table.insert(countries, id)
+            end
+        end
+    end
+    return countries
 end
 
 --- Get all static objects belonging to a coalition
@@ -2570,11 +2574,12 @@ function GetCoalitionBullseye(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getBullseye, coalitionId)
+    -- Authoritative API name is getMainRefPoint (bullseye)
+    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get coalition bullseye: " .. tostring(result),
-            "Coalition.GetBullseye"
+            "Coalition.GetCoalitionBullseye"
         )
         return nil
     end
@@ -2638,7 +2643,16 @@ function RemoveCoalitionRefPoint(coalitionId, refPointId)
         return nil
     end
 
-    local success, result = pcall(coalition.removeRefPoint, coalitionId, refPointId)
+    local remover = rawget(coalition, "removeRefPoint")
+    if type(remover) ~= "function" then
+        _HarnessInternal.log.error(
+            "coalition.removeRefPoint not available",
+            "Coalition.RemoveRefPoint"
+        )
+        return nil
+    end
+
+    local success, result = pcall(remover, coalitionId, refPointId)
     if not success then
         _HarnessInternal.log.error(
             "Failed to remove coalition reference point: " .. tostring(result),
@@ -5287,59 +5301,6 @@ function RemoveItemForGroup(groupId, path)
     return true
 end
 
---- Adds a command to the F10 radio menu for a specific unit
---- @param unitId number Unit ID from DCS
---- @param path table Array of menu path elements
---- @param menuItem table Menu item definition with name, enabled, and removable fields
---- @param handler function Function to call when menu item is selected
---- @param params any? Optional parameters to pass to the handler
---- @return number|nil commandId The command ID if successful, nil otherwise
---- @usage AddCommandForUnit(unitId, {}, {name="Eject"}, function() end)
-function AddCommandForUnit(unitId, path, menuItem, handler, params)
-    if not unitId or type(unitId) ~= "number" then
-        _HarnessInternal.log.error(
-            "AddCommandForUnit requires valid unit ID",
-            "MissionCommands.AddCommandForUnit"
-        )
-        return nil
-    end
-
-    if not path or type(path) ~= "table" then
-        _HarnessInternal.log.error(
-            "AddCommandForUnit requires valid path table",
-            "MissionCommands.AddCommandForUnit"
-        )
-        return nil
-    end
-
-    if not menuItem or type(menuItem) ~= "table" then
-        _HarnessInternal.log.error(
-            "AddCommandForUnit requires valid menu item table",
-            "MissionCommands.AddCommandForUnit"
-        )
-        return nil
-    end
-
-    if not handler or type(handler) ~= "function" then
-        _HarnessInternal.log.error(
-            "AddCommandForUnit requires valid handler function",
-            "MissionCommands.AddCommandForUnit"
-        )
-        return nil
-    end
-
-    local success, result =
-        pcall(missionCommands.addCommandForUnit, unitId, path, menuItem, handler, params)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to add unit command: " .. tostring(result),
-            "MissionCommands.AddCommandForUnit"
-        )
-        return nil
-    end
-
-    return result
-end
 
 --- Creates a menu item definition for use with AddCommand functions
 --- @param name string The display name of the menu item
@@ -5496,22 +5457,6 @@ function GetPlayerInfo(playerId)
     return info
 end
 
---- Get server settings
----@return table? settings Server settings table or nil on error
----@usage local settings = GetServerSettings()
-function GetServerSettings()
-    local success, settings = pcall(net.get_server_settings)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get server settings: " .. tostring(settings),
-            "GetServerSettings"
-        )
-        return nil
-    end
-
-    return settings
-end
-
 --- Kick player from server
 ---@param playerId number Player ID to kick
 ---@param reason string? Kick reason message
@@ -5567,52 +5512,19 @@ end
 ---@return boolean isServer True if running as server
 ---@usage if IsServer() then ... end
 function IsServer()
-    local success, result = pcall(net.is_server)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to check server status: " .. tostring(result),
-            "IsServer"
-        )
-        return false
+    -- Prefer the official DCS API when available
+    if DCS and type(DCS.isServer) == "function" then
+        local successDcs, resultDcs = pcall(DCS.isServer)
+        if not successDcs then
+            _HarnessInternal.log.error(
+                "Failed to check server status via DCS.isServer: " .. tostring(resultDcs),
+                "IsServer"
+            )
+            return false
+        end
+        return resultDcs == true
     end
-
-    return result == true
-end
-
---- Check if running in multiplayer
----@return boolean isMultiplayer True if in multiplayer
----@usage if IsMultiplayer() then ... end
-function IsMultiplayer()
-    local success, result = pcall(net.is_multiplayer)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to check multiplayer status: " .. tostring(result),
-            "IsMultiplayer"
-        )
-        return false
-    end
-
-    return result == true
-end
-
---- Pause the server
----@param paused boolean True to pause, false to unpause
----@return boolean success True if pause state was changed
----@usage PauseServer(true)
-function PauseServer(paused)
-    if type(paused) ~= "boolean" then
-        _HarnessInternal.log.error("PauseServer requires boolean parameter", "PauseServer")
-        return false
-    end
-
-    local success, result = pcall(net.pause, paused)
-    if not success then
-        _HarnessInternal.log.error("Failed to pause server: " .. tostring(result), "PauseServer")
-        return false
-    end
-
-    _HarnessInternal.log.info("Server pause state: " .. tostring(paused), "PauseServer")
-    return true
+    return false
 end
 
 --- Load a new mission
@@ -5656,18 +5568,20 @@ end
 ---@return string? name Mission name or nil on error
 ---@usage local mission = GetMissionName()
 function GetMissionName()
-    local success, name = pcall(net.get_mission_name)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get mission name: " .. tostring(name),
-            "GetMissionName"
-        )
-        return nil
+    if DCS and type(DCS.getMissionName) == "function" then
+        local success, name = pcall(net.dostring_in("gui", "return DCS.getMissionName()"))
+        if not success then
+            _HarnessInternal.log.error(
+                "Failed to get mission name: " .. tostring(name),
+                "GetMissionName"
+            )
+            return nil
+        end
+        return name
     end
 
-    return name
+    return nil
 end
-
 --- Force player to slot
 ---@param playerId number Player ID
 ---@param side number Coalition side (0=neutral, 1=red, 2=blue)
@@ -8505,16 +8419,23 @@ function LOtoMGRS(vec3)
         return nil
     end
 
-    local success, result = pcall(coord.LOtoMGRS, vec3)
-    if not success then
+    -- DCS does not expose coord.LOtoMGRS; compose LO->LL->MGRS
+    local okLL, ll = pcall(coord.LOtoLL, vec3)
+    if not okLL or not ll or type(ll.latitude) ~= "number" or type(ll.longitude) ~= "number" then
+        _HarnessInternal.log.error("Failed to convert LO to LL: " .. tostring(ll), "Coord.LOtoMGRS")
+        return nil
+    end
+
+    local okMGRS, mgrs = pcall(coord.LLtoMGRS, ll.latitude, ll.longitude)
+    if not okMGRS then
         _HarnessInternal.log.error(
-            "Failed to convert LO to MGRS: " .. tostring(result),
+            "Failed to convert LL to MGRS: " .. tostring(mgrs),
             "Coord.LOtoMGRS"
         )
         return nil
     end
 
-    return result
+    return mgrs
 end
 
 --- Convert MGRS string to local coordinates
@@ -8527,16 +8448,23 @@ function MGRStoLO(mgrsString)
         return nil
     end
 
-    local success, result = pcall(coord.MGRStoLO, mgrsString)
-    if not success then
+    -- DCS does not expose coord.MGRStoLO; compose MGRS->LL->LO
+    local okLL, ll = pcall(coord.MGRStoLL, mgrsString)
+    if not okLL or not ll or type(ll.lat) ~= "number" or type(ll.lon) ~= "number" then
         _HarnessInternal.log.error(
-            "Failed to convert MGRS to LO: " .. tostring(result),
+            "Failed to convert MGRS to LL: " .. tostring(ll),
             "Coord.MGRStoLO"
         )
         return nil
     end
 
-    return result
+    local okLO, lo = pcall(coord.LLtoLO, ll.lat, ll.lon)
+    if not okLO then
+        _HarnessInternal.log.error("Failed to convert LL to LO: " .. tostring(lo), "Coord.MGRStoLO")
+        return nil
+    end
+
+    return lo
 end
 -- ==== END: src\coord.lua ====
 
@@ -13338,10 +13266,10 @@ function GetUnitController(unit)
 
     -- Try to get unit name for cache key
     local unitName = nil
-    local success, name = pcall(function()
+    local ok_get_name, name = pcall(function()
         return unit:getName()
     end)
-    if success and name then
+    if ok_get_name and name then
         unitName = name
 
         -- Check cache first
@@ -13353,10 +13281,10 @@ function GetUnitController(unit)
     end
 
     -- Get controller from DCS API
-    local success, controller = pcall(function()
+    local ok_get_controller, controller = pcall(function()
         return unit:getController()
     end)
-    if not success then
+    if not ok_get_controller then
         _HarnessInternal.log.error(
             "Failed to get unit controller: " .. tostring(controller),
             "GetUnitController"
@@ -13369,20 +13297,20 @@ function GetUnitController(unit)
         local info = { unitNames = { unitName } }
 
         -- Attempt to capture owning group name
-        local okGrp, grpName = pcall(function()
+        local ok_get_group_name, grpName = pcall(function()
             local grp = unit:getGroup()
             return grp and grp.getName and grp:getName() or nil
         end)
-        if okGrp and grpName then
+        if ok_get_group_name and grpName then
             info.groupName = grpName
         end
 
         -- For air units, try to include all unit names from the group
-        local okCat, cat = pcall(function()
+        local ok_get_category, cat = pcall(function()
             return unit.getCategory and unit:getCategory() or nil
         end)
         -- Infer domain from unit category
-        if okCat then
+        if ok_get_category then
             if cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER then
                 info.domain = "Air"
             elseif cat == Unit.Category.GROUND_UNIT then
@@ -13392,11 +13320,11 @@ function GetUnitController(unit)
             end
         end
         if
-            okCat
+            ok_get_category
             and (cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER)
             and info.groupName
         then
-            local okUnits, names = pcall(function()
+            local ok_get_units, names = pcall(function()
                 local grp = unit:getGroup()
                 if grp and grp.getUnits then
                     local list = grp:getUnits()
@@ -13404,10 +13332,10 @@ function GetUnitController(unit)
                         local acc = {}
                         for i = 1, #list do
                             local u = list[i]
-                            local okN, nm = pcall(function()
+                            local ok_get_unit_name, nm = pcall(function()
                                 return u:getName()
                             end)
-                            if okN and nm then
+                            if ok_get_unit_name and nm then
                                 acc[#acc + 1] = nm
                             end
                         end
@@ -13416,7 +13344,7 @@ function GetUnitController(unit)
                 end
                 return nil
             end)
-            if okUnits and names and #names > 0 then
+            if ok_get_units and names and #names > 0 then
                 info.unitNames = names
             end
         end
@@ -14320,7 +14248,7 @@ function SimplifyPolygon(polygon, tolerance)
     tolerance = tolerance or 1.0
 
     -- Douglas-Peucker algorithm
-    local function douglasPeucker(points, start, endIdx, tolerance)
+    local function douglasPeucker(points, start, endIdx, simplifyTolerance)
         if endIdx <= start + 1 then
             return {}
         end
@@ -14339,10 +14267,10 @@ function SimplifyPolygon(polygon, tolerance)
 
         -- If max distance is greater than tolerance, recursively simplify
         local result = {}
-        if maxDist > tolerance then
+        if maxDist > simplifyTolerance then
             -- Recursive call
-            local left = douglasPeucker(points, start, maxIndex, tolerance)
-            local right = douglasPeucker(points, maxIndex, endIdx, tolerance)
+            local left = douglasPeucker(points, start, maxIndex, simplifyTolerance)
+            local right = douglasPeucker(points, maxIndex, endIdx, simplifyTolerance)
 
             -- Build the result
             for _, p in ipairs(left) do
@@ -14560,14 +14488,14 @@ function TriangulatePolygon(polygon)
         table.insert(vertices, { x = v.x, y = v.y or 0, z = v.z, index = i })
     end
 
-    local function isEar(vertices, i)
-        local n = #vertices
+    local function isEar(vertexList, i)
+        local n = #vertexList
         local prev = ((i - 2) % n) + 1
         local next = (i % n) + 1
 
-        local p1 = vertices[prev]
-        local p2 = vertices[i]
-        local p3 = vertices[next]
+        local p1 = vertexList[prev]
+        local p2 = vertexList[i]
+        local p3 = vertexList[next]
 
         -- Check if angle is convex
         local cross = (p2.x - p1.x) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.x - p1.x)
@@ -14578,7 +14506,7 @@ function TriangulatePolygon(polygon)
         -- Check if any other vertex is inside the triangle
         for j = 1, n do
             if j ~= prev and j ~= i and j ~= next then
-                if PointInTriangle2D(vertices[j], p1, p2, p3) then
+                if PointInTriangle2D(vertexList[j], p1, p2, p3) then
                     return false
                 end
             end
@@ -15160,64 +15088,6 @@ function GetMarkPanels()
     return result
 end
 
---- Adds a marking panel to the world
----@param name string The name of the marking panel
----@param pos table Position table with x and z coordinates
----@return number? panelId The ID of the created panel or nil on error
----@usage local panelId = AddMarkingPanel("Target Zone", {x=1000, z=2000})
-function AddMarkingPanel(name, pos)
-    if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error(
-            "AddMarkingPanel requires valid name string",
-            "World.AddMarkingPanel"
-        )
-        return nil
-    end
-
-    if not pos or type(pos) ~= "table" or not pos.x or not pos.z then
-        _HarnessInternal.log.error(
-            "AddMarkingPanel requires valid position with x, z",
-            "World.AddMarkingPanel"
-        )
-        return nil
-    end
-
-    local success, result = pcall(world.addMarkingPanel, name, pos)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to add marking panel: " .. tostring(result),
-            "World.AddMarkingPanel"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Removes a marking panel from the world
----@param id number The ID of the panel to remove
----@return boolean? success Returns true if successful, nil on error
----@usage RemoveMarkingPanel(panelId)
-function RemoveMarkingPanel(id)
-    if not id then
-        _HarnessInternal.log.error(
-            "RemoveMarkingPanel requires valid panel ID",
-            "World.RemoveMarkingPanel"
-        )
-        return nil
-    end
-
-    local success, result = pcall(world.removeMarkingPanel, id)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to remove marking panel: " .. tostring(result),
-            "World.RemoveMarkingPanel"
-        )
-        return nil
-    end
-
-    return true
-end
 
 --- Processes a world event
 ---@param event table The event table to process
@@ -16050,7 +15920,7 @@ end
 ---@param points table Array of points with x, z coordinates
 ---@return table center Center point of bounding sphere
 ---@return number radius Radius of bounding sphere
-local function CalculateBoundingSphere(points)
+local function CalculateDrawingBoundingSphere(points)
     if not points or #points == 0 then
         return { x = 0, y = 0, z = 0 }, 0
     end
@@ -16115,7 +15985,7 @@ function GetUnitsInDrawing(drawingName, coalitionId)
             searchVolume = CreateSphereVolume(drawing.center, radius)
         elseif drawing.points and #drawing.points >= 3 then
             -- For polygon drawings, calculate bounding sphere with 1.5x radius
-            local center, radius = CalculateBoundingSphere(drawing.points)
+            local center, radius = CalculateDrawingBoundingSphere(drawing.points)
             searchVolume = CreateSphereVolume(center, radius * 1.5)
         else
             return {}
@@ -16127,7 +15997,7 @@ function GetUnitsInDrawing(drawingName, coalitionId)
         and #drawing.points >= 3
     then
         -- Closed lines form polygons
-        local center, radius = CalculateBoundingSphere(drawing.points)
+        local center, radius = CalculateDrawingBoundingSphere(drawing.points)
         searchVolume = CreateSphereVolume(center, radius * 1.5)
     else
         return {}
@@ -16398,7 +16268,7 @@ end
 ---@param points table Array of points with x, z coordinates
 ---@return table center Center point of bounding sphere
 ---@return number radius Radius of bounding sphere
-local function CalculateBoundingSphere(points)
+local function CalculateZoneBoundingSphere(points)
     if not points or #points == 0 then
         return { x = 0, y = 0, z = 0 }, 0
     end
@@ -16468,7 +16338,7 @@ function GetUnitsInZone(zoneName, coalitionId)
         searchVolume = CreateSphereVolume(zone.center, zone.radius * 1.5)
     elseif zone.type == "polygon" and zone.points and #zone.points >= 3 then
         -- For polygon zones, calculate bounding sphere with 1.5x radius
-        local center, radius = CalculateBoundingSphere(zone.points)
+        local center, radius = CalculateZoneBoundingSphere(zone.points)
         searchVolume = CreateSphereVolume(center, radius * 1.5)
     else
         return {}

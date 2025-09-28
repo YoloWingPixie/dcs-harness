@@ -98,22 +98,6 @@ function GetPlayerInfo(playerId)
     return info
 end
 
---- Get server settings
----@return table? settings Server settings table or nil on error
----@usage local settings = GetServerSettings()
-function GetServerSettings()
-    local success, settings = pcall(net.get_server_settings)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get server settings: " .. tostring(settings),
-            "GetServerSettings"
-        )
-        return nil
-    end
-
-    return settings
-end
-
 --- Kick player from server
 ---@param playerId number Player ID to kick
 ---@param reason string? Kick reason message
@@ -169,52 +153,19 @@ end
 ---@return boolean isServer True if running as server
 ---@usage if IsServer() then ... end
 function IsServer()
-    local success, result = pcall(net.is_server)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to check server status: " .. tostring(result),
-            "IsServer"
-        )
-        return false
+    -- Prefer the official DCS API when available
+    if DCS and type(DCS.isServer) == "function" then
+        local successDcs, resultDcs = pcall(DCS.isServer)
+        if not successDcs then
+            _HarnessInternal.log.error(
+                "Failed to check server status via DCS.isServer: " .. tostring(resultDcs),
+                "IsServer"
+            )
+            return false
+        end
+        return resultDcs == true
     end
-
-    return result == true
-end
-
---- Check if running in multiplayer
----@return boolean isMultiplayer True if in multiplayer
----@usage if IsMultiplayer() then ... end
-function IsMultiplayer()
-    local success, result = pcall(net.is_multiplayer)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to check multiplayer status: " .. tostring(result),
-            "IsMultiplayer"
-        )
-        return false
-    end
-
-    return result == true
-end
-
---- Pause the server
----@param paused boolean True to pause, false to unpause
----@return boolean success True if pause state was changed
----@usage PauseServer(true)
-function PauseServer(paused)
-    if type(paused) ~= "boolean" then
-        _HarnessInternal.log.error("PauseServer requires boolean parameter", "PauseServer")
-        return false
-    end
-
-    local success, result = pcall(net.pause, paused)
-    if not success then
-        _HarnessInternal.log.error("Failed to pause server: " .. tostring(result), "PauseServer")
-        return false
-    end
-
-    _HarnessInternal.log.info("Server pause state: " .. tostring(paused), "PauseServer")
-    return true
+    return false
 end
 
 --- Load a new mission
@@ -258,18 +209,20 @@ end
 ---@return string? name Mission name or nil on error
 ---@usage local mission = GetMissionName()
 function GetMissionName()
-    local success, name = pcall(net.get_mission_name)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get mission name: " .. tostring(name),
-            "GetMissionName"
-        )
-        return nil
+    if DCS and type(DCS.getMissionName) == "function" then
+        local success, name = pcall(net.dostring_in("gui", "return DCS.getMissionName()"))
+        if not success then
+            _HarnessInternal.log.error(
+                "Failed to get mission name: " .. tostring(name),
+                "GetMissionName"
+            )
+            return nil
+        end
+        return name
     end
 
-    return name
+    return nil
 end
-
 --- Force player to slot
 ---@param playerId number Player ID
 ---@param side number Coalition side (0=neutral, 1=red, 2=blue)

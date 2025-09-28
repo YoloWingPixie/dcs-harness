@@ -271,7 +271,7 @@ function SimplifyPolygon(polygon, tolerance)
     tolerance = tolerance or 1.0
 
     -- Douglas-Peucker algorithm
-    local function douglasPeucker(points, start, endIdx, tolerance)
+    local function douglasPeucker(points, start, endIdx, simplifyTolerance)
         if endIdx <= start + 1 then
             return {}
         end
@@ -290,10 +290,10 @@ function SimplifyPolygon(polygon, tolerance)
 
         -- If max distance is greater than tolerance, recursively simplify
         local result = {}
-        if maxDist > tolerance then
+        if maxDist > simplifyTolerance then
             -- Recursive call
-            local left = douglasPeucker(points, start, maxIndex, tolerance)
-            local right = douglasPeucker(points, maxIndex, endIdx, tolerance)
+            local left = douglasPeucker(points, start, maxIndex, simplifyTolerance)
+            local right = douglasPeucker(points, maxIndex, endIdx, simplifyTolerance)
 
             -- Build the result
             for _, p in ipairs(left) do
@@ -511,14 +511,14 @@ function TriangulatePolygon(polygon)
         table.insert(vertices, { x = v.x, y = v.y or 0, z = v.z, index = i })
     end
 
-    local function isEar(vertices, i)
-        local n = #vertices
+    local function isEar(vertexList, i)
+        local n = #vertexList
         local prev = ((i - 2) % n) + 1
         local next = (i % n) + 1
 
-        local p1 = vertices[prev]
-        local p2 = vertices[i]
-        local p3 = vertices[next]
+        local p1 = vertexList[prev]
+        local p2 = vertexList[i]
+        local p3 = vertexList[next]
 
         -- Check if angle is convex
         local cross = (p2.x - p1.x) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.x - p1.x)
@@ -529,7 +529,7 @@ function TriangulatePolygon(polygon)
         -- Check if any other vertex is inside the triangle
         for j = 1, n do
             if j ~= prev and j ~= i and j ~= next then
-                if PointInTriangle2D(vertices[j], p1, p2, p3) then
+                if PointInTriangle2D(vertexList[j], p1, p2, p3) then
                     return false
                 end
             end

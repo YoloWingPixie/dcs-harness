@@ -720,12 +720,6 @@ world = {
     onEvent = function(event)
         return true
     end,
-    addMarkingPanel = function(name, pos)
-        return 1
-    end,
-    removeMarkingPanel = function(id)
-        return true
-    end,
     VolumeType = {
         SEGMENT = 0,
         BOX = 1,

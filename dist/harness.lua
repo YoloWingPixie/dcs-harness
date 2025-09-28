@@ -2555,6 +2555,149 @@ end
     This module provides validated wrapper functions for DCS coalition operations,
     including country queries, group management, and unit spawning.
 ]]
+--- Build a unit entry for use in GroupSpawnData
+--- @param typeName string DCS unit type name (e.g., "F-15C", "M-1 Abrams")
+--- @param unitName string Unique unit name
+--- @param posX number 2D map X coordinate (meters)
+--- @param posY number 2D map Y coordinate (meters)
+--- @param altitude number Altitude in meters AGL/MSL per alt_type
+--- @param heading number Heading in radians (0 = east, math.pi/2 = north)
+--- @param opts table|nil Optional overrides: { skill, payload, callsign, onboard_num, alt_type, psi }
+--- @return table|nil unit Unit table suitable for GroupSpawnData or nil on error
+function BuildUnitEntry(typeName, unitName, posX, posY, altitude, heading, opts)
+    if type(typeName) ~= "string" or type(unitName) ~= "string" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires string typeName and unitName",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+    if type(posX) ~= "number" or type(posY) ~= "number" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires numeric posX and posY",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+    if type(altitude) ~= "number" or type(heading) ~= "number" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires numeric altitude and heading",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+
+    local options = opts or {}
+
+    local unit = {
+        type = typeName,
+        skill = options.skill or (AI and AI.Skill and AI.Skill.AVERAGE) or "Average",
+        y = posY,
+        x = posX,
+        alt = altitude,
+        heading = heading,
+        payload = options.payload or {},
+        name = unitName,
+        alt_type = options.alt_type or "BARO",
+        callsign = options.callsign,
+        psi = options.psi or 0,
+        onboard_num = options.onboard_num,
+    }
+
+    return unit
+end
+
+--- Build a standard Turning Point waypoint
+--- @param x number 2D map X coordinate (meters)
+--- @param y number 2D map Y coordinate (meters)
+--- @param altitude number Altitude in meters
+--- @param speed number Speed in m/s
+--- @param tasks table|nil Optional array of task entries to attach (ComboTask)
+--- @return table waypoint Waypoint table
+function BuildWaypoint(x, y, altitude, speed, tasks)
+    local wp = {
+        x = x,
+        y = altitude,
+        z = y,
+        action = "Turning Point",
+        speed = speed,
+        type = "Turning Point",
+        ETA = 0,
+        ETA_locked = false,
+        formation_template = "",
+        alt = altitude,
+        alt_type = "BARO",
+        speed_locked = true,
+        task = { id = "ComboTask", params = { tasks = {} } },
+    }
+
+    if tasks and type(tasks) == "table" then
+        for _, t in ipairs(tasks) do
+            wp.task.params.tasks[#wp.task.params.tasks + 1] = t
+        end
+    end
+
+    return wp
+end
+
+--- Build a route table for GroupSpawnData
+--- @param waypoints table Array of waypoint tables (from BuildWaypoint or compatible)
+--- @param opts table|nil Optional overrides: none currently, reserved for future
+--- @return table route Route table with points array
+function BuildRoute(waypoints, opts)
+    if type(waypoints) ~= "table" then
+        _HarnessInternal.log.error("BuildRoute requires waypoints array", "Coalition.BuildRoute")
+        return { points = {} }
+    end
+    return { points = waypoints }
+end
+
+--- Build a GroupSpawnData table
+--- @param groupName string Unique group name
+--- @param task string Group task (e.g., "CAP", "Ground Nothing")
+--- @param units table Array of unit tables (from BuildUnitEntry or compatible)
+--- @param routePoints table|nil Array of waypoint tables; if nil, an empty route is used
+--- @param opts table|nil Optional overrides: { visible, taskSelected, communication, start_time, frequency, modulation }
+--- @return table|nil groupData GroupSpawnData or nil on error
+function BuildGroupData(groupName, task, units, routePoints, opts)
+    if type(groupName) ~= "string" or groupName == "" then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty string groupName",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+    if type(task) ~= "string" or task == "" then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty string task",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+    if type(units) ~= "table" or #units == 0 then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty units array",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+
+    local options = opts or {}
+    local groupData = {
+        visible = options.visible == nil and false or not not options.visible,
+        taskSelected = options.taskSelected == nil and true or not not options.taskSelected,
+        task = task,
+        modulation = options.modulation or 0,
+        units = units,
+        name = groupName,
+        communication = options.communication == nil and true or not not options.communication,
+        start_time = options.start_time or 0,
+        route = { points = routePoints or {} },
+        frequency = options.frequency,
+    }
+
+    return groupData
+end
 --- Get the coalition ID for a given country
 --- @param countryId number The country ID to query
 --- @return number|nil coalitionId The coalition ID (0=neutral, 1=red, 2=blue) or nil on error
@@ -3855,6 +3998,226 @@ function IsControllerTargetDetected(controller, target, detectionType)
     end
 
     return result
+end
+
+--- Build an AI.Option task entry for Air domain
+--- @param optionId number AI.Option.Air.id.* value
+--- @param value number|boolean Enum or boolean as required by option
+--- @return table taskEntry Option task entry suitable for waypoint ComboTask
+function BuildAirOptionTask(optionId, value)
+    return {
+        id = "Option",
+        params = {
+            enable = true,
+            name = optionId,
+            value = value,
+            variantIndex = 0,
+        },
+    }
+end
+
+--- Build an AI.Option task entry for Ground domain
+--- @param optionId number AI.Option.Ground.id.* value
+--- @param value number|boolean Enum or boolean as required by option
+--- @return table taskEntry Option task entry suitable for waypoint ComboTask
+function BuildGroundOptionTask(optionId, value)
+    return {
+        id = "Option",
+        params = {
+            enable = true,
+            name = optionId,
+            value = value,
+            variantIndex = 0,
+        },
+    }
+end
+
+--- Build an AI.Option task entry for Naval domain
+--- @param optionId number AI.Option.Naval.id.* value
+--- @param value number|boolean Enum or boolean as required by option
+--- @return table taskEntry Option task entry suitable for waypoint ComboTask
+function BuildNavalOptionTask(optionId, value)
+    return {
+        id = "Option",
+        params = {
+            enable = true,
+            name = optionId,
+            value = value,
+            variantIndex = 0,
+        },
+    }
+end
+
+--- Build a standard set of Air AI options as an array of Option tasks
+--- @param overrides table|nil Optional overrides by key (e.g., { ROE = "WEAPON_FREE", RADAR_USING = 1 })
+--- @return table tasks Array of Option task tables
+function BuildAirOptions(overrides)
+    local opt = AI and AI.Option and AI.Option.Air
+    local val = opt and opt.val or {}
+    local id = opt and opt.id or {}
+    local o = overrides or {}
+
+    local function mapVal(tbl, key, v)
+        if tbl and tbl[key] and type(v) == "string" then
+            local upper = string.upper(v)
+            return tbl[key][upper]
+        end
+        return v
+    end
+
+    local tasks = {}
+    -- ROE
+    local roe = mapVal(val, "ROE", o.ROE) or (val.ROE and val.ROE.RETURN_FIRE) or 3
+    if id and id.ROE then
+        table.insert(tasks, BuildAirOptionTask(id.ROE, roe))
+    end
+    -- Reaction on threat
+    local rot = mapVal(val, "REACTION_ON_THREAT", o.REACTION_ON_THREAT)
+        or (val.REACTION_ON_THREAT and val.REACTION_ON_THREAT.EVADE_FIRE)
+        or 2
+    if id and id.REACTION_ON_THREAT then
+        table.insert(tasks, BuildAirOptionTask(id.REACTION_ON_THREAT, rot))
+    end
+    -- Radar using
+    local radar = o.RADAR_USING or 1
+    if id and id.RADAR_USING then
+        table.insert(tasks, BuildAirOptionTask(id.RADAR_USING, radar))
+    end
+    -- Flare using
+    local flare = o.FLARE_USING or 1
+    if id and id.FLARE_USING then
+        table.insert(tasks, BuildAirOptionTask(id.FLARE_USING, flare))
+    end
+    -- Formation (leave nil unless provided)
+    if o.FORMATION and id and id.FORMATION then
+        table.insert(tasks, BuildAirOptionTask(id.FORMATION, o.FORMATION))
+    end
+    -- RTB policies
+    local rtbBingo = (o.RTB_ON_BINGO ~= nil) and o.RTB_ON_BINGO or true
+    if id and id.RTB_ON_BINGO then
+        table.insert(tasks, BuildAirOptionTask(id.RTB_ON_BINGO, rtbBingo))
+    end
+    local rtbAmmo = (o.RTB_ON_OUT_OF_AMMO ~= nil) and o.RTB_ON_OUT_OF_AMMO or true
+    if id and id.RTB_ON_OUT_OF_AMMO then
+        table.insert(tasks, BuildAirOptionTask(id.RTB_ON_OUT_OF_AMMO, rtbAmmo))
+    end
+    -- Silence/ECM
+    local silence = (o.SILENCE ~= nil) and o.SILENCE or false
+    if id and id.SILENCE then
+        table.insert(tasks, BuildAirOptionTask(id.SILENCE, silence))
+    end
+    local ecm = o.ECM_USING or 0
+    if id and id.ECM_USING then
+        table.insert(tasks, BuildAirOptionTask(id.ECM_USING, ecm))
+    end
+    -- Alarm state (optional for Air)
+    if o.ALARM_STATE and id and id.ALARM_STATE then
+        local alarm = mapVal(val, "ALARM_STATE", o.ALARM_STATE)
+        if alarm ~= nil then
+            table.insert(tasks, BuildAirOptionTask(id.ALARM_STATE, alarm))
+        end
+    end
+    -- Prohibits
+    if id and id.PROHIBIT_AA then
+        table.insert(
+            tasks,
+            BuildAirOptionTask(id.PROHIBIT_AA, (o.PROHIBIT_AA ~= nil) and o.PROHIBIT_AA or false)
+        )
+    end
+    if id and id.PROHIBIT_AB then
+        table.insert(
+            tasks,
+            BuildAirOptionTask(id.PROHIBIT_AB, (o.PROHIBIT_AB ~= nil) and o.PROHIBIT_AB or false)
+        )
+    end
+    if id and id.PROHIBIT_JETT then
+        table.insert(
+            tasks,
+            BuildAirOptionTask(
+                id.PROHIBIT_JETT,
+                (o.PROHIBIT_JETT ~= nil) and o.PROHIBIT_JETT or false
+            )
+        )
+    end
+    if id and id.PROHIBIT_AG then
+        table.insert(
+            tasks,
+            BuildAirOptionTask(id.PROHIBIT_AG, (o.PROHIBIT_AG ~= nil) and o.PROHIBIT_AG or false)
+        )
+    end
+    -- Missile attack policy
+    local ma = mapVal(val, "MISSILE_ATTACK", o.MISSILE_ATTACK)
+        or (val.MISSILE_ATTACK and val.MISSILE_ATTACK.NEZ_RANGE)
+        or 1
+    if id and id.MISSILE_ATTACK then
+        table.insert(tasks, BuildAirOptionTask(id.MISSILE_ATTACK, ma))
+    end
+
+    return tasks
+end
+
+--- Build a standard set of Ground AI options as an array of Option tasks
+--- @param overrides table|nil Optional overrides (e.g., { ROE = "OPEN_FIRE", ALARM_STATE = "GREEN", DISPERSE_ON_ATTACK = 120 })
+--- @return table tasks Array of Option task tables
+function BuildGroundOptions(overrides)
+    local opt = AI and AI.Option and AI.Option.Ground
+    local val = opt and opt.val or {}
+    local id = opt and opt.id or {}
+    local o = overrides or {}
+
+    local function mapVal(tbl, key, v)
+        if tbl and tbl[key] and type(v) == "string" then
+            local upper = string.upper(v)
+            return tbl[key][upper]
+        end
+        return v
+    end
+
+    local tasks = {}
+    -- ROE
+    local roe = mapVal(val, "ROE", o.ROE) or (val.ROE and val.ROE.RETURN_FIRE) or 3
+    if id and id.ROE then
+        table.insert(tasks, BuildGroundOptionTask(id.ROE, roe))
+    end
+    -- Alarm State
+    local alarm = mapVal(val, "ALARM_STATE", o.ALARM_STATE)
+        or (val.ALARM_STATE and val.ALARM_STATE.AUTO)
+        or 0
+    if id and id.ALARM_STATE then
+        table.insert(tasks, BuildGroundOptionTask(id.ALARM_STATE, alarm))
+    end
+    -- Disperse on attack (seconds)
+    local disperse = o.DISPERSE_ON_ATTACK or 0
+    if id and id.DISPERSE_ON_ATTACK then
+        table.insert(tasks, BuildGroundOptionTask(id.DISPERSE_ON_ATTACK, disperse))
+    end
+
+    return tasks
+end
+
+--- Build a standard set of Naval AI options as an array of Option tasks
+--- @param overrides table|nil Optional overrides (e.g., { ROE = "OPEN_FIRE" })
+--- @return table tasks Array of Option task tables
+function BuildNavalOptions(overrides)
+    local opt = AI and AI.Option and AI.Option.Naval
+    local val = opt and opt.val or {}
+    local id = opt and opt.id or {}
+    local o = overrides or {}
+
+    local function mapVal(tbl, key, v)
+        if tbl and tbl[key] and type(v) == "string" then
+            local upper = string.upper(v)
+            return tbl[key][upper]
+        end
+        return v
+    end
+
+    local tasks = {}
+    local roe = mapVal(val, "ROE", o.ROE) or (val.ROE and val.ROE.RETURN_FIRE) or 3
+    if id and id.ROE then
+        table.insert(tasks, BuildNavalOptionTask(id.ROE, roe))
+    end
+    return tasks
 end
 
 --- Creates an orbit task for aircraft

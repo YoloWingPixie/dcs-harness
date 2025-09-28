@@ -3,3 +3,4 @@ std = "tools/selene/dcs"
 [lints]
 multiple_statements = "allow"
 unscoped_variables = "allow"
+unused_variable = "allow"

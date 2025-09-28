@@ -245,7 +245,7 @@ def write_output(config: dict, order: list[Path]) -> None:
         _msg = (proj_name or "") + (f": {proj_version}" if proj_version else "") + " loading..."
         _msg = _msg.replace("\\", "\\\\").replace("\"", "\\\"")
         parts.append(
-            f"if log and log.info then log.info(\"{_msg}\", \"Build\") end\n\n"
+            f"if env and env.info then env.info(\"{_msg}\", true) end\n\n"
         )
     # Prepend files (if present), in order
     prepend_list = config.get("prepend")

@@ -681,10 +681,10 @@ function GetUnitController(unit)
 
     -- Try to get unit name for cache key
     local unitName = nil
-    local success, name = pcall(function()
+    local ok_get_name, name = pcall(function()
         return unit:getName()
     end)
-    if success and name then
+    if ok_get_name and name then
         unitName = name
 
         -- Check cache first
@@ -696,10 +696,10 @@ function GetUnitController(unit)
     end
 
     -- Get controller from DCS API
-    local success, controller = pcall(function()
+    local ok_get_controller, controller = pcall(function()
         return unit:getController()
     end)
-    if not success then
+    if not ok_get_controller then
         _HarnessInternal.log.error(
             "Failed to get unit controller: " .. tostring(controller),
             "GetUnitController"
@@ -712,20 +712,20 @@ function GetUnitController(unit)
         local info = { unitNames = { unitName } }
 
         -- Attempt to capture owning group name
-        local okGrp, grpName = pcall(function()
+        local ok_get_group_name, grpName = pcall(function()
             local grp = unit:getGroup()
             return grp and grp.getName and grp:getName() or nil
         end)
-        if okGrp and grpName then
+        if ok_get_group_name and grpName then
             info.groupName = grpName
         end
 
         -- For air units, try to include all unit names from the group
-        local okCat, cat = pcall(function()
+        local ok_get_category, cat = pcall(function()
             return unit.getCategory and unit:getCategory() or nil
         end)
         -- Infer domain from unit category
-        if okCat then
+        if ok_get_category then
             if cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER then
                 info.domain = "Air"
             elseif cat == Unit.Category.GROUND_UNIT then
@@ -735,11 +735,11 @@ function GetUnitController(unit)
             end
         end
         if
-            okCat
+            ok_get_category
             and (cat == Unit.Category.AIRPLANE or cat == Unit.Category.HELICOPTER)
             and info.groupName
         then
-            local okUnits, names = pcall(function()
+            local ok_get_units, names = pcall(function()
                 local grp = unit:getGroup()
                 if grp and grp.getUnits then
                     local list = grp:getUnits()
@@ -747,10 +747,10 @@ function GetUnitController(unit)
                         local acc = {}
                         for i = 1, #list do
                             local u = list[i]
-                            local okN, nm = pcall(function()
+                            local ok_get_unit_name, nm = pcall(function()
                                 return u:getName()
                             end)
-                            if okN and nm then
+                            if ok_get_unit_name and nm then
                                 acc[#acc + 1] = nm
                             end
                         end
@@ -759,7 +759,7 @@ function GetUnitController(unit)
                 end
                 return nil
             end)
-            if okUnits and names and #names > 0 then
+            if ok_get_units and names and #names > 0 then
                 info.unitNames = names
             end
         end

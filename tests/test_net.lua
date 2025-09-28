@@ -5,6 +5,8 @@ TestNet = {}
 function TestNet:setUp()
     -- Save original net if it exists
     self.originalNet = _G.net
+    -- Save original DCS if it exists
+    self.originalDCS = _G.DCS
 
     -- Mock net API
     _G.net = {
@@ -71,6 +73,8 @@ end
 function TestNet:tearDown()
     -- Restore original net
     _G.net = self.originalNet
+    -- Restore original DCS
+    _G.DCS = self.originalDCS
 end
 
 function TestNet:testSendChat()
@@ -162,6 +166,43 @@ function TestNet:testServerChecks()
 
     lu.assertFalse(IsServer())
     lu.assertFalse(IsMultiplayer())
+end
+
+function TestNet:when_DCS_is_present_should_use_DCS_isServer_result()
+    -- Ensure DCS takes precedence over net
+    _G.DCS = {
+        isServer = function()
+            return true
+        end,
+    }
+
+    -- Set net fallback to false to verify DCS is preferred
+    net.is_server = function()
+        return false
+    end
+
+    lu.assertTrue(IsServer())
+
+    -- Flip DCS result and verify it is used
+    DCS.isServer = function()
+        return false
+    end
+    lu.assertFalse(IsServer())
+end
+
+function TestNet:when_DCS_isServer_errors_should_return_false()
+    _G.DCS = {
+        isServer = function()
+            error("boom")
+        end,
+    }
+
+    -- Even if net says true, error in DCS path should cause false
+    net.is_server = function()
+        return true
+    end
+
+    lu.assertFalse(IsServer())
 end
 
 function TestNet:testPauseServer()

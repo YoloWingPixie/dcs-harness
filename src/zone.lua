@@ -188,7 +188,7 @@ end
 ---@param points table Array of points with x, z coordinates
 ---@return table center Center point of bounding sphere
 ---@return number radius Radius of bounding sphere
-local function CalculateBoundingSphere(points)
+local function CalculateZoneBoundingSphere(points)
     if not points or #points == 0 then
         return { x = 0, y = 0, z = 0 }, 0
     end
@@ -258,7 +258,7 @@ function GetUnitsInZone(zoneName, coalitionId)
         searchVolume = CreateSphereVolume(zone.center, zone.radius * 1.5)
     elseif zone.type == "polygon" and zone.points and #zone.points >= 3 then
         -- For polygon zones, calculate bounding sphere with 1.5x radius
-        local center, radius = CalculateBoundingSphere(zone.points)
+        local center, radius = CalculateZoneBoundingSphere(zone.points)
         searchVolume = CreateSphereVolume(center, radius * 1.5)
     else
         return {}

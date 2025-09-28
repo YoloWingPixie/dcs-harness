@@ -59,7 +59,10 @@ def stamp_version(dist_file: Path, version: str) -> None:
     # Case 2: Inject near the top
     lines = text.splitlines(True)
     insert_idx = 0
-    if lines and lines[0].lstrip().startswith("if log and log.info"):
+    if lines and (
+        lines[0].lstrip().startswith("if log and log.info")
+        or lines[0].lstrip().startswith("if env and env.info")
+    ):
         insert_idx = 1
     lines.insert(insert_idx, f'HARNESS_VERSION = "{version}"\n')
     dist_file.write_text("".join(lines), encoding="utf-8")

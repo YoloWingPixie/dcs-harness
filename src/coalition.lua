@@ -127,16 +127,20 @@ function GetCoalitionCountries(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getCountries, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition countries: " .. tostring(result),
-            "Coalition.GetCoalitionCountries"
-        )
-        return nil
+    -- Derive based on documented APIs: iterate country.id and match coalition
+    local countries = {}
+    if not country or not country.id then
+        return countries
     end
-
-    return result
+    for _, id in pairs(country.id) do
+        if type(id) == "number" then
+            local ok, side = pcall(coalition.getCountryCoalition, id)
+            if ok and side == coalitionId then
+                table.insert(countries, id)
+            end
+        end
+    end
+    return countries
 end
 
 --- Get all static objects belonging to a coalition
@@ -304,11 +308,12 @@ function GetCoalitionBullseye(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getBullseye, coalitionId)
+    -- Authoritative API name is getMainRefPoint (bullseye)
+    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get coalition bullseye: " .. tostring(result),
-            "Coalition.GetBullseye"
+            "Coalition.GetCoalitionBullseye"
         )
         return nil
     end
@@ -372,7 +377,16 @@ function RemoveCoalitionRefPoint(coalitionId, refPointId)
         return nil
     end
 
-    local success, result = pcall(coalition.removeRefPoint, coalitionId, refPointId)
+    local remover = rawget(coalition, "removeRefPoint")
+    if type(remover) ~= "function" then
+        _HarnessInternal.log.error(
+            "coalition.removeRefPoint not available",
+            "Coalition.RemoveRefPoint"
+        )
+        return nil
+    end
+
+    local success, result = pcall(remover, coalitionId, refPointId)
     if not success then
         _HarnessInternal.log.error(
             "Failed to remove coalition reference point: " .. tostring(result),

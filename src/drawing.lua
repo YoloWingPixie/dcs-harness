@@ -364,7 +364,7 @@ end
 ---@param points table Array of points with x, z coordinates
 ---@return table center Center point of bounding sphere
 ---@return number radius Radius of bounding sphere
-local function CalculateBoundingSphere(points)
+local function CalculateDrawingBoundingSphere(points)
     if not points or #points == 0 then
         return { x = 0, y = 0, z = 0 }, 0
     end
@@ -429,7 +429,7 @@ function GetUnitsInDrawing(drawingName, coalitionId)
             searchVolume = CreateSphereVolume(drawing.center, radius)
         elseif drawing.points and #drawing.points >= 3 then
             -- For polygon drawings, calculate bounding sphere with 1.5x radius
-            local center, radius = CalculateBoundingSphere(drawing.points)
+            local center, radius = CalculateDrawingBoundingSphere(drawing.points)
             searchVolume = CreateSphereVolume(center, radius * 1.5)
         else
             return {}
@@ -441,7 +441,7 @@ function GetUnitsInDrawing(drawingName, coalitionId)
         and #drawing.points >= 3
     then
         -- Closed lines form polygons
-        local center, radius = CalculateBoundingSphere(drawing.points)
+        local center, radius = CalculateDrawingBoundingSphere(drawing.points)
         searchVolume = CreateSphereVolume(center, radius * 1.5)
     else
         return {}

@@ -456,8 +456,8 @@ end
 ---@usage local s = EncodeJson({a=1})
 function EncodeJson(value)
     -- Prefer DCS-provided implementation if available
-    if _G.net and type(_G.net.lua2json) == "function" then
-        local ok, res = pcall(_G.net.lua2json, value)
+    if net and type(net.lua2json) == "function" then
+        local ok, res = pcall(net.lua2json, value)
         if ok then
             return res
         end
@@ -526,8 +526,8 @@ function DecodeJson(json)
     end
 
     -- Prefer DCS-provided implementation if available
-    if _G.net and type(_G.net.json2lua) == "function" then
-        local ok, res = pcall(_G.net.json2lua, json)
+    if net and type(net.json2lua) == "function" then
+        local ok, res = pcall(net.json2lua, json)
         if ok then
             return res
         end
@@ -800,9 +800,7 @@ function CircuitBreaker(func, options)
                     .. tostring(err),
                 "CircuitBreaker"
             )
-            if trial then
-                transitionToOpen(now)
-            elseif state.consecutiveFailures >= failureThreshold then
+            if trial or state.consecutiveFailures >= failureThreshold then
                 transitionToOpen(now)
             end
             return nil

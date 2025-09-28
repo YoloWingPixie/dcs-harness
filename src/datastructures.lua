@@ -901,3 +901,151 @@ function PriorityQueue(compareFunc)
 
     return pqueue
 end
+
+-- RingBuffer Implementation (fixed-capacity circular buffer)
+--- Create a new RingBuffer
+---@param capacity number Buffer capacity (> 0)
+---@param overwrite boolean? Overwrite oldest when full (default: true)
+---@return table ring New ring buffer instance
+---@usage local rb = RingBuffer(3)
+function RingBuffer(capacity, overwrite)
+    if type(capacity) ~= "number" or capacity < 1 then
+        _HarnessInternal.log.error(
+            "RingBuffer capacity must be positive number",
+            "DataStructures.RingBuffer"
+        )
+        capacity = 1
+    end
+
+    local ring = {
+        _items = {},
+        _capacity = math.floor(capacity),
+        _size = 0,
+        _head = 1, -- index of logical front
+        _tail = 0, -- index of last inserted
+        _overwrite = overwrite ~= false, -- default true
+    }
+
+    local function nextIndex(index)
+        if index >= ring._capacity then
+            return 1
+        end
+        return index + 1
+    end
+
+    --- Add item to buffer tail
+    ---@param item any Item to push
+    ---@return boolean success True if inserted (or overwritten)
+    ---@return any? evicted Evicted item if overwrite occurred
+    ---@usage local ok, evicted = ring:push(value)
+    function ring:push(item)
+        if self._size < self._capacity then
+            self._tail = nextIndex(self._tail)
+            self._items[self._tail] = item
+            self._size = self._size + 1
+            return true, nil
+        end
+
+        if self._overwrite then
+            local evicted = self._items[self._head]
+            self._head = nextIndex(self._head)
+            self._tail = nextIndex(self._tail)
+            self._items[self._tail] = item
+            return true, evicted
+        end
+
+        return false, nil
+    end
+
+    --- Remove and return item from buffer head
+    ---@return any? item Popped item or nil if empty
+    ---@usage local item = ring:pop()
+    function ring:pop()
+        if self:isEmpty() then
+            return nil
+        end
+
+        local item = self._items[self._head]
+        self._items[self._head] = nil
+        self._head = nextIndex(self._head)
+        self._size = self._size - 1
+
+        if self._size == 0 then
+            -- reset indices for cleanliness
+            self._head = 1
+            self._tail = 0
+        end
+
+        return item
+    end
+
+    --- Peek at head item without removing
+    ---@return any? item Head item or nil if empty
+    ---@usage local front = ring:peek()
+    function ring:peek()
+        if self:isEmpty() then
+            return nil
+        end
+        return self._items[self._head]
+    end
+
+    --- Get logical item by 1-based index (1 = head)
+    ---@param index number 1-based index into buffer contents
+    ---@return any? item Item at index or nil
+    function ring:get(index)
+        if type(index) ~= "number" or index < 1 or index > self._size then
+            return nil
+        end
+        local pos = self._head
+        for _ = 2, index do
+            pos = nextIndex(pos)
+        end
+        return self._items[pos]
+    end
+
+    --- Convert contents to array (head to tail order)
+    ---@return table items Array of items
+    function ring:toArray()
+        local arr = {}
+        local pos = self._head
+        for i = 1, self._size do
+            arr[i] = self._items[pos]
+            pos = nextIndex(pos)
+        end
+        return arr
+    end
+
+    --- Check if buffer is empty
+    ---@return boolean empty True if empty
+    function ring:isEmpty()
+        return self._size == 0
+    end
+
+    --- Check if buffer is full
+    ---@return boolean full True if full
+    function ring:isFull()
+        return self._size == self._capacity
+    end
+
+    --- Current number of items
+    ---@return number size Number of items
+    function ring:size()
+        return self._size
+    end
+
+    --- Buffer capacity
+    ---@return number capacity Capacity
+    function ring:capacity()
+        return self._capacity
+    end
+
+    --- Clear all items
+    function ring:clear()
+        self._items = {}
+        self._size = 0
+        self._head = 1
+        self._tail = 0
+    end
+
+    return ring
+end

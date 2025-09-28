@@ -653,3 +653,309 @@ function ConvexHull2D(points)
 
     return hull
 end
+
+-- ==================== Closest Point of Approach (CPA) Utilities ====================
+
+--- Estimate time of closest approach between a moving point and a fixed point (2D)
+---@param pos table Vec2/Vec3 current position {x,z}
+---@param vel table Vec2/Vec3 velocity vector {x,z} meters/second
+---@param target table Vec2/Vec3 target point {x,z}
+---@return number tStar Time in seconds to closest approach (>= 0)
+---@return number distanceAtT Minimum distance at tStar (meters)
+---@return table pointAtT Pos at tStar
+function EstimateCPAToPoint(pos, vel, target)
+    if not pos or not vel or not target then
+        _HarnessInternal.log.error(
+            "EstimateCPAToPoint requires pos, vel, target",
+            "GeoMath.CPA.Point"
+        )
+        return 0, math.huge, pos
+    end
+    local rx = ((pos and pos.x) or 0) - ((target and target.x) or 0)
+    local rz = ((pos and pos.z) or 0) - ((target and target.z) or 0)
+    local vx = (vel and vel.x) or 0
+    local vz = (vel and vel.z) or 0
+    local v2 = vx * vx + vz * vz
+    local tStar = 0
+    if v2 > 1e-9 then
+        tStar = math.max(0, -((rx * vx + rz * vz) / v2))
+    end
+    local px = ((pos and pos.x) or 0) + vx * tStar
+    local pz = ((pos and pos.z) or 0) + vz * tStar
+    local dx = px - ((target and target.x) or 0)
+    local dz = pz - ((target and target.z) or 0)
+    local d = math.sqrt(dx * dx + dz * dz)
+    return tStar, d, { x = px, y = pos.y or 0, z = pz }
+end
+
+--- Estimate CPA to a circle region
+---@param pos table {x,z}
+---@param vel table {x,z}
+---@param center table {x,z}
+---@param radius number radius meters
+---@return number tEntry Time when path first reaches minimum distance
+---@return number distanceAtT Minimum distance at tEntry
+---@return table pointAtT Position at tEntry
+function EstimateCPAToCircle(pos, vel, center, radius)
+    local r = radius or 0
+    local vx = (vel and vel.x) or 0
+    local vz = (vel and vel.z) or 0
+    local fx = ((pos and pos.x) or 0) - ((center and center.x) or 0)
+    local fz = ((pos and pos.z) or 0) - ((center and center.z) or 0)
+    local a = vx * vx + vz * vz
+    local b = 2 * (fx * vx + fz * vz)
+    local c = (fx * fx + fz * fz) - r * r
+
+    if a > 1e-12 then
+        local disc = b * b - 4 * a * c
+        if disc >= 0 then
+            local sqrtDisc = math.sqrt(disc)
+            local t1 = (-b - sqrtDisc) / (2 * a)
+            local t2 = (-b + sqrtDisc) / (2 * a)
+            local tEntry = math.huge
+            if t1 >= 0 then
+                tEntry = math.min(tEntry, t1)
+            end
+            if t2 >= 0 then
+                tEntry = math.min(tEntry, t2)
+            end
+            if tEntry < math.huge then
+                local px = (((pos and pos.x) or 0) + vx * tEntry)
+                local pz = (((pos and pos.z) or 0) + vz * tEntry)
+                return tEntry, 0, { x = px, y = (pos and pos.y) or 0, z = pz }
+            end
+        end
+    end
+
+    -- Fallback to CPA to center if no intersection
+    local tStar, d, p = EstimateCPAToPoint(pos, vel, center)
+    return tStar, math.max(0, d - r), p
+end
+
+--- Estimate CPA to a polygon (2D). Approximates by CPA to edges and vertices.
+---@param pos table {x,z}
+---@param vel table {x,z}
+---@param polygon table array of {x,z}
+---@return number tStar Time of closest approach
+---@return number distanceAtT Minimum distance to polygon boundary
+---@return table pointAtT Position at tStar
+function EstimateCPAToPolygon(pos, vel, polygon)
+    if not polygon or #polygon == 0 then
+        return EstimateCPAToPoint(pos, vel, pos)
+    end
+    local bestT, bestD, bestP = math.huge, math.huge, pos
+    -- Check vertices
+    for i = 1, #polygon do
+        local t, d, p = EstimateCPAToPoint(pos, vel, polygon[i])
+        if d < bestD or (math.abs(d - bestD) < 1e-6 and t < bestT) then
+            bestD, bestT, bestP = d, t, p
+        end
+    end
+    -- Check edges by projecting CPA point onto segments at time tStar
+    -- Sample a few times near bestT to improve robustness
+    local samples = { math.max(0, bestT - 5), bestT, bestT + 5 }
+    for _, t in ipairs(samples) do
+        local px = (((pos and pos.x) or 0) + (((vel and vel.x) or 0) * t))
+        local pz = (((pos and pos.z) or 0) + (((vel and vel.z) or 0) * t))
+        for i = 1, #polygon do
+            local j = (i % #polygon) + 1
+            local ax, az = (polygon[i].x or 0), (polygon[i].z or 0)
+            local bx, bz = (polygon[j].x or 0), (polygon[j].z or 0)
+            local abx, abz = bx - ax, bz - az
+            local apx, apz = px - ax, pz - az
+            local ab2 = abx * abx + abz * abz
+            local u = 0
+            if ab2 > 1e-9 then
+                u = math.max(0, math.min(1, (apx * abx + apz * abz) / ab2))
+            end
+            local cx = ax + u * abx
+            local cz = az + u * abz
+            local dx = px - cx
+            local dz = pz - cz
+            local d = math.sqrt(dx * dx + dz * dz)
+            if d < bestD or (math.abs(d - bestD) < 1e-6 and t < bestT) then
+                bestD, bestT, bestP = d, t, { x = px, y = (pos and pos.y) or 0, z = pz }
+            end
+        end
+    end
+    return bestT, bestD, bestP
+end
+
+--- Two-body closest point of approach (relative motion, 2D)
+---@param posA table {x,z}
+---@param velA table {x,z}
+---@param posB table {x,z}
+---@param velB table {x,z}
+---@return number tStar Time of closest approach (>=0)
+---@return number distanceAtT Distance at tStar
+---@return table aAtT Position A at tStar
+---@return table bAtT Position B at tStar
+function EstimateTwoBodyCPA(posA, velA, posB, velB)
+    if not posA or not velA or not posB or not velB then
+        _HarnessInternal.log.error(
+            "EstimateTwoBodyCPA requires posA, velA, posB, velB",
+            "GeoMath.CPA.TwoBody"
+        )
+        return 0, math.huge, posA, posB
+    end
+    local rx = (((posA and posA.x) or 0) - ((posB and posB.x) or 0))
+    local rz = (((posA and posA.z) or 0) - ((posB and posB.z) or 0))
+    local vx = (((velA and velA.x) or 0) - ((velB and velB.x) or 0))
+    local vz = (((velA and velA.z) or 0) - ((velB and velB.z) or 0))
+    local v2 = vx * vx + vz * vz
+    local tStar = 0
+    if v2 > 1e-9 then
+        tStar = math.max(0, -((rx * vx + rz * vz) / v2))
+    end
+    local aAtT = {
+        x = (((posA and posA.x) or 0) + (((velA and velA.x) or 0) * tStar)),
+        y = (posA and posA.y) or 0,
+        z = (((posA and posA.z) or 0) + (((velA and velA.z) or 0) * tStar)),
+    }
+    local bAtT = {
+        x = (((posB and posB.x) or 0) + (((velB and velB.x) or 0) * tStar)),
+        y = (posB and posB.y) or 0,
+        z = (((posB and posB.z) or 0) + (((velB and velB.z) or 0) * tStar)),
+    }
+    local dx = aAtT.x - bAtT.x
+    local dz = aAtT.z - bAtT.z
+    local d = math.sqrt(dx * dx + dz * dz)
+    return tStar, d, aAtT, bAtT
+end
+
+-- ==================== Intercept Solvers ====================
+
+--- Solve intercept for a pursuer with fixed speed (2D x/z)
+---@param posA table {x,z} pursuer current position
+---@param speedA number pursuer speed (m/s)
+---@param posB table {x,z} target current position
+---@param velB table {x,z} target velocity (m/s)
+---@return number|nil tIntercept Time to intercept (seconds) or nil if no solution
+---@return table|nil interceptPoint Intercept point {x,y,z} at time t
+---@return table|nil requiredVelocity Required pursuer velocity vector {x,y,z}
+function EstimateInterceptForSpeed(posA, speedA, posB, velB)
+    if not posA or not posB or type(speedA) ~= "number" or not velB then
+        _HarnessInternal.log.error(
+            "EstimateInterceptForSpeed requires posA, speedA, posB, velB",
+            "GeoMath.Intercept"
+        )
+        return nil, nil, nil
+    end
+
+    local rX = ((posB and posB.x) or 0) - ((posA and posA.x) or 0)
+    local rZ = ((posB and posB.z) or 0) - ((posA and posA.z) or 0)
+    local vX = (velB and velB.x) or 0
+    local vZ = (velB and velB.z) or 0
+    local s = speedA or 0
+
+    local a = vX * vX + vZ * vZ - s * s
+    local b = 2 * (rX * vX + rZ * vZ)
+    local c = rX * rX + rZ * rZ
+
+    local t = nil
+    local eps = 1e-9
+    if math.abs(a) < eps then
+        -- Linear case: speeds nearly equal => 2*(r·v)t + r^2 = 0
+        if math.abs(b) < eps then
+            -- No relative motion; if already colocated, intercept now
+            if c < eps then
+                t = 0
+            else
+                return nil, nil, nil
+            end
+        else
+            t = -c / b
+            if t and t < 0 then
+                return nil, nil, nil
+            end
+        end
+    else
+        local disc = b * b - 4 * a * c
+        if disc < 0 then
+            return nil, nil, nil
+        end
+        local sqrtDisc = math.sqrt(disc)
+        local t1 = (-b - sqrtDisc) / (2 * a)
+        local t2 = (-b + sqrtDisc) / (2 * a)
+        -- choose smallest non-negative
+        local best = math.huge
+        if t1 and t1 >= 0 then
+            best = math.min(best, t1)
+        end
+        if t2 and t2 >= 0 then
+            best = math.min(best, t2)
+        end
+        if best == math.huge then
+            return nil, nil, nil
+        end
+        t = best
+    end
+
+    -- Intercept point and required velocity
+    local interceptX = (((posB and posB.x) or 0) + vX * (t or 0))
+    local interceptZ = (((posB and posB.z) or 0) + vZ * (t or 0))
+    local dx = interceptX - ((posA and posA.x) or 0)
+    local dz = interceptZ - ((posA and posA.z) or 0)
+    local reqVX, reqVZ
+    if (t or 0) > eps then
+        reqVX = dx / t
+        reqVZ = dz / t
+    else
+        reqVX = 0
+        reqVZ = 0
+    end
+    -- Normalize to exact speed to reduce numerical drift
+    local mag = math.sqrt(reqVX * reqVX + reqVZ * reqVZ)
+    if mag > eps and s > 0 then
+        reqVX = reqVX * (s / mag)
+        reqVZ = reqVZ * (s / mag)
+    end
+
+    return t,
+        { x = interceptX, y = (posA and posA.y) or 0, z = interceptZ },
+        { x = reqVX, y = (posA and posA.y) or 0, z = reqVZ }
+end
+
+--- Compute delta-velocity required for A to intercept B at given speed
+---@param posA table {x,z}
+---@param velA table {x,z}
+---@param posB table {x,z}
+---@param velB table {x,z}
+---@param speedA number? If provided, solve using this speed; otherwise use |requiredVelocity|
+---@return table|nil deltaV Vector {x,y,z} to add to velA; nil if no solution
+---@return number|nil tIntercept Time to intercept
+---@return table|nil interceptPoint Intercept position
+---@return table|nil requiredVelocity Velocity vector needed
+function EstimateInterceptDeltaV(posA, velA, posB, velB, speedA)
+    if type(speedA) == "number" then
+        local t, p, reqV = EstimateInterceptForSpeed(posA, speedA, posB, velB)
+        if not t then
+            return nil, nil, nil, nil
+        end
+        local dV = {
+            x = (reqV.x or 0) - ((velA and velA.x) or 0),
+            y = (reqV.y or 0) - ((velA and velA.y) or 0),
+            z = (reqV.z or 0) - ((velA and velA.z) or 0),
+        }
+        return dV, t, p, reqV
+    else
+        -- If speed not provided, derive from solution magnitude
+        local vAx = (velA and velA.x) or 0
+        local vAz = (velA and velA.z) or 0
+        local speedGuess = math.sqrt(vAx * vAx + vAz * vAz)
+        -- If stationary, use distance/time heuristic by assuming time from CPA to point
+        if speedGuess < 1e-6 then
+            speedGuess = 1
+        end
+        local t, p, reqV = EstimateInterceptForSpeed(posA, speedGuess, posB, velB)
+        if not t then
+            return nil, nil, nil, nil
+        end
+        local dV = {
+            x = (reqV.x or 0) - vAx,
+            y = (reqV.y or 0) - ((velA and velA.y) or 0),
+            z = (reqV.z or 0) - vAz,
+        }
+        return dV, t, p, reqV
+    end
+end

@@ -1,8 +1,8 @@
-if env and env.info then env.info("harness: 0.2.1 loading...", true) end
+if env and env.info then env.info("harness: 0.3.0 loading...", true) end
 
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.2.1"
+HARNESS_VERSION = "0.3.0"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -912,7 +912,291 @@ function PriorityQueue(compareFunc)
 
     return pqueue
 end
+
+-- RingBuffer Implementation (fixed-capacity circular buffer)
+--- Create a new RingBuffer
+---@param capacity number Buffer capacity (> 0)
+---@param overwrite boolean? Overwrite oldest when full (default: true)
+---@return table ring New ring buffer instance
+---@usage local rb = RingBuffer(3)
+function RingBuffer(capacity, overwrite)
+    if type(capacity) ~= "number" or capacity < 1 then
+        _HarnessInternal.log.error(
+            "RingBuffer capacity must be positive number",
+            "DataStructures.RingBuffer"
+        )
+        capacity = 1
+    end
+
+    local ring = {
+        _items = {},
+        _capacity = math.floor(capacity),
+        _size = 0,
+        _head = 1, -- index of logical front
+        _tail = 0, -- index of last inserted
+        _overwrite = overwrite ~= false, -- default true
+    }
+
+    local function nextIndex(index)
+        if index >= ring._capacity then
+            return 1
+        end
+        return index + 1
+    end
+
+    --- Add item to buffer tail
+    ---@param item any Item to push
+    ---@return boolean success True if inserted (or overwritten)
+    ---@return any? evicted Evicted item if overwrite occurred
+    ---@usage local ok, evicted = ring:push(value)
+    function ring:push(item)
+        if self._size < self._capacity then
+            self._tail = nextIndex(self._tail)
+            self._items[self._tail] = item
+            self._size = self._size + 1
+            return true, nil
+        end
+
+        if self._overwrite then
+            local evicted = self._items[self._head]
+            self._head = nextIndex(self._head)
+            self._tail = nextIndex(self._tail)
+            self._items[self._tail] = item
+            return true, evicted
+        end
+
+        return false, nil
+    end
+
+    --- Remove and return item from buffer head
+    ---@return any? item Popped item or nil if empty
+    ---@usage local item = ring:pop()
+    function ring:pop()
+        if self:isEmpty() then
+            return nil
+        end
+
+        local item = self._items[self._head]
+        self._items[self._head] = nil
+        self._head = nextIndex(self._head)
+        self._size = self._size - 1
+
+        if self._size == 0 then
+            -- reset indices for cleanliness
+            self._head = 1
+            self._tail = 0
+        end
+
+        return item
+    end
+
+    --- Peek at head item without removing
+    ---@return any? item Head item or nil if empty
+    ---@usage local front = ring:peek()
+    function ring:peek()
+        if self:isEmpty() then
+            return nil
+        end
+        return self._items[self._head]
+    end
+
+    --- Get logical item by 1-based index (1 = head)
+    ---@param index number 1-based index into buffer contents
+    ---@return any? item Item at index or nil
+    function ring:get(index)
+        if type(index) ~= "number" or index < 1 or index > self._size then
+            return nil
+        end
+        local pos = self._head
+        for _ = 2, index do
+            pos = nextIndex(pos)
+        end
+        return self._items[pos]
+    end
+
+    --- Convert contents to array (head to tail order)
+    ---@return table items Array of items
+    function ring:toArray()
+        local arr = {}
+        local pos = self._head
+        for i = 1, self._size do
+            arr[i] = self._items[pos]
+            pos = nextIndex(pos)
+        end
+        return arr
+    end
+
+    --- Check if buffer is empty
+    ---@return boolean empty True if empty
+    function ring:isEmpty()
+        return self._size == 0
+    end
+
+    --- Check if buffer is full
+    ---@return boolean full True if full
+    function ring:isFull()
+        return self._size == self._capacity
+    end
+
+    --- Current number of items
+    ---@return number size Number of items
+    function ring:size()
+        return self._size
+    end
+
+    --- Buffer capacity
+    ---@return number capacity Capacity
+    function ring:capacity()
+        return self._capacity
+    end
+
+    --- Clear all items
+    function ring:clear()
+        self._items = {}
+        self._size = 0
+        self._head = 1
+        self._tail = 0
+    end
+
+    return ring
+end
 -- ==== END: src\datastructures.lua ====
+
+-- ==== BEGIN: src\id.lua ====
+--[[
+==================================================================================================
+    ID MODULE
+    Utilities for generating IDs: UUID v4, UUID v7, and ULID
+==================================================================================================
+]]
+
+-- Note: module does not depend on logger to remain lightweight and side-effect free
+
+-- Internal PRNG (LCG) with a time- and address-based seed to avoid relying on math.random state
+local function _seed32()
+    local t = (timer and timer.getTime and timer.getTime()) or 0
+    local addr = tonumber((tostring({}):match("0x(%x+)") or "0"), 16) or 0
+    local s = math.max(1, math.floor(t * 1e6))
+    return ((s % 2147483647) * 1103515245 + (addr % 2147483647) + 12345) % 2147483647
+end
+
+local _rng_state = _seed32()
+
+local function _lcg32()
+    _rng_state = (1103515245 * _rng_state + 12345) % 2147483648
+    return _rng_state
+end
+
+local function _rand_byte()
+    -- Scale a 31-bit LCG state into a byte
+    return math.floor(_lcg32() / 8388608) % 256 -- 2^23
+end
+
+local function _to_hex_byte(b)
+    local hex = "0123456789abcdef"
+    local hi, lo = math.floor(b / 16) + 1, (b % 16) + 1
+    return string.sub(hex, hi, hi) .. string.sub(hex, lo, lo)
+end
+
+--- Generate a UUID v4 string (random)
+---@return string uuid UUID v4 string (lowercase hex)
+function NewUUIDv4()
+    local b = {}
+    for i = 1, 16 do
+        b[i] = _rand_byte()
+    end
+    -- Set version (0100) and variant (10xx)
+    b[7] = (b[7] % 16) + 0x40
+    b[9] = (b[9] % 64) + 0x80
+
+    local parts =
+        {
+            _to_hex_byte(b[1]) .. _to_hex_byte(b[2]) .. _to_hex_byte(b[3]) .. _to_hex_byte(b[4]),
+            _to_hex_byte(b[5]) .. _to_hex_byte(b[6]),
+            _to_hex_byte(b[7]) .. _to_hex_byte(b[8]),
+            _to_hex_byte(b[9]) .. _to_hex_byte(b[10]),
+            _to_hex_byte(b[11]) .. _to_hex_byte(b[12]) .. _to_hex_byte(b[13]) .. _to_hex_byte(
+                b[14]
+            ) .. _to_hex_byte(b[15]) .. _to_hex_byte(b[16]),
+        }
+    return table.concat(parts, "-")
+end
+
+--- Generate a UUID v7 string (time-ordered)
+---@return string uuid UUID v7 string (lowercase hex)
+function NewUUIDv7()
+    local ms = math.floor(((timer and timer.getTime and timer.getTime()) or 0) * 1000)
+    local b = {}
+    -- 48-bit big-endian timestamp
+    for i = 6, 1, -1 do
+        b[i] = ms % 256
+        ms = math.floor(ms / 256)
+    end
+    -- 10 random bytes
+    for i = 7, 16 do
+        b[i] = _rand_byte()
+    end
+
+    -- Set version (0111) and variant (10xx)
+    b[7] = (b[7] % 16) + 0x70
+    b[9] = (b[9] % 64) + 0x80
+
+    local parts =
+        {
+            _to_hex_byte(b[1]) .. _to_hex_byte(b[2]) .. _to_hex_byte(b[3]) .. _to_hex_byte(b[4]),
+            _to_hex_byte(b[5]) .. _to_hex_byte(b[6]),
+            _to_hex_byte(b[7]) .. _to_hex_byte(b[8]),
+            _to_hex_byte(b[9]) .. _to_hex_byte(b[10]),
+            _to_hex_byte(b[11]) .. _to_hex_byte(b[12]) .. _to_hex_byte(b[13]) .. _to_hex_byte(
+                b[14]
+            ) .. _to_hex_byte(b[15]) .. _to_hex_byte(b[16]),
+        }
+    return table.concat(parts, "-")
+end
+
+--- Generate a ULID string (Crockford Base32, 26 chars)
+---@return string ulid ULID string
+function NewULID()
+    local ms = math.floor(((timer and timer.getTime and timer.getTime()) or 0) * 1000)
+    local b = {}
+    -- 6-byte big-endian timestamp
+    for i = 6, 1, -1 do
+        b[i] = ms % 256
+        ms = math.floor(ms / 256)
+    end
+    -- 10 bytes randomness
+    for i = 7, 16 do
+        b[i] = _rand_byte()
+    end
+
+    -- Crockford Base32 alphabet
+    local alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+    -- Convert 16 bytes to bit array
+    local bits = {}
+    for i = 1, 16 do
+        local v = b[i]
+        for j = 7, 0, -1 do
+            bits[#bits + 1] = math.floor(v / 2 ^ j) % 2
+        end
+    end
+
+    -- Pad to 130 bits (ULID encodes to 26 base32 chars)
+    bits[#bits + 1] = 0
+    bits[#bits + 1] = 0
+
+    local out = {}
+    for i = 1, 26 do
+        local idx = 0
+        for j = 0, 4 do
+            idx = idx * 2 + bits[(i - 1) * 5 + j + 1]
+        end
+        out[i] = string.sub(alphabet, idx + 1, idx + 1)
+    end
+
+    return table.concat(out)
+end
+-- ==== END: src\id.lua ====
 
 -- ==== BEGIN: src\logger.lua ====
 --[[==================================================================================================
@@ -4500,6 +4784,12 @@ function DeepCopy(original)
         copy[key] = DeepCopy(value)
     end
 
+    -- Preserve metatable from original table
+    local mt = getmetatable(original)
+    if mt ~= nil then
+        setmetatable(copy, mt)
+    end
+
     return copy
 end
 
@@ -4925,8 +5215,363 @@ function TableToString(tbl, indent)
     return result
 end
 
--- Initialize harness
-_HarnessInternal.log.info("Harness v" .. HARNESS_VERSION .. " loaded", "Init")
+--- Encode a Lua value to JSON string
+---@param value any Value to encode (tables, numbers, strings, booleans, nil)
+---@return string|nil json JSON string on success, nil on error
+---@usage local s = EncodeJson({a=1})
+function EncodeJson(value)
+    -- Prefer DCS-provided implementation if available
+    if net and type(net.lua2json) == "function" then
+        local ok, res = pcall(net.lua2json, value)
+        if ok then
+            return res
+        end
+        _HarnessInternal.log.error(
+            "EncodeJson failed via net.lua2json: " .. tostring(res),
+            "EncodeJson"
+        )
+        return nil
+    end
+
+    -- Minimal fallback encoder (sufficient for simple tables without cycles or functions)
+    local t = type(value)
+    if t == "nil" then
+        return "null"
+    elseif t == "number" or t == "boolean" then
+        return tostring(value)
+    elseif t == "string" then
+        local s = value
+        s = s:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n"):gsub("\r", "\\r")
+        return '"' .. s .. '"'
+    elseif t == "table" then
+        -- Detect array-like table
+        local isArray = true
+        local count = 0
+        for k, _ in pairs(value) do
+            count = count + 1
+            if type(k) ~= "number" then
+                isArray = false
+                break
+            end
+        end
+        if isArray then
+            local parts = {}
+            for i = 1, #value do
+                parts[#parts + 1] = EncodeJson(value[i]) or "null"
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        else
+            local parts = {}
+            for k, v in pairs(value) do
+                local keyType = type(k)
+                if keyType ~= "string" then
+                    -- JSON keys must be strings; stringify others
+                    k = tostring(k)
+                end
+                local keyJson = EncodeJson(k)
+                local valJson = EncodeJson(v) or "null"
+                parts[#parts + 1] = tostring(keyJson) .. ":" .. valJson
+            end
+            return "{" .. table.concat(parts, ",") .. "}"
+        end
+    end
+
+    _HarnessInternal.log.error("EncodeJson cannot encode type: " .. t, "EncodeJson")
+    return nil
+end
+
+--- Decode a JSON string to Lua value
+---@param json string JSON string to decode
+---@return any value Decoded Lua value (or nil on error)
+---@usage local t = DecodeJson('{"a":1}')
+function DecodeJson(json)
+    if type(json) ~= "string" then
+        _HarnessInternal.log.error("DecodeJson requires string", "DecodeJson")
+        return nil
+    end
+
+    -- Prefer DCS-provided implementation if available
+    if net and type(net.json2lua) == "function" then
+        local ok, res = pcall(net.json2lua, json)
+        if ok then
+            return res
+        end
+        _HarnessInternal.log.error(
+            "DecodeJson failed via net.json2lua: " .. tostring(res),
+            "DecodeJson"
+        )
+        return nil
+    end
+
+    -- Extremely small fallback: handle null, booleans, numbers, quoted strings, simple arrays/objects
+    local str = json:match("^%s*(.-)%s*$")
+    if str == "null" then
+        return nil
+    end
+    if str == "true" then
+        return true
+    end
+    if str == "false" then
+        return false
+    end
+    -- number
+    local num = tonumber(str)
+    if num ~= nil then
+        return num
+    end
+    -- quoted string
+    local s = str:match('^"(.*)"$')
+    if s ~= nil then
+        s = s:gsub("\\n", "\n"):gsub("\\r", "\r"):gsub('\\"', '"'):gsub("\\\\", "\\")
+        return s
+    end
+
+    -- Very naive parser for flat arrays/objects without nesting or spaces inside keys
+    local function splitTopLevel(content)
+        local parts = {}
+        local buf = {}
+        local inString = false
+        local escape = false
+        for i = 1, #content do
+            local ch = content:sub(i, i)
+            if inString then
+                table.insert(buf, ch)
+                if escape then
+                    escape = false
+                elseif ch == "\\" then
+                    escape = true
+                elseif ch == '"' then
+                    inString = false
+                end
+            else
+                if ch == '"' then
+                    inString = true
+                    table.insert(buf, ch)
+                elseif ch == "," then
+                    parts[#parts + 1] = table.concat(buf)
+                    buf = {}
+                else
+                    table.insert(buf, ch)
+                end
+            end
+        end
+        if #buf > 0 then
+            parts[#parts + 1] = table.concat(buf)
+        end
+        return parts
+    end
+
+    -- Array [a,b,c]
+    local inner = str:match("^%[(.*)%]$")
+    if inner ~= nil then
+        local items = splitTopLevel(inner)
+        local result = {}
+        for i = 1, #items do
+            local v = DecodeJson(items[i])
+            result[#result + 1] = v
+        end
+        return result
+    end
+
+    -- Object {"k":v,...} (flat only)
+    inner = str:match("^%{(.*)%}$")
+    if inner ~= nil then
+        local items = splitTopLevel(inner)
+        local obj = {}
+        for _, item in ipairs(items) do
+            local k, v = item:match("^%s*(.-)%s*:%s*(.-)%s*$")
+            if k ~= nil then
+                local key = DecodeJson(k)
+                obj[key] = DecodeJson(v)
+            end
+        end
+        return obj
+    end
+
+    _HarnessInternal.log.error("DecodeJson fallback cannot parse input", "DecodeJson")
+    return nil
+end
+
+--- Retry decorator: retries function on failure
+---@param func function Function to wrap
+---@param options table? Options {retries:number, shouldRetry:function?, onRetry:function?}
+---@return function wrapped Function that retries on error
+---@usage
+--- local unstable = function(x)
+--- 	if math.random() < 0.5 then error("boom") end
+--- 	return x * 2
+--- end
+--- local safe = Retry(unstable, {retries = 3})
+--- local result = safe(10)
+function Retry(func, options)
+    if type(func) ~= "function" then
+        _HarnessInternal.log.error("Retry requires function", "Retry")
+        return func
+    end
+
+    options = options or {}
+    local maxRetries = tonumber(options.retries) or 3
+    local shouldRetry = options.shouldRetry -- function(success, ...): boolean
+    local onRetry = options.onRetry -- function(attempt, err)
+
+    return function(...)
+        local args = { ... }
+        local attempt = 0
+        while true do
+            local results = { pcall(func, unpack(args)) }
+            local ok = results[1]
+            if ok then
+                local ret = {}
+                for i = 2, #results do
+                    ret[i - 1] = results[i]
+                end
+                local shouldRetryNow = false
+                if type(shouldRetry) == "function" then
+                    local ok2, decision = pcall(shouldRetry, true, unpack(ret))
+                    if ok2 then
+                        shouldRetryNow = decision and attempt < maxRetries
+                    end
+                end
+                if shouldRetryNow then
+                    attempt = attempt + 1
+                    if type(onRetry) == "function" then
+                        pcall(onRetry, attempt, nil)
+                    end
+                    -- loop to retry
+                else
+                    return unpack(ret)
+                end
+            else
+                local err = results[2]
+                if attempt >= maxRetries then
+                    _HarnessInternal.log.error(
+                        "Retry exhausted after "
+                            .. tostring(attempt)
+                            .. " attempts: "
+                            .. tostring(err),
+                        "Retry"
+                    )
+                    return nil
+                end
+                attempt = attempt + 1
+                if type(onRetry) == "function" then
+                    pcall(onRetry, attempt, err)
+                end
+                _HarnessInternal.log.warn(
+                    "Retry attempt " .. tostring(attempt) .. " after error: " .. tostring(err),
+                    "Retry"
+                )
+                -- loop to retry
+            end
+        end
+    end
+end
+
+--- Circuit breaker decorator: opens circuit after failures, with cooldown
+---@param func function Function to wrap
+---@param options table? Options {failureThreshold:number, cooldown:number, timeProvider:function?, shouldCountFailure:function?}
+---@return function wrapped Wrapped function with breaker behavior
+---@usage
+--- local safe = CircuitBreaker(unstable, {failureThreshold=3, cooldown=30})
+--- local result = safe(10)
+function CircuitBreaker(func, options)
+    if type(func) ~= "function" then
+        _HarnessInternal.log.error("CircuitBreaker requires function", "CircuitBreaker")
+        return func
+    end
+
+    options = options or {}
+    local failureThreshold = tonumber(options.failureThreshold) or 5
+    local cooldown = tonumber(options.cooldown) or 30
+    local timeProvider = options.timeProvider
+    if type(timeProvider) ~= "function" then
+        timeProvider = function()
+            return GetTime()
+        end
+    end
+    local shouldCountFailure = options.shouldCountFailure -- function(success, ...) -> boolean (count as failure?)
+
+    local state = {
+        status = "closed", -- "closed" | "open" | "half_open"
+        consecutiveFailures = 0,
+        openedAt = nil,
+    }
+
+    local function transitionToOpen(now)
+        state.status = "open"
+        state.openedAt = now
+        _HarnessInternal.log.warn("Circuit opened after failures", "CircuitBreaker")
+    end
+
+    local function transitionToHalfOpen()
+        state.status = "half_open"
+        _HarnessInternal.log.info("Circuit half-open: trial call permitted", "CircuitBreaker")
+    end
+
+    local function transitionToClosed()
+        state.status = "closed"
+        state.consecutiveFailures = 0
+        state.openedAt = nil
+        _HarnessInternal.log.info("Circuit closed", "CircuitBreaker")
+    end
+
+    return function(...)
+        local now = timeProvider()
+
+        -- Handle open state cooldown expiry
+        if state.status == "open" then
+            if cooldown <= 0 or (state.openedAt and now - state.openedAt >= cooldown) then
+                transitionToHalfOpen()
+            else
+                _HarnessInternal.log.warn("Call short-circuited (circuit open)", "CircuitBreaker")
+                return nil
+            end
+        end
+
+        -- Allow single trial in half-open
+        local trial = state.status == "half_open"
+        local packed = { pcall(func, ...) }
+        local ok = packed[1]
+        if ok then
+            local ret = {}
+            for i = 2, #packed do
+                ret[i - 1] = packed[i]
+            end
+            -- Success: optionally consult shouldCountFailure (if provided) to treat as failure
+            local countAsFailure = false
+            if type(shouldCountFailure) == "function" then
+                local ok2, decision = pcall(shouldCountFailure, true, unpack(ret))
+                if ok2 then
+                    countAsFailure = decision
+                end
+            end
+            if countAsFailure then
+                state.consecutiveFailures = state.consecutiveFailures + 1
+                if state.consecutiveFailures >= failureThreshold then
+                    transitionToOpen(now)
+                end
+                return unpack(ret)
+            end
+            transitionToClosed()
+            return unpack(ret)
+        else
+            -- Failure
+            local err = packed[2]
+            state.consecutiveFailures = state.consecutiveFailures + 1
+            _HarnessInternal.log.warn(
+                "Function error (failure "
+                    .. tostring(state.consecutiveFailures)
+                    .. "): "
+                    .. tostring(err),
+                "CircuitBreaker"
+            )
+            if trial or state.consecutiveFailures >= failureThreshold then
+                transitionToOpen(now)
+            end
+            return nil
+        end
+    end
+end
 -- ==== END: src\misc.lua ====
 
 -- ==== BEGIN: src\missioncommands.lua ====
@@ -5300,7 +5945,6 @@ function RemoveItemForGroup(groupId, path)
 
     return true
 end
-
 
 --- Creates a menu item definition for use with AddCommand functions
 --- @param name string The display name of the menu item
@@ -9121,6 +9765,312 @@ function ConvexHull2D(points)
 
     return hull
 end
+
+-- ==================== Closest Point of Approach (CPA) Utilities ====================
+
+--- Estimate time of closest approach between a moving point and a fixed point (2D)
+---@param pos table Vec2/Vec3 current position {x,z}
+---@param vel table Vec2/Vec3 velocity vector {x,z} meters/second
+---@param target table Vec2/Vec3 target point {x,z}
+---@return number tStar Time in seconds to closest approach (>= 0)
+---@return number distanceAtT Minimum distance at tStar (meters)
+---@return table pointAtT Pos at tStar
+function EstimateCPAToPoint(pos, vel, target)
+    if not pos or not vel or not target then
+        _HarnessInternal.log.error(
+            "EstimateCPAToPoint requires pos, vel, target",
+            "GeoMath.CPA.Point"
+        )
+        return 0, math.huge, pos
+    end
+    local rx = ((pos and pos.x) or 0) - ((target and target.x) or 0)
+    local rz = ((pos and pos.z) or 0) - ((target and target.z) or 0)
+    local vx = (vel and vel.x) or 0
+    local vz = (vel and vel.z) or 0
+    local v2 = vx * vx + vz * vz
+    local tStar = 0
+    if v2 > 1e-9 then
+        tStar = math.max(0, -((rx * vx + rz * vz) / v2))
+    end
+    local px = ((pos and pos.x) or 0) + vx * tStar
+    local pz = ((pos and pos.z) or 0) + vz * tStar
+    local dx = px - ((target and target.x) or 0)
+    local dz = pz - ((target and target.z) or 0)
+    local d = math.sqrt(dx * dx + dz * dz)
+    return tStar, d, { x = px, y = pos.y or 0, z = pz }
+end
+
+--- Estimate CPA to a circle region
+---@param pos table {x,z}
+---@param vel table {x,z}
+---@param center table {x,z}
+---@param radius number radius meters
+---@return number tEntry Time when path first reaches minimum distance
+---@return number distanceAtT Minimum distance at tEntry
+---@return table pointAtT Position at tEntry
+function EstimateCPAToCircle(pos, vel, center, radius)
+    local r = radius or 0
+    local vx = (vel and vel.x) or 0
+    local vz = (vel and vel.z) or 0
+    local fx = ((pos and pos.x) or 0) - ((center and center.x) or 0)
+    local fz = ((pos and pos.z) or 0) - ((center and center.z) or 0)
+    local a = vx * vx + vz * vz
+    local b = 2 * (fx * vx + fz * vz)
+    local c = (fx * fx + fz * fz) - r * r
+
+    if a > 1e-12 then
+        local disc = b * b - 4 * a * c
+        if disc >= 0 then
+            local sqrtDisc = math.sqrt(disc)
+            local t1 = (-b - sqrtDisc) / (2 * a)
+            local t2 = (-b + sqrtDisc) / (2 * a)
+            local tEntry = math.huge
+            if t1 >= 0 then
+                tEntry = math.min(tEntry, t1)
+            end
+            if t2 >= 0 then
+                tEntry = math.min(tEntry, t2)
+            end
+            if tEntry < math.huge then
+                local px = (((pos and pos.x) or 0) + vx * tEntry)
+                local pz = (((pos and pos.z) or 0) + vz * tEntry)
+                return tEntry, 0, { x = px, y = (pos and pos.y) or 0, z = pz }
+            end
+        end
+    end
+
+    -- Fallback to CPA to center if no intersection
+    local tStar, d, p = EstimateCPAToPoint(pos, vel, center)
+    return tStar, math.max(0, d - r), p
+end
+
+--- Estimate CPA to a polygon (2D). Approximates by CPA to edges and vertices.
+---@param pos table {x,z}
+---@param vel table {x,z}
+---@param polygon table array of {x,z}
+---@return number tStar Time of closest approach
+---@return number distanceAtT Minimum distance to polygon boundary
+---@return table pointAtT Position at tStar
+function EstimateCPAToPolygon(pos, vel, polygon)
+    if not polygon or #polygon == 0 then
+        return EstimateCPAToPoint(pos, vel, pos)
+    end
+    local bestT, bestD, bestP = math.huge, math.huge, pos
+    -- Check vertices
+    for i = 1, #polygon do
+        local t, d, p = EstimateCPAToPoint(pos, vel, polygon[i])
+        if d < bestD or (math.abs(d - bestD) < 1e-6 and t < bestT) then
+            bestD, bestT, bestP = d, t, p
+        end
+    end
+    -- Check edges by projecting CPA point onto segments at time tStar
+    -- Sample a few times near bestT to improve robustness
+    local samples = { math.max(0, bestT - 5), bestT, bestT + 5 }
+    for _, t in ipairs(samples) do
+        local px = (((pos and pos.x) or 0) + (((vel and vel.x) or 0) * t))
+        local pz = (((pos and pos.z) or 0) + (((vel and vel.z) or 0) * t))
+        for i = 1, #polygon do
+            local j = (i % #polygon) + 1
+            local ax, az = (polygon[i].x or 0), (polygon[i].z or 0)
+            local bx, bz = (polygon[j].x or 0), (polygon[j].z or 0)
+            local abx, abz = bx - ax, bz - az
+            local apx, apz = px - ax, pz - az
+            local ab2 = abx * abx + abz * abz
+            local u = 0
+            if ab2 > 1e-9 then
+                u = math.max(0, math.min(1, (apx * abx + apz * abz) / ab2))
+            end
+            local cx = ax + u * abx
+            local cz = az + u * abz
+            local dx = px - cx
+            local dz = pz - cz
+            local d = math.sqrt(dx * dx + dz * dz)
+            if d < bestD or (math.abs(d - bestD) < 1e-6 and t < bestT) then
+                bestD, bestT, bestP = d, t, { x = px, y = (pos and pos.y) or 0, z = pz }
+            end
+        end
+    end
+    return bestT, bestD, bestP
+end
+
+--- Two-body closest point of approach (relative motion, 2D)
+---@param posA table {x,z}
+---@param velA table {x,z}
+---@param posB table {x,z}
+---@param velB table {x,z}
+---@return number tStar Time of closest approach (>=0)
+---@return number distanceAtT Distance at tStar
+---@return table aAtT Position A at tStar
+---@return table bAtT Position B at tStar
+function EstimateTwoBodyCPA(posA, velA, posB, velB)
+    if not posA or not velA or not posB or not velB then
+        _HarnessInternal.log.error(
+            "EstimateTwoBodyCPA requires posA, velA, posB, velB",
+            "GeoMath.CPA.TwoBody"
+        )
+        return 0, math.huge, posA, posB
+    end
+    local rx = (((posA and posA.x) or 0) - ((posB and posB.x) or 0))
+    local rz = (((posA and posA.z) or 0) - ((posB and posB.z) or 0))
+    local vx = (((velA and velA.x) or 0) - ((velB and velB.x) or 0))
+    local vz = (((velA and velA.z) or 0) - ((velB and velB.z) or 0))
+    local v2 = vx * vx + vz * vz
+    local tStar = 0
+    if v2 > 1e-9 then
+        tStar = math.max(0, -((rx * vx + rz * vz) / v2))
+    end
+    local aAtT = {
+        x = (((posA and posA.x) or 0) + (((velA and velA.x) or 0) * tStar)),
+        y = (posA and posA.y) or 0,
+        z = (((posA and posA.z) or 0) + (((velA and velA.z) or 0) * tStar)),
+    }
+    local bAtT = {
+        x = (((posB and posB.x) or 0) + (((velB and velB.x) or 0) * tStar)),
+        y = (posB and posB.y) or 0,
+        z = (((posB and posB.z) or 0) + (((velB and velB.z) or 0) * tStar)),
+    }
+    local dx = aAtT.x - bAtT.x
+    local dz = aAtT.z - bAtT.z
+    local d = math.sqrt(dx * dx + dz * dz)
+    return tStar, d, aAtT, bAtT
+end
+
+-- ==================== Intercept Solvers ====================
+
+--- Solve intercept for a pursuer with fixed speed (2D x/z)
+---@param posA table {x,z} pursuer current position
+---@param speedA number pursuer speed (m/s)
+---@param posB table {x,z} target current position
+---@param velB table {x,z} target velocity (m/s)
+---@return number|nil tIntercept Time to intercept (seconds) or nil if no solution
+---@return table|nil interceptPoint Intercept point {x,y,z} at time t
+---@return table|nil requiredVelocity Required pursuer velocity vector {x,y,z}
+function EstimateInterceptForSpeed(posA, speedA, posB, velB)
+    if not posA or not posB or type(speedA) ~= "number" or not velB then
+        _HarnessInternal.log.error(
+            "EstimateInterceptForSpeed requires posA, speedA, posB, velB",
+            "GeoMath.Intercept"
+        )
+        return nil, nil, nil
+    end
+
+    local rX = ((posB and posB.x) or 0) - ((posA and posA.x) or 0)
+    local rZ = ((posB and posB.z) or 0) - ((posA and posA.z) or 0)
+    local vX = (velB and velB.x) or 0
+    local vZ = (velB and velB.z) or 0
+    local s = speedA or 0
+
+    local a = vX * vX + vZ * vZ - s * s
+    local b = 2 * (rX * vX + rZ * vZ)
+    local c = rX * rX + rZ * rZ
+
+    local t = nil
+    local eps = 1e-9
+    if math.abs(a) < eps then
+        -- Linear case: speeds nearly equal => 2*(r·v)t + r^2 = 0
+        if math.abs(b) < eps then
+            -- No relative motion; if already colocated, intercept now
+            if c < eps then
+                t = 0
+            else
+                return nil, nil, nil
+            end
+        else
+            t = -c / b
+            if t and t < 0 then
+                return nil, nil, nil
+            end
+        end
+    else
+        local disc = b * b - 4 * a * c
+        if disc < 0 then
+            return nil, nil, nil
+        end
+        local sqrtDisc = math.sqrt(disc)
+        local t1 = (-b - sqrtDisc) / (2 * a)
+        local t2 = (-b + sqrtDisc) / (2 * a)
+        -- choose smallest non-negative
+        local best = math.huge
+        if t1 and t1 >= 0 then
+            best = math.min(best, t1)
+        end
+        if t2 and t2 >= 0 then
+            best = math.min(best, t2)
+        end
+        if best == math.huge then
+            return nil, nil, nil
+        end
+        t = best
+    end
+
+    -- Intercept point and required velocity
+    local interceptX = (((posB and posB.x) or 0) + vX * (t or 0))
+    local interceptZ = (((posB and posB.z) or 0) + vZ * (t or 0))
+    local dx = interceptX - ((posA and posA.x) or 0)
+    local dz = interceptZ - ((posA and posA.z) or 0)
+    local reqVX, reqVZ
+    if (t or 0) > eps then
+        reqVX = dx / t
+        reqVZ = dz / t
+    else
+        reqVX = 0
+        reqVZ = 0
+    end
+    -- Normalize to exact speed to reduce numerical drift
+    local mag = math.sqrt(reqVX * reqVX + reqVZ * reqVZ)
+    if mag > eps and s > 0 then
+        reqVX = reqVX * (s / mag)
+        reqVZ = reqVZ * (s / mag)
+    end
+
+    return t,
+        { x = interceptX, y = (posA and posA.y) or 0, z = interceptZ },
+        { x = reqVX, y = (posA and posA.y) or 0, z = reqVZ }
+end
+
+--- Compute delta-velocity required for A to intercept B at given speed
+---@param posA table {x,z}
+---@param velA table {x,z}
+---@param posB table {x,z}
+---@param velB table {x,z}
+---@param speedA number? If provided, solve using this speed; otherwise use |requiredVelocity|
+---@return table|nil deltaV Vector {x,y,z} to add to velA; nil if no solution
+---@return number|nil tIntercept Time to intercept
+---@return table|nil interceptPoint Intercept position
+---@return table|nil requiredVelocity Velocity vector needed
+function EstimateInterceptDeltaV(posA, velA, posB, velB, speedA)
+    if type(speedA) == "number" then
+        local t, p, reqV = EstimateInterceptForSpeed(posA, speedA, posB, velB)
+        if not t then
+            return nil, nil, nil, nil
+        end
+        local dV = {
+            x = (reqV.x or 0) - ((velA and velA.x) or 0),
+            y = (reqV.y or 0) - ((velA and velA.y) or 0),
+            z = (reqV.z or 0) - ((velA and velA.z) or 0),
+        }
+        return dV, t, p, reqV
+    else
+        -- If speed not provided, derive from solution magnitude
+        local vAx = (velA and velA.x) or 0
+        local vAz = (velA and velA.z) or 0
+        local speedGuess = math.sqrt(vAx * vAx + vAz * vAz)
+        -- If stationary, use distance/time heuristic by assuming time from CPA to point
+        if speedGuess < 1e-6 then
+            speedGuess = 1
+        end
+        local t, p, reqV = EstimateInterceptForSpeed(posA, speedGuess, posB, velB)
+        if not t then
+            return nil, nil, nil, nil
+        end
+        local dV = {
+            x = (reqV.x or 0) - vAx,
+            y = (reqV.y or 0) - ((velA and velA.y) or 0),
+            z = (reqV.z or 0) - vAz,
+        }
+        return dV, t, p, reqV
+    end
+end
 -- ==== END: src\geomath.lua ====
 
 -- ==== BEGIN: src\group.lua ====
@@ -10648,6 +11598,50 @@ function HasLOS(from, to)
     end
 
     return visible == true
+end
+
+--- Estimate terrain grade (slope) around a point by sampling heights
+---@param point table Vec3 center position
+---@param radius number? Sampling radius in meters (default: 5)
+---@param step number? Angular step in degrees for ring sampling (default: 45)
+---@return table result {slopeDeg:number, slopePercent:number, dzdx:number, dzdz:number}
+---@usage local g = GetTerrainGrade(pos, 10, 30)
+function GetTerrainGrade(point, radius, step)
+    if not IsVec3(point) then
+        _HarnessInternal.log.error("GetTerrainGrade requires Vec3 point", "GetTerrainGrade")
+        return { slopeDeg = 0, slopePercent = 0, dzdx = 0, dzdz = 0 }
+    end
+
+    radius = tonumber(radius) or 5
+    step = tonumber(step) or 45
+    if step <= 0 then
+        step = 45
+    end
+
+    local centerH = GetTerrainHeight(point)
+
+    -- Finite-difference gradient estimate using samples along +x/-x and +z/-z axes
+    local dx = radius
+    local dz = radius
+
+    local px = { x = (point.x or 0) + dx, y = 0, z = point.z or 0 }
+    local nx = { x = (point.x or 0) - dx, y = 0, z = point.z or 0 }
+    local pz = { x = point.x or 0, y = 0, z = (point.z or 0) + dz }
+    local nz = { x = point.x or 0, y = 0, z = (point.z or 0) - dz }
+
+    local hx = GetTerrainHeight(px)
+    local hnx = GetTerrainHeight(nx)
+    local hz = GetTerrainHeight(pz)
+    local hnz = GetTerrainHeight(nz)
+
+    local dzdx = ((hx or centerH) - (hnx or centerH)) / (2 * dx)
+    local dzdz = ((hz or centerH) - (hnz or centerH)) / (2 * dz)
+
+    local slopeMag = math.sqrt(dzdx * dzdx + dzdz * dzdz)
+    local slopeDeg = math.deg(math.atan(slopeMag))
+    local slopePercent = slopeMag * 100
+
+    return { slopeDeg = slopeDeg, slopePercent = slopePercent, dzdx = dzdx, dzdz = dzdz }
 end
 
 --- Get surface type at position
@@ -15087,7 +16081,6 @@ function GetMarkPanels()
 
     return result
 end
-
 
 --- Processes a world event
 ---@param event table The event table to process

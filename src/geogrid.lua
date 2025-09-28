@@ -387,5 +387,3 @@ function GeoGrid(cellSizeMeters, allowedTypes)
         has_bounds = false,
     }, { __index = GeoGridProto })
 end
-
-return GeoGrid

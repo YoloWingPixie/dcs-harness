@@ -1,8 +1,8 @@
-if env and env.info then env.info("harness: 0.4.0 loading...", true) end
+if env and env.info then env.info("harness: 0.5.0 loading...", true) end
 
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.4.0"
+HARNESS_VERSION = "0.5.0"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -1452,8 +1452,6 @@ function GeoGrid(cellSizeMeters, allowedTypes)
         has_bounds = false,
     }, { __index = GeoGridProto })
 end
-
-return GeoGrid
 -- ==== END: src\geogrid.lua ====
 
 -- ==== BEGIN: src\id.lua ====

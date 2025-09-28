@@ -146,7 +146,6 @@ function GetMarkPanels()
     return result
 end
 
-
 --- Processes a world event
 ---@param event table The event table to process
 ---@return boolean? success Returns true if successful, nil on error

@@ -19,6 +19,12 @@ function DeepCopy(original)
         copy[key] = DeepCopy(value)
     end
 
+    -- Preserve metatable from original table
+    local mt = getmetatable(original)
+    if mt ~= nil then
+        setmetatable(copy, mt)
+    end
+
     return copy
 end
 
@@ -444,5 +450,360 @@ function TableToString(tbl, indent)
     return result
 end
 
--- Initialize harness
-_HarnessInternal.log.info("Harness v" .. HARNESS_VERSION .. " loaded", "Init")
+--- Encode a Lua value to JSON string
+---@param value any Value to encode (tables, numbers, strings, booleans, nil)
+---@return string|nil json JSON string on success, nil on error
+---@usage local s = EncodeJson({a=1})
+function EncodeJson(value)
+    -- Prefer DCS-provided implementation if available
+    if net and type(net.lua2json) == "function" then
+        local ok, res = pcall(net.lua2json, value)
+        if ok then
+            return res
+        end
+        _HarnessInternal.log.error(
+            "EncodeJson failed via net.lua2json: " .. tostring(res),
+            "EncodeJson"
+        )
+        return nil
+    end
+
+    -- Minimal fallback encoder (sufficient for simple tables without cycles or functions)
+    local t = type(value)
+    if t == "nil" then
+        return "null"
+    elseif t == "number" or t == "boolean" then
+        return tostring(value)
+    elseif t == "string" then
+        local s = value
+        s = s:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n"):gsub("\r", "\\r")
+        return '"' .. s .. '"'
+    elseif t == "table" then
+        -- Detect array-like table
+        local isArray = true
+        local count = 0
+        for k, _ in pairs(value) do
+            count = count + 1
+            if type(k) ~= "number" then
+                isArray = false
+                break
+            end
+        end
+        if isArray then
+            local parts = {}
+            for i = 1, #value do
+                parts[#parts + 1] = EncodeJson(value[i]) or "null"
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        else
+            local parts = {}
+            for k, v in pairs(value) do
+                local keyType = type(k)
+                if keyType ~= "string" then
+                    -- JSON keys must be strings; stringify others
+                    k = tostring(k)
+                end
+                local keyJson = EncodeJson(k)
+                local valJson = EncodeJson(v) or "null"
+                parts[#parts + 1] = tostring(keyJson) .. ":" .. valJson
+            end
+            return "{" .. table.concat(parts, ",") .. "}"
+        end
+    end
+
+    _HarnessInternal.log.error("EncodeJson cannot encode type: " .. t, "EncodeJson")
+    return nil
+end
+
+--- Decode a JSON string to Lua value
+---@param json string JSON string to decode
+---@return any value Decoded Lua value (or nil on error)
+---@usage local t = DecodeJson('{"a":1}')
+function DecodeJson(json)
+    if type(json) ~= "string" then
+        _HarnessInternal.log.error("DecodeJson requires string", "DecodeJson")
+        return nil
+    end
+
+    -- Prefer DCS-provided implementation if available
+    if net and type(net.json2lua) == "function" then
+        local ok, res = pcall(net.json2lua, json)
+        if ok then
+            return res
+        end
+        _HarnessInternal.log.error(
+            "DecodeJson failed via net.json2lua: " .. tostring(res),
+            "DecodeJson"
+        )
+        return nil
+    end
+
+    -- Extremely small fallback: handle null, booleans, numbers, quoted strings, simple arrays/objects
+    local str = json:match("^%s*(.-)%s*$")
+    if str == "null" then
+        return nil
+    end
+    if str == "true" then
+        return true
+    end
+    if str == "false" then
+        return false
+    end
+    -- number
+    local num = tonumber(str)
+    if num ~= nil then
+        return num
+    end
+    -- quoted string
+    local s = str:match('^"(.*)"$')
+    if s ~= nil then
+        s = s:gsub("\\n", "\n"):gsub("\\r", "\r"):gsub('\\"', '"'):gsub("\\\\", "\\")
+        return s
+    end
+
+    -- Very naive parser for flat arrays/objects without nesting or spaces inside keys
+    local function splitTopLevel(content)
+        local parts = {}
+        local buf = {}
+        local inString = false
+        local escape = false
+        for i = 1, #content do
+            local ch = content:sub(i, i)
+            if inString then
+                table.insert(buf, ch)
+                if escape then
+                    escape = false
+                elseif ch == "\\" then
+                    escape = true
+                elseif ch == '"' then
+                    inString = false
+                end
+            else
+                if ch == '"' then
+                    inString = true
+                    table.insert(buf, ch)
+                elseif ch == "," then
+                    parts[#parts + 1] = table.concat(buf)
+                    buf = {}
+                else
+                    table.insert(buf, ch)
+                end
+            end
+        end
+        if #buf > 0 then
+            parts[#parts + 1] = table.concat(buf)
+        end
+        return parts
+    end
+
+    -- Array [a,b,c]
+    local inner = str:match("^%[(.*)%]$")
+    if inner ~= nil then
+        local items = splitTopLevel(inner)
+        local result = {}
+        for i = 1, #items do
+            local v = DecodeJson(items[i])
+            result[#result + 1] = v
+        end
+        return result
+    end
+
+    -- Object {"k":v,...} (flat only)
+    inner = str:match("^%{(.*)%}$")
+    if inner ~= nil then
+        local items = splitTopLevel(inner)
+        local obj = {}
+        for _, item in ipairs(items) do
+            local k, v = item:match("^%s*(.-)%s*:%s*(.-)%s*$")
+            if k ~= nil then
+                local key = DecodeJson(k)
+                obj[key] = DecodeJson(v)
+            end
+        end
+        return obj
+    end
+
+    _HarnessInternal.log.error("DecodeJson fallback cannot parse input", "DecodeJson")
+    return nil
+end
+
+--- Retry decorator: retries function on failure
+---@param func function Function to wrap
+---@param options table? Options {retries:number, shouldRetry:function?, onRetry:function?}
+---@return function wrapped Function that retries on error
+---@usage
+--- local unstable = function(x)
+--- 	if math.random() < 0.5 then error("boom") end
+--- 	return x * 2
+--- end
+--- local safe = Retry(unstable, {retries = 3})
+--- local result = safe(10)
+function Retry(func, options)
+    if type(func) ~= "function" then
+        _HarnessInternal.log.error("Retry requires function", "Retry")
+        return func
+    end
+
+    options = options or {}
+    local maxRetries = tonumber(options.retries) or 3
+    local shouldRetry = options.shouldRetry -- function(success, ...): boolean
+    local onRetry = options.onRetry -- function(attempt, err)
+
+    return function(...)
+        local args = { ... }
+        local attempt = 0
+        while true do
+            local results = { pcall(func, unpack(args)) }
+            local ok = results[1]
+            if ok then
+                local ret = {}
+                for i = 2, #results do
+                    ret[i - 1] = results[i]
+                end
+                local shouldRetryNow = false
+                if type(shouldRetry) == "function" then
+                    local ok2, decision = pcall(shouldRetry, true, unpack(ret))
+                    if ok2 then
+                        shouldRetryNow = decision and attempt < maxRetries
+                    end
+                end
+                if shouldRetryNow then
+                    attempt = attempt + 1
+                    if type(onRetry) == "function" then
+                        pcall(onRetry, attempt, nil)
+                    end
+                    -- loop to retry
+                else
+                    return unpack(ret)
+                end
+            else
+                local err = results[2]
+                if attempt >= maxRetries then
+                    _HarnessInternal.log.error(
+                        "Retry exhausted after "
+                            .. tostring(attempt)
+                            .. " attempts: "
+                            .. tostring(err),
+                        "Retry"
+                    )
+                    return nil
+                end
+                attempt = attempt + 1
+                if type(onRetry) == "function" then
+                    pcall(onRetry, attempt, err)
+                end
+                _HarnessInternal.log.warn(
+                    "Retry attempt " .. tostring(attempt) .. " after error: " .. tostring(err),
+                    "Retry"
+                )
+                -- loop to retry
+            end
+        end
+    end
+end
+
+--- Circuit breaker decorator: opens circuit after failures, with cooldown
+---@param func function Function to wrap
+---@param options table? Options {failureThreshold:number, cooldown:number, timeProvider:function?, shouldCountFailure:function?}
+---@return function wrapped Wrapped function with breaker behavior
+---@usage
+--- local safe = CircuitBreaker(unstable, {failureThreshold=3, cooldown=30})
+--- local result = safe(10)
+function CircuitBreaker(func, options)
+    if type(func) ~= "function" then
+        _HarnessInternal.log.error("CircuitBreaker requires function", "CircuitBreaker")
+        return func
+    end
+
+    options = options or {}
+    local failureThreshold = tonumber(options.failureThreshold) or 5
+    local cooldown = tonumber(options.cooldown) or 30
+    local timeProvider = options.timeProvider
+    if type(timeProvider) ~= "function" then
+        timeProvider = function()
+            return GetTime()
+        end
+    end
+    local shouldCountFailure = options.shouldCountFailure -- function(success, ...) -> boolean (count as failure?)
+
+    local state = {
+        status = "closed", -- "closed" | "open" | "half_open"
+        consecutiveFailures = 0,
+        openedAt = nil,
+    }
+
+    local function transitionToOpen(now)
+        state.status = "open"
+        state.openedAt = now
+        _HarnessInternal.log.warn("Circuit opened after failures", "CircuitBreaker")
+    end
+
+    local function transitionToHalfOpen()
+        state.status = "half_open"
+        _HarnessInternal.log.info("Circuit half-open: trial call permitted", "CircuitBreaker")
+    end
+
+    local function transitionToClosed()
+        state.status = "closed"
+        state.consecutiveFailures = 0
+        state.openedAt = nil
+        _HarnessInternal.log.info("Circuit closed", "CircuitBreaker")
+    end
+
+    return function(...)
+        local now = timeProvider()
+
+        -- Handle open state cooldown expiry
+        if state.status == "open" then
+            if cooldown <= 0 or (state.openedAt and now - state.openedAt >= cooldown) then
+                transitionToHalfOpen()
+            else
+                _HarnessInternal.log.warn("Call short-circuited (circuit open)", "CircuitBreaker")
+                return nil
+            end
+        end
+
+        -- Allow single trial in half-open
+        local trial = state.status == "half_open"
+        local packed = { pcall(func, ...) }
+        local ok = packed[1]
+        if ok then
+            local ret = {}
+            for i = 2, #packed do
+                ret[i - 1] = packed[i]
+            end
+            -- Success: optionally consult shouldCountFailure (if provided) to treat as failure
+            local countAsFailure = false
+            if type(shouldCountFailure) == "function" then
+                local ok2, decision = pcall(shouldCountFailure, true, unpack(ret))
+                if ok2 then
+                    countAsFailure = decision
+                end
+            end
+            if countAsFailure then
+                state.consecutiveFailures = state.consecutiveFailures + 1
+                if state.consecutiveFailures >= failureThreshold then
+                    transitionToOpen(now)
+                end
+                return unpack(ret)
+            end
+            transitionToClosed()
+            return unpack(ret)
+        else
+            -- Failure
+            local err = packed[2]
+            state.consecutiveFailures = state.consecutiveFailures + 1
+            _HarnessInternal.log.warn(
+                "Function error (failure "
+                    .. tostring(state.consecutiveFailures)
+                    .. "): "
+                    .. tostring(err),
+                "CircuitBreaker"
+            )
+            if trial or state.consecutiveFailures >= failureThreshold then
+                transitionToOpen(now)
+            end
+            return nil
+        end
+    end
+end

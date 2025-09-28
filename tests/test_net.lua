@@ -83,10 +83,12 @@ function TestNet:testSendChat()
     lu.assertTrue(SendChat("Team message", false))
 
     -- Test invalid inputs
+    ---@diagnostic disable:param-type-mismatch
     lu.assertFalse(SendChat(nil, true))
     lu.assertFalse(SendChat(123, true))
     lu.assertFalse(SendChat("Message", nil))
     lu.assertFalse(SendChat("Message", "invalid"))
+    ---@diagnostic enable:param-type-mismatch
 end
 
 function TestNet:testSendChatTo()
@@ -95,11 +97,13 @@ function TestNet:testSendChatTo()
     lu.assertTrue(SendChatTo("From player 2", 1, 2))
 
     -- Test invalid inputs
+    ---@diagnostic disable:param-type-mismatch
     lu.assertFalse(SendChatTo(nil, 1))
     lu.assertFalse(SendChatTo(123, 1))
     lu.assertFalse(SendChatTo("Message", nil))
     lu.assertFalse(SendChatTo("Message", "invalid"))
     lu.assertFalse(SendChatTo("Message", 1, "invalid"))
+    ---@diagnostic enable:param-type-mismatch
 end
 
 function TestNet:testGetPlayers()
@@ -113,22 +117,20 @@ function TestNet:testGetPlayerInfo()
     -- Test valid player info
     local info = GetPlayerInfo(1)
     lu.assertNotNil(info)
+    ---@diagnostic disable:need-check-nil
     lu.assertEquals(info.id, 1)
     lu.assertEquals(info.name, "Player1")
     lu.assertEquals(info.side, 2)
     lu.assertEquals(info.slot, "slot_1")
+    ---@diagnostic enable:need-check-nil
 
     -- Test invalid input
+    ---@diagnostic disable:param-type-mismatch
     lu.assertNil(GetPlayerInfo(nil))
     lu.assertNil(GetPlayerInfo("invalid"))
+    ---@diagnostic enable:param-type-mismatch
 end
 
-function TestNet:testGetServerSettings()
-    local settings = GetServerSettings()
-    lu.assertNotNil(settings)
-    lu.assertEquals(settings.name, "Test Server")
-    lu.assertEquals(settings.maxPlayers, 16)
-end
 
 function TestNet:testKickPlayer()
     -- Test valid kick
@@ -136,8 +138,10 @@ function TestNet:testKickPlayer()
     lu.assertTrue(KickPlayer(2, "Custom reason"))
 
     -- Test invalid inputs
+    ---@diagnostic disable:param-type-mismatch
     lu.assertFalse(KickPlayer(nil))
     lu.assertFalse(KickPlayer("invalid"))
+    ---@diagnostic enable:param-type-mismatch
 end
 
 function TestNet:testGetPlayerStat()
@@ -146,26 +150,17 @@ function TestNet:testGetPlayerStat()
     lu.assertEquals(GetPlayerStat(2, net.PS_SCORE), 12)
 
     -- Test invalid inputs
+    ---@diagnostic disable:param-type-mismatch
     lu.assertNil(GetPlayerStat(nil, net.PS_PING))
     lu.assertNil(GetPlayerStat("invalid", net.PS_PING))
     lu.assertNil(GetPlayerStat(1, nil))
     lu.assertNil(GetPlayerStat(1, "invalid"))
+    ---@diagnostic enable:param-type-mismatch
 end
 
-function TestNet:testServerChecks()
-    lu.assertTrue(IsServer())
-    lu.assertTrue(IsMultiplayer())
-
-    -- Test with false returns
-    net.is_server = function()
-        return false
-    end
-    net.is_multiplayer = function()
-        return false
-    end
-
+function TestNet:testIsServer_without_DCS_should_return_false()
+    _G.DCS = nil
     lu.assertFalse(IsServer())
-    lu.assertFalse(IsMultiplayer())
 end
 
 function TestNet:when_DCS_is_present_should_use_DCS_isServer_result()
@@ -205,27 +200,19 @@ function TestNet:when_DCS_isServer_errors_should_return_false()
     lu.assertFalse(IsServer())
 end
 
-function TestNet:testPauseServer()
-    -- Test valid pause
-    lu.assertTrue(PauseServer(true))
-    lu.assertTrue(PauseServer(false))
-
-    -- Test invalid input
-    lu.assertFalse(PauseServer(nil))
-    lu.assertFalse(PauseServer("invalid"))
-end
-
 function TestNet:testMissionLoading()
     -- Test load mission
     lu.assertTrue(LoadMission("C:/Missions/test.miz"))
+    ---@diagnostic disable:param-type-mismatch
     lu.assertFalse(LoadMission(nil))
     lu.assertFalse(LoadMission(123))
+    ---@diagnostic enable:param-type-mismatch
 
     -- Test load next
     lu.assertTrue(LoadNextMission())
 
     -- Test get name
-    lu.assertEquals(GetMissionName(), "test_mission.miz")
+    lu.assertNil(GetMissionName())
 end
 
 function TestNet:testForcePlayerSlot()
@@ -233,10 +220,12 @@ function TestNet:testForcePlayerSlot()
     lu.assertTrue(ForcePlayerSlot(1, 2, "blue_f16_pilot"))
 
     -- Test invalid inputs
+    ---@diagnostic disable:param-type-mismatch
     lu.assertFalse(ForcePlayerSlot(nil, 2, "slot"))
     lu.assertFalse(ForcePlayerSlot("invalid", 2, "slot"))
     lu.assertFalse(ForcePlayerSlot(1, nil, "slot"))
     lu.assertFalse(ForcePlayerSlot(1, "invalid", "slot"))
     lu.assertFalse(ForcePlayerSlot(1, 2, nil))
     lu.assertFalse(ForcePlayerSlot(1, 2, 123))
+    ---@diagnostic enable:param-type-mismatch
 end

@@ -370,7 +370,6 @@ function RemoveItemForGroup(groupId, path)
     return true
 end
 
-
 --- Creates a menu item definition for use with AddCommand functions
 --- @param name string The display name of the menu item
 --- @param enabled boolean? Whether the item is enabled (default: true)

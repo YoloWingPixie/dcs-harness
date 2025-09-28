@@ -69,6 +69,7 @@ dofile("../src/spot.lua")
 dofile("../src/net.lua")
 dofile("../src/drawing.lua")
 dofile("../src/shapecache.lua")
+dofile("../src/geogrid.lua")
 
 -- Dynamically load all test_*.lua files in the tests directory (excluding this runner)
 local function listTestModules()

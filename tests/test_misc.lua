@@ -584,6 +584,31 @@ function TestMisc:testTrimString()
     lu.assertEquals(TrimString(123), "")
 end
 
+-- Test StringStartsWith / StringContains / StringEndsWith
+function TestMisc:testStringHelpers()
+    -- StartsWith
+    lu.assertTrue(StringStartsWith("hello", "he"))
+    lu.assertTrue(StringStartsWith("hello", ""))
+    lu.assertFalse(StringStartsWith("hello", "world"))
+    lu.assertFalse(StringStartsWith(nil, "he"))
+    lu.assertFalse(StringStartsWith("hello", nil))
+
+    -- Contains
+    lu.assertTrue(StringContains("hello world", "lo w"))
+    lu.assertTrue(StringContains("abc", "a"))
+    lu.assertTrue(StringContains("abc", ""))
+    lu.assertFalse(StringContains("abc", "d"))
+    lu.assertFalse(StringContains(nil, "a"))
+    lu.assertFalse(StringContains("abc", nil))
+
+    -- EndsWith
+    lu.assertTrue(StringEndsWith("file.lua", ".lua"))
+    lu.assertTrue(StringEndsWith("test", "t"))
+    lu.assertFalse(StringEndsWith("hello", "lo "))
+    lu.assertFalse(StringEndsWith(nil, "x"))
+    lu.assertFalse(StringEndsWith("hello", nil))
+end
+
 -- Test StartsWith
 function TestMisc:testStartsWith()
     lu.assertTrue(StartsWith("hello world", "hello"))

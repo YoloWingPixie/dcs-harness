@@ -388,6 +388,54 @@ function EndsWith(str, suffix)
     return string.sub(str, -string.len(suffix)) == suffix
 end
 
+--- Check if a string starts with a given prefix (literal, supports multi-character)
+---@param s any String to check
+---@param prefix any Prefix to look for
+---@return boolean starts True if s starts with prefix
+---@usage if StringStartsWith("abc", "a") then ... end
+function StringStartsWith(s, prefix)
+    if type(s) ~= "string" or type(prefix) ~= "string" then
+        return false
+    end
+    local lp = #prefix
+    if lp == 0 then
+        return true
+    end
+    return string.sub(s, 1, lp) == prefix
+end
+
+--- Check if a string contains a given substring (literal, supports multi-character)
+---@param s any String to search
+---@param needle any Substring to find
+---@return boolean contains True if s contains needle
+---@usage if StringContains("hello world", "lo w") then ... end
+function StringContains(s, needle)
+    if type(s) ~= "string" or type(needle) ~= "string" then
+        return false
+    end
+    if needle == "" then
+        return true
+    end
+    local i = string.find(s, needle, 1, true) -- plain find
+    return i ~= nil
+end
+
+--- Check if a string ends with a given suffix (literal, supports multi-character)
+---@param s any String to check
+---@param suffix any Suffix to look for
+---@return boolean ends True if s ends with suffix
+---@usage if StringEndsWith("file.lua", ".lua") then ... end
+function StringEndsWith(s, suffix)
+    if type(s) ~= "string" or type(suffix) ~= "string" then
+        return false
+    end
+    local ls = #suffix
+    if ls == 0 then
+        return false
+    end
+    return string.sub(s, -ls) == suffix
+end
+
 -- Note: DegToRad and RadToDeg functions are available in geomath.lua
 
 --- Normalize angle to 0-360 range

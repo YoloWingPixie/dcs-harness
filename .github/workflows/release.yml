@@ -40,7 +40,7 @@ jobs:
       - &python_deps
         name: Install Python dependencies
         run: |
-          uv pip install -e .[docs]
+          uv pip install -e .[docs] --system
 
       - &setup_task
         name: Set up Task

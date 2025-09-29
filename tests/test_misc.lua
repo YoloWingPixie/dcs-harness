@@ -564,6 +564,19 @@ function TestMisc:testSplitString()
     lu.assertEquals(SplitString(123), {})
 end
 
+-- Test SplitString includeEmpty=true behavior
+function TestMisc:testSplitStringIncludeEmpty()
+    -- Adjacent delimiters and leading/trailing delimiters
+    lu.assertEquals(SplitString(",,a,,b,", ",", true), { "", "", "a", "", "b", "" })
+    lu.assertEquals(SplitString("--x----y--", "--", true), { "", "x", "", "y", "" })
+
+    -- No delimiter found
+    lu.assertEquals(SplitString("hello", ",", true), { "hello" })
+
+    -- Empty string input
+    lu.assertEquals(SplitString("", ",", true), { "" })
+end
+
 -- Test TrimString
 function TestMisc:testTrimString()
     -- Basic trimming

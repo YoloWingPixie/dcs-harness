@@ -312,17 +312,20 @@ function ShuffledCopy(array)
     return Shuffle(copy)
 end
 
---- Split string by delimiter
+--- Split string by delimiter, with option to include empty tokens
 ---@param str any String to split
 ---@param delimiter string? Delimiter (default ",")
+---@param includeEmpty boolean? Include empty tokens when delimiters are adjacent or at ends (default false)
 ---@return table parts Array of string parts
 ---@usage local parts = SplitString("a,b,c", ",")
-function SplitString(str, delimiter)
+---@usage local partsWithEmpty = SplitString(",a,,b,", ",", true)
+function SplitString(str, delimiter, includeEmpty)
     if type(str) ~= "string" then
         return {}
     end
 
     delimiter = delimiter or ","
+    includeEmpty = includeEmpty == true
     if delimiter == "" then
         return { str }
     end
@@ -335,13 +338,13 @@ function SplitString(str, delimiter)
         local i, j = string.find(str, delimiter, startIndex, true) -- plain find (no patterns)
         if not i then
             local tail = string.sub(str, startIndex)
-            if tail ~= "" then
+            if includeEmpty or tail ~= "" then
                 table.insert(result, tail)
             end
             break
         end
         local segment = string.sub(str, startIndex, i - 1)
-        if segment ~= "" then
+        if includeEmpty or segment ~= "" then
             table.insert(result, segment)
         end
         startIndex = j + 1
@@ -361,7 +364,6 @@ function TrimString(str)
 
     return str:match("^%s*(.-)%s*$")
 end
-
 
 --- Check if a string starts with a given prefix (literal, supports multi-character)
 ---@param s any String to check

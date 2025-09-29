@@ -43,6 +43,7 @@ tasks:
       - task: format
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
+      - python build/scripts/export_harness_selene.py --src src --output dist/harness-selene.yml
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - 'build/scripts/build_single_lua_release.py'
@@ -56,6 +57,7 @@ tasks:
     cmds:
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
+      - python build/scripts/export_harness_selene.py --src src --output dist/harness-selene.yml
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - 'build/scripts/build_single_lua_release.py'

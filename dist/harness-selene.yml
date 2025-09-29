@@ -1075,6 +1075,10 @@ globals:
     - type: any
     - type:
         display: number?
+  ShallowEqual:
+    args:
+    - type: any
+    - type: any
   EncodeJson:
     args:
     - type: any

@@ -1,8 +1,7 @@
-if env and env.info then env.info("harness: 0.5.0 loading...", true) end
-
+-- harness: 0.5.1 loading...
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.5.0"
+HARNESS_VERSION = "0.5.1"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -5843,12 +5842,28 @@ function SplitString(str, delimiter)
     end
 
     delimiter = delimiter or ","
+    if delimiter == "" then
+        return { str }
+    end
 
     local result = {}
-    local pattern = string.format("([^%s]+)", delimiter)
+    local startIndex = 1
+    local delimLen = #delimiter
 
-    for match in string.gmatch(str, pattern) do
-        table.insert(result, match)
+    while true do
+        local i, j = string.find(str, delimiter, startIndex, true) -- plain find (no patterns)
+        if not i then
+            local tail = string.sub(str, startIndex)
+            if tail ~= "" then
+                table.insert(result, tail)
+            end
+            break
+        end
+        local segment = string.sub(str, startIndex, i - 1)
+        if segment ~= "" then
+            table.insert(result, segment)
+        end
+        startIndex = j + 1
     end
 
     return result
@@ -5968,6 +5983,32 @@ function TableToString(tbl, indent)
     result = result .. indentStr .. "}"
 
     return result
+end
+
+--- Shallow equality check between two values (tables compared by first-level keys/values)
+---@param a any First value
+---@param b any Second value
+---@return boolean equal True if values are shallowly equal
+---@usage
+--- local same = ShallowEqual({a=1,b=2},{b=2,a=1}) -- true
+function ShallowEqual(a, b)
+    if a == b then
+        return true
+    end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    for k, v in pairs(a) do
+        if b[k] ~= v then
+            return false
+        end
+    end
+    for k, v in pairs(b) do
+        if a[k] ~= v then
+            return false
+        end
+    end
+    return true
 end
 
 --- Encode a Lua value to JSON string

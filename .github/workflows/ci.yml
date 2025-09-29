@@ -25,6 +25,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install Python dependencies
+        run: |
+          uv pip install -e .[docs] --system
+
       - name: Set up Task
         uses: arduino/setup-task@v1
 

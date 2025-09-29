@@ -239,14 +239,10 @@ def write_output(config: dict, order: list[Path]) -> None:
 
     parts: list[str] = []
 
-    # Project log line at top (guarded) using pyproject name/version
     proj_name, proj_version = read_project_info_from_pyproject(PROJECT_ROOT)
-    if proj_name or proj_version:
-        _msg = (proj_name or "") + (f": {proj_version}" if proj_version else "") + " loading..."
-        _msg = _msg.replace("\\", "\\\\").replace("\"", "\\\"")
-        parts.append(
-            f"if env and env.info then env.info(\"{_msg}\", true) end\n\n"
-        )
+    banner_comment = make_banner_comment(proj_name, proj_version)
+    if banner_comment:
+        parts.append(banner_comment)
     # Prepend files (if present), in order
     prepend_list = config.get("prepend")
     if prepend_list:

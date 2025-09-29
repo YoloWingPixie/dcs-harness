@@ -38,6 +38,36 @@ function TestMisc:testDeepCopy()
     lu.assertEquals(t2_copy.y.z, 999)
 end
 
+-- Test ShallowEqual
+function TestMisc:testShallowEqual()
+    -- Non-tables and identical values
+    lu.assertTrue(ShallowEqual(1, 1))
+    lu.assertTrue(ShallowEqual("a", "a"))
+    lu.assertTrue(ShallowEqual(true, true))
+    lu.assertTrue(ShallowEqual(nil, nil))
+
+    lu.assertFalse(ShallowEqual(1, 2))
+    lu.assertFalse(ShallowEqual("a", "b"))
+    lu.assertFalse(ShallowEqual(true, false))
+    lu.assertFalse(ShallowEqual(nil, 0))
+
+    -- Tables: same keys/values, different order
+    lu.assertTrue(ShallowEqual({ a = 1, b = 2 }, { b = 2, a = 1 }))
+
+    -- Tables: missing or extra keys
+    lu.assertFalse(ShallowEqual({ a = 1 }, { a = 1, b = 2 }))
+    lu.assertFalse(ShallowEqual({ a = 1, b = 2 }, { a = 1 }))
+
+    -- Tables: different values
+    lu.assertFalse(ShallowEqual({ a = 1, b = 2 }, { a = 1, b = 3 }))
+
+    -- Nested tables: shallow check only (compares references at first level)
+    local inner1 = { x = 1 }
+    local inner2 = { x = 1 }
+    lu.assertFalse(ShallowEqual({ a = inner1 }, { a = inner2 })) -- different references
+    lu.assertTrue(ShallowEqual({ a = inner1 }, { a = inner1 })) -- same reference
+end
+
 -- Test DeepCopy preserves metatable
 function TestMisc:testDeepCopyPreservesMetatable()
     local mt = {
@@ -509,6 +539,18 @@ function TestMisc:testSplitString()
     local parts3 = SplitString("hello world test", " ")
     lu.assertEquals(parts3, { "hello", "world", "test" })
 
+    -- Dot delimiter (must be treated literally)
+    local partsDot = SplitString("a.b.c", ".")
+    lu.assertEquals(partsDot, { "a", "b", "c" })
+
+    -- Multi-character delimiter
+    local partsMulti = SplitString("ab--cd--ef", "--")
+    lu.assertEquals(partsMulti, { "ab", "cd", "ef" })
+
+    -- Leading/trailing/adjacent delimiters are skipped (no empty tokens)
+    lu.assertEquals(SplitString(",,a,,b,", ","), { "a", "b" })
+    lu.assertEquals(SplitString("--x----y--", "--"), { "x", "y" })
+
     -- No delimiter found
     local parts4 = SplitString("hello", ",")
     lu.assertEquals(parts4, { "hello" })
@@ -520,6 +562,19 @@ function TestMisc:testSplitString()
     -- Invalid input
     lu.assertEquals(SplitString(nil), {})
     lu.assertEquals(SplitString(123), {})
+end
+
+-- Test SplitString includeEmpty=true behavior
+function TestMisc:testSplitStringIncludeEmpty()
+    -- Adjacent delimiters and leading/trailing delimiters
+    lu.assertEquals(SplitString(",,a,,b,", ",", true), { "", "", "a", "", "b", "" })
+    lu.assertEquals(SplitString("--x----y--", "--", true), { "", "x", "", "y", "" })
+
+    -- No delimiter found
+    lu.assertEquals(SplitString("hello", ",", true), { "hello" })
+
+    -- Empty string input
+    lu.assertEquals(SplitString("", ",", true), { "" })
 end
 
 -- Test TrimString
@@ -540,6 +595,31 @@ function TestMisc:testTrimString()
     -- Invalid input
     lu.assertEquals(TrimString(nil), "")
     lu.assertEquals(TrimString(123), "")
+end
+
+-- Test StringStartsWith / StringContains / StringEndsWith
+function TestMisc:testStringHelpers()
+    -- StartsWith
+    lu.assertTrue(StringStartsWith("hello", "he"))
+    lu.assertTrue(StringStartsWith("hello", ""))
+    lu.assertFalse(StringStartsWith("hello", "world"))
+    lu.assertFalse(StringStartsWith(nil, "he"))
+    lu.assertFalse(StringStartsWith("hello", nil))
+
+    -- Contains
+    lu.assertTrue(StringContains("hello world", "lo w"))
+    lu.assertTrue(StringContains("abc", "a"))
+    lu.assertTrue(StringContains("abc", ""))
+    lu.assertFalse(StringContains("abc", "d"))
+    lu.assertFalse(StringContains(nil, "a"))
+    lu.assertFalse(StringContains("abc", nil))
+
+    -- EndsWith
+    lu.assertTrue(StringEndsWith("file.lua", ".lua"))
+    lu.assertTrue(StringEndsWith("test", "t"))
+    lu.assertFalse(StringEndsWith("hello", "lo "))
+    lu.assertFalse(StringEndsWith(nil, "x"))
+    lu.assertFalse(StringEndsWith("hello", nil))
 end
 
 -- Test StartsWith

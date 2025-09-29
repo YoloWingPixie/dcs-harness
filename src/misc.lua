@@ -312,23 +312,42 @@ function ShuffledCopy(array)
     return Shuffle(copy)
 end
 
---- Split string by delimiter
+--- Split string by delimiter, with option to include empty tokens
 ---@param str any String to split
 ---@param delimiter string? Delimiter (default ",")
+---@param includeEmpty boolean? Include empty tokens when delimiters are adjacent or at ends (default false)
 ---@return table parts Array of string parts
 ---@usage local parts = SplitString("a,b,c", ",")
-function SplitString(str, delimiter)
+---@usage local partsWithEmpty = SplitString(",a,,b,", ",", true)
+function SplitString(str, delimiter, includeEmpty)
     if type(str) ~= "string" then
         return {}
     end
 
     delimiter = delimiter or ","
+    includeEmpty = includeEmpty == true
+    if delimiter == "" then
+        return { str }
+    end
 
     local result = {}
-    local pattern = string.format("([^%s]+)", delimiter)
+    local startIndex = 1
+    local delimLen = #delimiter
 
-    for match in string.gmatch(str, pattern) do
-        table.insert(result, match)
+    while true do
+        local i, j = string.find(str, delimiter, startIndex, true) -- plain find (no patterns)
+        if not i then
+            local tail = string.sub(str, startIndex)
+            if includeEmpty or tail ~= "" then
+                table.insert(result, tail)
+            end
+            break
+        end
+        local segment = string.sub(str, startIndex, i - 1)
+        if includeEmpty or segment ~= "" then
+            table.insert(result, segment)
+        end
+        startIndex = j + 1
     end
 
     return result
@@ -346,17 +365,61 @@ function TrimString(str)
     return str:match("^%s*(.-)%s*$")
 end
 
+--- Check if a string starts with a given prefix (literal, supports multi-character)
+---@param s any String to check
+---@param prefix any Prefix to look for
+---@return boolean starts True if s starts with prefix
+---@usage if StringStartsWith("abc", "a") then ... end
+function StringStartsWith(s, prefix)
+    if type(s) ~= "string" or type(prefix) ~= "string" then
+        return false
+    end
+    local lp = #prefix
+    if lp == 0 then
+        return true
+    end
+    return string.sub(s, 1, lp) == prefix
+end
+
+--- Check if a string contains a given substring (literal, supports multi-character)
+---@param s any String to search
+---@param needle any Substring to find
+---@return boolean contains True if s contains needle
+---@usage if StringContains("hello world", "lo w") then ... end
+function StringContains(s, needle)
+    if type(s) ~= "string" or type(needle) ~= "string" then
+        return false
+    end
+    if needle == "" then
+        return true
+    end
+    local i = string.find(s, needle, 1, true) -- plain find
+    return i ~= nil
+end
+
+--- Check if a string ends with a given suffix (literal, supports multi-character)
+---@param s any String to check
+---@param suffix any Suffix to look for
+---@return boolean ends True if s ends with suffix
+---@usage if StringEndsWith("file.lua", ".lua") then ... end
+function StringEndsWith(s, suffix)
+    if type(s) ~= "string" or type(suffix) ~= "string" then
+        return false
+    end
+    local ls = #suffix
+    if ls == 0 then
+        return false
+    end
+    return string.sub(s, -ls) == suffix
+end
+
 --- Check if string starts with prefix
 ---@param str any String to check
 ---@param prefix any Prefix to look for
 ---@return boolean starts True if str starts with prefix
 ---@usage if StartsWith(filename, "test_") then ... end
 function StartsWith(str, prefix)
-    if type(str) ~= "string" or type(prefix) ~= "string" then
-        return false
-    end
-
-    return string.sub(str, 1, string.len(prefix)) == prefix
+    return StringStartsWith(str, prefix)
 end
 
 --- Check if string ends with suffix
@@ -365,11 +428,7 @@ end
 ---@return boolean ends True if str ends with suffix
 ---@usage if EndsWith(filename, ".lua") then ... end
 function EndsWith(str, suffix)
-    if type(str) ~= "string" or type(suffix) ~= "string" then
-        return false
-    end
-
-    return string.sub(str, -string.len(suffix)) == suffix
+    return StringEndsWith(str, suffix)
 end
 
 -- Note: DegToRad and RadToDeg functions are available in geomath.lua
@@ -448,6 +507,32 @@ function TableToString(tbl, indent)
     result = result .. indentStr .. "}"
 
     return result
+end
+
+--- Shallow equality check between two values (tables compared by first-level keys/values)
+---@param a any First value
+---@param b any Second value
+---@return boolean equal True if values are shallowly equal
+---@usage
+--- local same = ShallowEqual({a=1,b=2},{b=2,a=1}) -- true
+function ShallowEqual(a, b)
+    if a == b then
+        return true
+    end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    for k, v in pairs(a) do
+        if b[k] ~= v then
+            return false
+        end
+    end
+    for k, v in pairs(b) do
+        if a[k] ~= v then
+            return false
+        end
+    end
+    return true
 end
 
 --- Encode a Lua value to JSON string

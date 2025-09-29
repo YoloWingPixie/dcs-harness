@@ -5831,17 +5831,20 @@ function ShuffledCopy(array)
     return Shuffle(copy)
 end
 
---- Split string by delimiter
+--- Split string by delimiter, with option to include empty tokens
 ---@param str any String to split
 ---@param delimiter string? Delimiter (default ",")
+---@param includeEmpty boolean? Include empty tokens when delimiters are adjacent or at ends (default false)
 ---@return table parts Array of string parts
 ---@usage local parts = SplitString("a,b,c", ",")
-function SplitString(str, delimiter)
+---@usage local partsWithEmpty = SplitString(",a,,b,", ",", true)
+function SplitString(str, delimiter, includeEmpty)
     if type(str) ~= "string" then
         return {}
     end
 
     delimiter = delimiter or ","
+    includeEmpty = includeEmpty == true
     if delimiter == "" then
         return { str }
     end
@@ -5854,13 +5857,13 @@ function SplitString(str, delimiter)
         local i, j = string.find(str, delimiter, startIndex, true) -- plain find (no patterns)
         if not i then
             local tail = string.sub(str, startIndex)
-            if tail ~= "" then
+            if includeEmpty or tail ~= "" then
                 table.insert(result, tail)
             end
             break
         end
         local segment = string.sub(str, startIndex, i - 1)
-        if segment ~= "" then
+        if includeEmpty or segment ~= "" then
             table.insert(result, segment)
         end
         startIndex = j + 1
@@ -5879,32 +5882,6 @@ function TrimString(str)
     end
 
     return str:match("^%s*(.-)%s*$")
-end
-
---- Check if string starts with prefix
----@param str any String to check
----@param prefix any Prefix to look for
----@return boolean starts True if str starts with prefix
----@usage if StartsWith(filename, "test_") then ... end
-function StartsWith(str, prefix)
-    if type(str) ~= "string" or type(prefix) ~= "string" then
-        return false
-    end
-
-    return string.sub(str, 1, string.len(prefix)) == prefix
-end
-
---- Check if string ends with suffix
----@param str any String to check
----@param suffix any Suffix to look for
----@return boolean ends True if str ends with suffix
----@usage if EndsWith(filename, ".lua") then ... end
-function EndsWith(str, suffix)
-    if type(str) ~= "string" or type(suffix) ~= "string" then
-        return false
-    end
-
-    return string.sub(str, -string.len(suffix)) == suffix
 end
 
 --- Check if a string starts with a given prefix (literal, supports multi-character)
@@ -5953,6 +5930,24 @@ function StringEndsWith(s, suffix)
         return false
     end
     return string.sub(s, -ls) == suffix
+end
+
+--- Check if string starts with prefix
+---@param str any String to check
+---@param prefix any Prefix to look for
+---@return boolean starts True if str starts with prefix
+---@usage if StartsWith(filename, "test_") then ... end
+function StartsWith(str, prefix)
+    return StringStartsWith(str, prefix)
+end
+
+--- Check if string ends with suffix
+---@param str any String to check
+---@param suffix any Suffix to look for
+---@return boolean ends True if str ends with suffix
+---@usage if EndsWith(filename, ".lua") then ... end
+function EndsWith(str, suffix)
+    return StringEndsWith(str, suffix)
 end
 
 -- Note: DegToRad and RadToDeg functions are available in geomath.lua

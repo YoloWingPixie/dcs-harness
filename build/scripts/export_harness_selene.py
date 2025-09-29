@@ -59,32 +59,53 @@ FUNC_DEF_RE = re.compile(r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 @dataclass
 class ParsedFunction:
     name: str
+    # Store raw type tokens as written in Emmy (e.g., "string?", "table", "Vec3|nil")
     arg_types: List[str]
 
 
-def normalize_arg_type(type_string: str) -> Tuple[str, Any]:
-    t = (type_string or "").strip()
-    if not t:
-        return ("primitive", "any")
-    if t == "...":
-        return ("primitive", "...")
-    # union, tuple, arrays — keep as display
+def normalize_arg_type(type_string: str) -> Tuple[Dict[str, Any], bool]:
+    """Normalize a single Emmy type token into a Selene arg spec and optionality.
+
+    - Recognizes optional marker suffix '?' (e.g., 'string?').
+    - Leaves union/complex displays intact, but strips optional '?' if present.
+    - Returns (arg_spec_dict, is_optional).
+    """
+    raw = (type_string or "").strip()
+    if not raw:
+        return ({"type": "any"}, False)
+
+    # Varargs passthrough
+    if raw == "...":
+        return ({"type": "..."}, False)
+
+    # Detect and strip trailing optional marker '?'
+    is_optional = False
+    t = raw
+    if t.endswith("?"):
+        is_optional = True
+        t = t[:-1]
+
+    # If complex union/array/tuple, keep as display
     if "|" in t or "," in t or "[" in t or "]" in t:
-        return ("display", {"display": t})
+        return ({"type": {"display": t}}, is_optional)
+
     mapped = PRIMITIVE_TYPE_MAP.get(t.lower())
     if mapped is not None:
-        return ("primitive", mapped)
-    return ("display", {"display": t})
+        return ({"type": mapped}, is_optional)
+
+    # Fallback to display
+    return ({"type": {"display": t}}, is_optional)
 
 
 def build_function_args(param_type_list: Iterable[str]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for t in param_type_list:
-        kind, value = normalize_arg_type(t)
-        if kind == "primitive":
-            out.append({"type": value})
-        else:
-            out.append({"type": value})
+        spec, is_optional = normalize_arg_type(t)
+        # Copy spec and add required:false when optional
+        arg_entry: Dict[str, Any] = {"type": spec["type"]}  # type: ignore[index]
+        if is_optional:
+            arg_entry["required"] = False
+        out.append(arg_entry)
     return out
 
 

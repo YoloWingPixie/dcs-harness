@@ -3,144 +3,144 @@ name: harness
 globals:
   GetAirbaseByName:
     args:
-    - type:
-        display: string?
+    - type: string
+      required: false
   GetAirbaseDescriptor:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseCallsign:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseUnit:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: any
   GetAirbaseCategoryName:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseParking:
     args:
-    - type:
-        display: table?
-    - type:
-        display: boolean?
+    - type: table
+      required: false
+    - type: bool
+      required: false
   GetAirbaseRunways:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseTechObjectPos:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: number
   GetAirbaseDispatcherTowerPos:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseRadioSilentMode:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   SetAirbaseRadioSilentMode:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: bool
   GetAirbaseBeacon:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   AirbaseAutoCapture:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: bool
   AirbaseAutoCaptureIsOn:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   SetAirbaseCoalition:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: number
   GetAirbaseWarehouse:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseFreeParkingTerminal:
     args:
-    - type:
-        display: table?
-    - type:
-        display: any?
+    - type: table
+      required: false
+    - type: any
+      required: false
   GetAirbaseFreeParkingTerminalByType:
     args:
-    - type:
-        display: table?
-    - type:
-        display: any?
-    - type:
-        display: boolean?
+    - type: table
+      required: false
+    - type: any
+      required: false
+    - type: bool
+      required: false
   GetFreeAirbaseParkingTerminal:
     args:
-    - type:
-        display: table?
-    - type:
-        display: any?
+    - type: table
+      required: false
+    - type: any
+      required: false
   GetAirbaseParkingTerminal:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: number
   GetAirbaseParkingTerminalByIndex:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: number
   GetAirbaseParkingCount:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetAirbaseRunwayDetails:
     args:
-    - type:
-        display: table?
-    - type:
-        display: number?
+    - type: table
+      required: false
+    - type: number
+      required: false
   GetAirbaseMeteo:
     args:
-    - type:
-        display: table?
-    - type:
-        display: number?
+    - type: table
+      required: false
+    - type: number
+      required: false
   GetAirbaseWindWithTurbulence:
     args:
-    - type:
-        display: table?
-    - type:
-        display: number?
+    - type: table
+      required: false
+    - type: number
+      required: false
   GetAirbaseIsServiceProvided:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: number
   GetWind:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetWindWithTurbulence:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetTemperatureAndPressure:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   GetWindKnots:
     args:
     - type: table
@@ -185,8 +185,8 @@ globals:
     - type: function
     - type: function
     - type: string
-    - type:
-        display: function?
+    - type: function
+      required: false
   GetCachedUnit:
     args:
     - type: string
@@ -232,8 +232,8 @@ globals:
   GetCoalitionGroups:
     args:
     - type: number
-    - type:
-        display: number?
+    - type: number
+      required: false
   GetCoalitionAirbases:
     args:
     - type: any
@@ -305,16 +305,16 @@ globals:
     args:
     - type: table
     - type: number
-    - type:
-        display: boolean?
-    - type:
-        display: string?
+    - type: bool
+      required: false
+    - type: string
+      required: false
   SetControllerSpeed:
     args:
     - type: table
     - type: number
-    - type:
-        display: boolean?
+    - type: bool
+      required: false
   SetControllerOption:
     args:
     - type: table
@@ -395,24 +395,24 @@ globals:
   GetControllerDetectedTargets:
     args:
     - type: table
-    - type:
-        display: any?
-    - type:
-        display: any?
+    - type: any
+      required: false
+    - type: any
+      required: false
   KnowControllerTarget:
     args:
     - type: table
     - type: table
-    - type:
-        display: boolean?
-    - type:
-        display: boolean?
+    - type: bool
+      required: false
+    - type: bool
+      required: false
   IsControllerTargetDetected:
     args:
     - type: table
     - type: table
-    - type:
-        display: any?
+    - type: any
+      required: false
   BuildAirOptionTask:
     args:
     - type: any
@@ -436,94 +436,94 @@ globals:
     - type: any
   CreateOrbitTask:
     args:
-    - type:
-        display: string?
+    - type: string
+      required: false
     - type: table
     - type: number
     - type: number
-    - type:
-        display: table?
+    - type: table
+      required: false
   CreateFollowTask:
     args:
     - type: number
-    - type:
-        display: table?
-    - type:
-        display: number?
+    - type: table
+      required: false
+    - type: number
+      required: false
   CreateEscortTask:
     args:
     - type: number
-    - type:
-        display: table?
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: table
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   CreateAttackGroupTask:
     args:
     - type: number
-    - type:
-        display: any?
-    - type:
-        display: boolean?
-    - type:
-        display: number?
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: any
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   CreateAttackUnitTask:
     args:
     - type: number
-    - type:
-        display: any?
-    - type:
-        display: boolean?
-    - type:
-        display: number?
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: any
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   CreateBombingTask:
     args:
     - type: table
-    - type:
-        display: any?
-    - type:
-        display: boolean?
-    - type:
-        display: number?
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: any
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   CreateBombingRunwayTask:
     args:
     - type: number
-    - type:
-        display: any?
-    - type:
-        display: boolean?
-    - type:
-        display: number?
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: any
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   CreateLandTask:
     args:
     - type: table
-    - type:
-        display: boolean?
-    - type:
-        display: number?
+    - type: bool
+      required: false
+    - type: number
+      required: false
   CreateRefuelingTask:
     args: []
   CreateHoldTask:
     args:
-    - type:
-        display: any?
+    - type: any
+      required: false
   CreateGoToWaypointTask:
     args:
     - type: number
@@ -531,8 +531,8 @@ globals:
   CreateWrappedAction:
     args:
     - type: table
-    - type:
-        display: boolean?
+    - type: bool
+      required: false
   CtoK:
     args:
     - type:
@@ -622,8 +622,8 @@ globals:
     args:
     - type: number
     - type: number
-    - type:
-        display: number?
+    - type: number
+      required: false
   LOtoMGRS:
     args:
     - type: table
@@ -636,32 +636,32 @@ globals:
     args: []
   Cache:
     args:
-    - type:
-        display: number?
+    - type: number
+      required: false
   Memoize:
     args:
     - type: function
-    - type:
-        display: number?
-    - type:
-        display: function?
+    - type: number
+      required: false
+    - type: function
+      required: false
   Heap:
     args:
-    - type:
-        display: boolean?
-    - type:
-        display: function?
+    - type: bool
+      required: false
+    - type: function
+      required: false
   Set:
     args: []
   PriorityQueue:
     args:
-    - type:
-        display: function?
+    - type: function
+      required: false
   RingBuffer:
     args:
     - type: number
-    - type:
-        display: boolean?
+    - type: bool
+      required: false
   GetDrawings:
     args: []
   ProcessDrawingGeometry:
@@ -690,35 +690,35 @@ globals:
   GetUnitsInDrawing:
     args:
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   GetDrawingsAtPoint:
     args:
     - type: table
-    - type:
-        display: string?
+    - type: string
+      required: false
   ClearDrawingCache:
     args: []
   GetFlag:
     args:
-    - type:
-        display: string?
+    - type: string
+      required: false
   SetFlag:
     args:
-    - type:
-        display: string?
-    - type:
-        display: number?
+    - type: string
+      required: false
+    - type: number
+      required: false
   IncFlag:
     args:
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   DecFlag:
     args:
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   ToggleFlag:
     args:
     - type: string
@@ -895,8 +895,8 @@ globals:
     - type: table
     - type: table
     - type: table
-    - type:
-        display: number?
+    - type: number
+      required: false
   GetGroup:
     args:
     - type: string
@@ -928,19 +928,19 @@ globals:
     args:
     - type: number
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   MessageToCoalition:
     args:
     - type: number
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   MessageToAll:
     args:
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   ActivateGroup:
     args:
     - type: string
@@ -977,8 +977,8 @@ globals:
     args: []
   HarnessLogger:
     args:
-    - type:
-        display: string?
+    - type: string
+      required: false
   DeepCopy:
     args:
     - type: any
@@ -1027,8 +1027,8 @@ globals:
   Round:
     args:
     - type: number
-    - type:
-        display: number?
+    - type: number
+      required: false
   RandomFloat:
     args:
     - type: number
@@ -1039,8 +1039,8 @@ globals:
     - type: number
   RandomChoice:
     args:
-    - type:
-        display: table?
+    - type: table
+      required: false
   Shuffle:
     args:
     - type: any
@@ -1050,18 +1050,12 @@ globals:
   SplitString:
     args:
     - type: any
-    - type:
-        display: string?
+    - type: string
+      required: false
+    - type: bool
+      required: false
   TrimString:
     args:
-    - type: any
-  StartsWith:
-    args:
-    - type: any
-    - type: any
-  EndsWith:
-    args:
-    - type: any
     - type: any
   StringStartsWith:
     args:
@@ -1075,6 +1069,14 @@ globals:
     args:
     - type: any
     - type: any
+  StartsWith:
+    args:
+    - type: any
+    - type: any
+  EndsWith:
+    args:
+    - type: any
+    - type: any
   NormalizeAngle:
     args:
     - type: number
@@ -1085,8 +1087,8 @@ globals:
   TableToString:
     args:
     - type: any
-    - type:
-        display: number?
+    - type: number
+      required: false
   ShallowEqual:
     args:
     - type: any
@@ -1100,13 +1102,13 @@ globals:
   Retry:
     args:
     - type: function
-    - type:
-        display: table?
+    - type: table
+      required: false
   CircuitBreaker:
     args:
     - type: function
-    - type:
-        display: table?
+    - type: table
+      required: false
   AddCommand:
     args:
     - type: any
@@ -1168,8 +1170,8 @@ globals:
     args:
     - type: string
     - type: number
-    - type:
-        display: number?
+    - type: number
+      required: false
   GetPlayers:
     args: []
   GetPlayerInfo:
@@ -1178,8 +1180,8 @@ globals:
   KickPlayer:
     args:
     - type: number
-    - type:
-        display: string?
+    - type: string
+      required: false
   GetPlayerStat:
     args:
     - type: number
@@ -1211,8 +1213,8 @@ globals:
   GetShapesAtPoint:
     args:
     - type: table
-    - type:
-        display: string?
+    - type: string
+      required: false
   GetAllCircularShapes:
     args: []
   GetAllPolygonShapes:
@@ -1331,15 +1333,15 @@ globals:
     args:
     - type: table
     - type: table
-    - type:
-        display: table?
+    - type: table
+      required: false
     - type: number
   CreateIRSpot:
     args:
     - type: table
     - type: table
-    - type:
-        display: table?
+    - type: table
+      required: false
   DestroySpot:
     args:
     - type: table
@@ -1429,10 +1431,10 @@ globals:
   GetTerrainGrade:
     args:
     - type: table
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: number
+      required: false
+    - type: number
+      required: false
   GetSurfaceType:
     args:
     - type: table
@@ -1454,14 +1456,14 @@ globals:
   GetClosestRoadPoint:
     args:
     - type: table
-    - type:
-        display: string?
+    - type: string
+      required: false
   FindRoadPath:
     args:
     - type: table
     - type: table
-    - type:
-        display: string?
+    - type: string
+      required: false
   GetTime:
     args: []
   GetAbsTime:
@@ -1481,14 +1483,14 @@ globals:
   ScheduleOnce:
     args:
     - type: function
-    - type:
-        display: any?
-    - type:
-        display: number?
+    - type: any
+      required: false
+    - type: number
+      required: false
   CancelSchedule:
     args:
-    - type:
-        display: number?
+    - type: number
+      required: false
   RescheduleFunction:
     args:
     - type: number
@@ -1498,72 +1500,72 @@ globals:
     - type: number
   TimeToSeconds:
     args:
-    - type:
-        display: number?
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   GetElapsedTime:
     args: []
   GetElapsedRealTime:
     args: []
   BinarySearchTree:
     args:
-    - type:
-        display: function?
+    - type: function
+      required: false
   RedBlackTree:
     args:
-    - type:
-        display: function?
+    - type: function
+      required: false
   Trie:
     args: []
   AVLTree:
     args:
-    - type:
-        display: function?
+    - type: function
+      required: false
   OutText:
     args:
     - type: string
-    - type:
-        display: number?
-    - type:
-        display: boolean?
+    - type: number
+      required: false
+    - type: bool
+      required: false
   OutTextForCoalition:
     args:
     - type: number
     - type: string
-    - type:
-        display: number?
-    - type:
-        display: boolean?
+    - type: number
+      required: false
+    - type: bool
+      required: false
   OutTextForGroup:
     args:
     - type: number
     - type: string
-    - type:
-        display: number?
-    - type:
-        display: boolean?
+    - type: number
+      required: false
+    - type: bool
+      required: false
   OutTextForUnit:
     args:
     - type: number
     - type: string
-    - type:
-        display: number?
-    - type:
-        display: boolean?
+    - type: number
+      required: false
+    - type: bool
+      required: false
   OutSound:
     args:
     - type: string
-    - type:
-        display: any?
+    - type: any
+      required: false
   OutSoundForCoalition:
     args:
     - type: number
     - type: string
-    - type:
-        display: any?
+    - type: any
+      required: false
   Explosion:
     args:
     - type: table
@@ -1572,46 +1574,46 @@ globals:
     args:
     - type: table
     - type: number
-    - type:
-        display: number?
-    - type:
-        display: string?
+    - type: number
+      required: false
+    - type: string
+      required: false
   EffectSmokeBig:
     args:
     - type: table
     - type: number
-    - type:
-        display: number?
-    - type:
-        display: string?
+    - type: number
+      required: false
+    - type: string
+      required: false
   EffectSmokeStop:
     args:
     - type: string
   IlluminationBomb:
     args:
     - type: table
-    - type:
-        display: number?
+    - type: number
+      required: false
   SignalFlare:
     args:
     - type: table
     - type: number
-    - type:
-        display: number?
+    - type: number
+      required: false
   RadioTransmission:
     args:
     - type: string
     - type: table
-    - type:
-        display: number?
-    - type:
-        display: boolean?
-    - type:
-        display: number?
-    - type:
-        display: number?
-    - type:
-        display: string?
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: string
+      required: false
   StopRadioTransmission:
     args:
     - type: string
@@ -1641,35 +1643,35 @@ globals:
   MarkToAll:
     args:
     - type: number
-    - type:
-        display: string?
+    - type: string
+      required: false
     - type: table
-    - type:
-        display: boolean?
-    - type:
-        display: string?
+    - type: bool
+      required: false
+    - type: string
+      required: false
   MarkToCoalition:
     args:
     - type: number
-    - type:
-        display: string?
+    - type: string
+      required: false
     - type: table
     - type: number
-    - type:
-        display: boolean?
-    - type:
-        display: string?
+    - type: bool
+      required: false
+    - type: string
+      required: false
   MarkToGroup:
     args:
     - type: number
-    - type:
-        display: string?
+    - type: string
+      required: false
     - type: table
     - type: number
-    - type:
-        display: boolean?
-    - type:
-        display: string?
+    - type: bool
+      required: false
+    - type: string
+      required: false
   SetAITask:
     args:
     - type: table
@@ -1798,10 +1800,10 @@ globals:
   UnitHasSensors:
     args:
     - type: table
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: number
+      required: false
+    - type: number
+      required: false
   GetUnitRadar:
     args:
     - type: table
@@ -1828,8 +1830,8 @@ globals:
   UnloadUnitCargo:
     args:
     - type: table
-    - type:
-        display: table?
+    - type: table
+      required: false
   OpenUnitRamp:
     args:
     - type: table
@@ -1876,17 +1878,19 @@ globals:
   Vec2:
     args:
     - type:
-        display: number|table?
-    - type:
-        display: number?
+        display: number|table
+      required: false
+    - type: number
+      required: false
   Vec3:
     args:
     - type:
-        display: number|table?
-    - type:
-        display: number?
-    - type:
-        display: number?
+        display: number|table
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
   IsVec3:
     args:
     - type: any
@@ -1899,8 +1903,8 @@ globals:
   ToVec3:
     args:
     - type: any
-    - type:
-        display: number?
+    - type: number
+      required: false
   VecAdd:
     args:
     - type: table
@@ -1974,13 +1978,13 @@ globals:
   Vec3ToString:
     args:
     - type: table
-    - type:
-        display: number?
+    - type: number
+      required: false
   Vec2ToString:
     args:
     - type: table
-    - type:
-        display: number?
+    - type: number
+      required: false
   LineSegmentIntersection2D:
     args:
     - type: any
@@ -2091,12 +2095,12 @@ globals:
     args: []
   SearchWorldObjects:
     args:
-    - type:
-        display: number?
-    - type:
-        display: table?
-    - type:
-        display: function?
+    - type: number
+      required: false
+    - type: table
+      required: false
+    - type: function
+      required: false
   GetMarkPanels:
     args: []
   OnWorldEvent:
@@ -2177,20 +2181,20 @@ globals:
   GetUnitsInZone:
     args:
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   GetGroupsInZone:
     args:
     - type: string
-    - type:
-        display: number?
+    - type: number
+      required: false
   RandomPointInZone:
     args:
     - type: string
-    - type:
-        display: number?
-    - type:
-        display: number?
+    - type: number
+      required: false
+    - type: number
+      required: false
   IsInPolygonZone:
     args:
     - type: table

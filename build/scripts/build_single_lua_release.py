@@ -25,6 +25,7 @@ import re
 import sys
 from pathlib import Path
 from collections import defaultdict
+import re as _re2
 
 REQUIRE_RE = re.compile(r"^\s*require\([\"\']([A-Za-z0-9_./-]+)[\"\']\)\s*$")
 COMMENT_RE = re.compile(r"^\s*--")
@@ -128,10 +129,9 @@ def _header_end_index(lines: list[str]) -> int:
             i += 1
         if i < len(lines):
             i += 1  # move past the line containing ']]'
-        while i < len(lines) and is_blank(lines[i]):
-            i += 1
-        return i
-    # Otherwise skip consecutive line comments
+    # After any block header, skip blanks and consecutive line comments (e.g., --- annotations)
+    while i < len(lines) and is_blank(lines[i]):
+        i += 1
     while i < len(lines) and is_comment(lines[i]):
         i += 1
     while i < len(lines) and is_blank(lines[i]):
@@ -267,7 +267,15 @@ def write_output(config: dict, order: list[Path]) -> None:
         parts.append(content.rstrip() + "\n")
         parts.append(f"-- ==== END: {rel} ====\n\n")
 
-    output_path.write_text("".join(parts), encoding="utf-8")
+    final_text = "".join(parts)
+    # Safety net: remove any stray non-comment top-level require(...) lines
+    if ("strip_requires" in config) and bool(config["strip_requires"]):
+        final_text = _re2.sub(
+            r"(?m)^(?!\s*--)\s*require\([\"']([A-Za-z0-9_./-]+)[\"']\)\s*(?:--.*)?\r?\n",
+            "",
+            final_text,
+        )
+    output_path.write_text(final_text, encoding="utf-8")
 
 
 def main(argv: list[str]) -> int:

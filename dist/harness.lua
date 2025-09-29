@@ -1,7 +1,8 @@
 -- harness: 0.6.0 loading...
 -- ==== BEGIN: src\_header.lua ====
 -- Version
-HARNESS_VERSION = "0.6.0"
+HARNESS_VERSION = "1.0.0"
+
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -1098,10 +1099,6 @@ end
 ---@field has fun(self: GeoGrid, id: any): boolean
 ---@field toTable fun(self: GeoGrid): table
 ---@field fromTable fun(self: GeoGrid, t: table): boolean
-
-require("logger")
-require("misc")
-
 local floor = math.floor
 
 ---@param t any

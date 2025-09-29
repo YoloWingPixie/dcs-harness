@@ -362,31 +362,6 @@ function TrimString(str)
     return str:match("^%s*(.-)%s*$")
 end
 
---- Check if string starts with prefix
----@param str any String to check
----@param prefix any Prefix to look for
----@return boolean starts True if str starts with prefix
----@usage if StartsWith(filename, "test_") then ... end
-function StartsWith(str, prefix)
-    if type(str) ~= "string" or type(prefix) ~= "string" then
-        return false
-    end
-
-    return string.sub(str, 1, string.len(prefix)) == prefix
-end
-
---- Check if string ends with suffix
----@param str any String to check
----@param suffix any Suffix to look for
----@return boolean ends True if str ends with suffix
----@usage if EndsWith(filename, ".lua") then ... end
-function EndsWith(str, suffix)
-    if type(str) ~= "string" or type(suffix) ~= "string" then
-        return false
-    end
-
-    return string.sub(str, -string.len(suffix)) == suffix
-end
 
 --- Check if a string starts with a given prefix (literal, supports multi-character)
 ---@param s any String to check
@@ -434,6 +409,24 @@ function StringEndsWith(s, suffix)
         return false
     end
     return string.sub(s, -ls) == suffix
+end
+
+--- Check if string starts with prefix
+---@param str any String to check
+---@param prefix any Prefix to look for
+---@return boolean starts True if str starts with prefix
+---@usage if StartsWith(filename, "test_") then ... end
+function StartsWith(str, prefix)
+    return StringStartsWith(str, prefix)
+end
+
+--- Check if string ends with suffix
+---@param str any String to check
+---@param suffix any Suffix to look for
+---@return boolean ends True if str ends with suffix
+---@usage if EndsWith(filename, ".lua") then ... end
+function EndsWith(str, suffix)
+    return StringEndsWith(str, suffix)
 end
 
 -- Note: DegToRad and RadToDeg functions are available in geomath.lua

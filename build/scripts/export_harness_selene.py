@@ -52,6 +52,13 @@ PRIMITIVE_TYPE_MAP: Dict[str, str] = {
 }
 
 
+# Additional global tables/objects to export (available after harness init)
+# Use Selene's "property: new-fields" so consumers can access dynamic methods via colon calls.
+EXTRA_GLOBALS: Dict[str, Dict[str, Any]] = {
+    "HarnessWorldEventBus": {"property": "new-fields"},
+}
+
+
 PARAM_RE = re.compile(r"^\s*---@param\s+(\w+)\s+([^\s]+)")
 FUNC_DEF_RE = re.compile(r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 
@@ -177,6 +184,9 @@ def export_selene_yaml(funcs: List[ParsedFunction]) -> Dict[str, Any]:
     for f in funcs:
         key = f.name
         globals_out[key] = {"args": build_function_args(f.arg_types)}
+
+    # Also export important global tables/objects available after init
+    globals_out.update(EXTRA_GLOBALS)
     doc: Dict[str, Any] = {
         "base": "lua51",
         "name": "harness",

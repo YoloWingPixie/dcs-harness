@@ -2233,3 +2233,5 @@ globals:
     - type: table
   ClearZoneCache:
     args: []
+  HarnessWorldEventBus:
+    property: new-fields

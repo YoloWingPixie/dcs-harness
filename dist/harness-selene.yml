@@ -699,6 +699,13 @@ globals:
       required: false
   ClearDrawingCache:
     args: []
+  EventBus:
+    args:
+    - type: any
+  CreateHarnessWorldEventBus:
+    args: []
+  InitHarnessWorldEventBus:
+    args: []
   GetFlag:
     args:
     - type: string

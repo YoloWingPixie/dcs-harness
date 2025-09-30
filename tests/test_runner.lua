@@ -70,6 +70,8 @@ dofile("../src/net.lua")
 dofile("../src/drawing.lua")
 dofile("../src/shapecache.lua")
 dofile("../src/geogrid.lua")
+-- Load eventbus last so that world is available for handler registration
+dofile("../src/eventbus.lua")
 
 -- Dynamically load all test_*.lua files in the tests directory (excluding this runner)
 local function listTestModules()

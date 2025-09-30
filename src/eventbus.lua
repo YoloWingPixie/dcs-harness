@@ -35,9 +35,15 @@ function EventBus(keySelector)
     ---@param predicate fun(event: table): boolean Optional predicate to filter deliveries
     ---@return number? subscriptionId Returns an id to later unsubscribe, or nil on error
     function bus:subscribe(topicKey, queue, predicate)
-        if topicKey == nil then return nil end
-        if type(queue) ~= "table" or type(queue.enqueue) ~= "function" then return nil end
-        if predicate ~= nil and type(predicate) ~= "function" then return nil end
+        if topicKey == nil then
+            return nil
+        end
+        if type(queue) ~= "table" or type(queue.enqueue) ~= "function" then
+            return nil
+        end
+        if predicate ~= nil and type(predicate) ~= "function" then
+            return nil
+        end
 
         if not self._subscribers[topicKey] then
             self._subscribers[topicKey] = {}
@@ -58,7 +64,9 @@ function EventBus(keySelector)
     ---@param subscriptionId number
     ---@return boolean removed True if removed
     function bus:unsubscribe(subscriptionId)
-        if type(subscriptionId) ~= "number" then return false end
+        if type(subscriptionId) ~= "number" then
+            return false
+        end
         for eventId, list in pairs(self._subscribers) do
             for i = #list, 1, -1 do
                 if list[i].id == subscriptionId then
@@ -73,12 +81,24 @@ function EventBus(keySelector)
         return false
     end
 
+    -- Idiomatic aliases
+    function bus:sub(topicKey, queue, predicate)
+        return self:subscribe(topicKey, queue, predicate)
+    end
+    function bus:unsub(subscriptionId)
+        return self:unsubscribe(subscriptionId)
+    end
+
     --- Publish an event to subscribers of its derived topic key
     ---@param event table Event payload
     function bus:publish(event)
-        if type(event) ~= "table" then return end
+        if type(event) ~= "table" then
+            return
+        end
         local key = self._keySelector(event)
-        if key == nil then return end
+        if key == nil then
+            return
+        end
         local list = self._subscribers[key]
         if not list or #list == 0 then
             return
@@ -103,12 +123,16 @@ end
 ---@class HarnessWorldEventBus : EventBus
 ---@field _handler table
 ---@return table HarnessWorldEventBus
-function HarnessWorldEventBus()
+function CreateHarnessWorldEventBus()
     local bus = EventBus()
     bus._registered = false
     bus._totalSubs = 0
 
-    bus._handler = { onEvent = function(self, event) bus:publish(event) end }
+    bus._handler = {
+        onEvent = function(self, event)
+            bus:publish(event)
+        end,
+    }
 
     local baseSubscribe = bus.subscribe
     function bus:subscribe(eventId, queue, predicate)
@@ -129,8 +153,15 @@ function HarnessWorldEventBus()
         local removed = baseUnsubscribe(self, subscriptionId)
         if removed then
             self._totalSubs = self._totalSubs - 1
-            if self._totalSubs < 0 then self._totalSubs = 0 end
-            if self._registered and self._totalSubs == 0 and world and type(world.removeEventHandler) == "function" then
+            if self._totalSubs < 0 then
+                self._totalSubs = 0
+            end
+            if
+                self._registered
+                and self._totalSubs == 0
+                and world
+                and type(world.removeEventHandler) == "function"
+            then
                 if ACTIVE_HANDLER == self._handler then
                     world.removeEventHandler(self._handler)
                     ACTIVE_HANDLER = nil
@@ -156,17 +187,18 @@ function HarnessWorldEventBus()
 end
 
 -- Provide a globally accessible singleton for harness initialization if desired
+HarnessWorldEventBus = nil
+-- Back-compat alias
 HarnessWorldEventBusInstance = nil
 
 --- Initialize global HarnessWorldEventBus if not already created
 function InitHarnessWorldEventBus()
-    if not HarnessWorldEventBusInstance then
-        HarnessWorldEventBusInstance = HarnessWorldEventBus()
+    if not HarnessWorldEventBus then
+        HarnessWorldEventBus = CreateHarnessWorldEventBus()
+        HarnessWorldEventBusInstance = HarnessWorldEventBus
     end
-    return HarnessWorldEventBusInstance
+    return HarnessWorldEventBus
 end
 
 -- Lazy init only creates the instance; it will not register with world
 InitHarnessWorldEventBus()
-
-

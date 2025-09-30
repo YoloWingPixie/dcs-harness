@@ -22,13 +22,9 @@ function TestEventBus:test_predicate_filters()
     local bus = EventBus()
     local q = Queue()
 
-    local subId = bus:subscribe(
-        world.event.S_EVENT_HIT,
-        q,
-        function(e)
-            return e.comment == "deliver"
-        end
-    )
+    local subId = bus:subscribe(world.event.S_EVENT_HIT, q, function(e)
+        return e.comment == "deliver"
+    end)
     lu.assertNotNil(subId)
 
     bus:publish({ id = world.event.S_EVENT_HIT, comment = "drop" })
@@ -68,5 +64,3 @@ function TestEventBus:test_unsubscribe()
     bus:publish({ id = world.event.S_EVENT_LAND })
     lu.assertTrue(q:isEmpty())
 end
-
-

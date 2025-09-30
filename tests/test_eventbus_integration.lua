@@ -20,25 +20,30 @@ function TestEventBusIntegration:setUp()
     end
 
     -- Ensure a fresh global instance between tests to force re-registration
-    if HarnessWorldEventBusInstance and HarnessWorldEventBusInstance.dispose then
-        HarnessWorldEventBusInstance:dispose()
+    if HarnessWorldEventBus and HarnessWorldEventBus.dispose then
+        HarnessWorldEventBus:dispose()
     end
+    HarnessWorldEventBus = nil
     HarnessWorldEventBusInstance = nil
     InitHarnessWorldEventBus()
 end
 
 function TestEventBusIntegration:tearDown()
     -- Restore world functions
-    if self._origAdd then world.addEventHandler = self._origAdd end
-    if self._origRemove then world.removeEventHandler = self._origRemove end
+    if self._origAdd then
+        world.addEventHandler = self._origAdd
+    end
+    if self._origRemove then
+        world.removeEventHandler = self._origRemove
+    end
 end
 
 function TestEventBusIntegration:test_world_handler_delivery()
     local q = Queue()
     local eventId = world.event.S_EVENT_SHOT
-    local bus = HarnessWorldEventBusInstance
+    local bus = HarnessWorldEventBus or HarnessWorldEventBusInstance
     lu.assertNotNil(bus)
-    local subscribe = bus and bus.subscribe
+    local subscribe = bus and (bus.sub or bus.subscribe)
     if not subscribe then
         lu.fail("bus.subscribe is nil")
         return
@@ -57,5 +62,3 @@ function TestEventBusIntegration:test_world_handler_delivery()
     lu.assertEquals(dto.id, eventId)
     lu.assertEquals(dto.comment, "from world")
 end
-
-

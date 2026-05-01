@@ -1040,6 +1040,30 @@ function RingBuffer(capacity, overwrite)
         return self._items[pos]
     end
 
+    local function prevIndex(index)
+        if index <= 1 then
+            return ring._capacity
+        end
+        return index - 1
+    end
+
+    --- Iterate from newest to oldest, calling fn for each item
+    ---@param fn function Callback receiving (item, index). Return false to stop early.
+    ---@usage ring:reverseIter(function(item, i) if item.age > 5 then return false end end)
+    function ring:reverseIter(fn)
+        if self._size == 0 or type(fn) ~= "function" then
+            return
+        end
+        local pos = self._tail
+        for i = 1, self._size do
+            local result = fn(self._items[pos], i)
+            if result == false then
+                return
+            end
+            pos = prevIndex(pos)
+        end
+    end
+
     --- Convert contents to array (head to tail order)
     ---@return table items Array of items
     function ring:toArray()

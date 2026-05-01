@@ -1,85 +1,208 @@
-name: CI
+name: Harness CI
 
 on:
-  push:
-    branches:
-      - main
-      - dev/**
   pull_request:
     branches:
-      - '**'
+      - main
+      - release/*
+    paths:
+      - "**/*.lua"
+      - "**/*.py"
+      - ".github/workflows/ci.yml"
+      - ".buildrc"
+      - "**/*.toml"
+      - "**/.python-version"
+      - "**/Taskfile.yml"
+  workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LUA_VERSION: 5.1
+  ARTIFACT_NAME: harness.lua
+  ARTIFACT_DIR: dist
 
 jobs:
   ci:
-    name: Lint, Test and Build
-    runs-on: ubuntu-latest
+    name: CI
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - name: Checkout
+      - name: Checkout code
+        id: checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Setup Python
+        id: setup-python
         uses: actions/setup-python@v5
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v3
-
       - name: Install Python dependencies
-        run: |
-          uv pip install -e .[docs] --system
+        run: pip install pyyaml
 
-      - name: Set up Task
+      - name: Setup Task
+        id: setup-task
         uses: arduino/setup-task@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Lua 5.1
+      - name: Set up Lua ${{ env.LUA_VERSION }}
+        id: setup-lua
         uses: leafo/gh-actions-lua@v10
         with:
-          luaVersion: "5.1"
+          luaVersion: "${{ env.LUA_VERSION }}"
 
       - name: Cache Lua toolchain
+        id: cache-lua
         uses: actions/cache@v4
         with:
           path: .lua
-          key: lua-${{ runner.os }}-5.1-ghactionslua-v10
-          restore-keys: |
-            lua-${{ runner.os }}-5.1-
-            lua-${{ runner.os }}-
+          key: lua-${{ runner.os }}-${{ env.LUA_VERSION }}-ghactionslua-v10
 
-      - name: CI task (format, test)
+      - name: Format
+        id: format
         run: |
           chmod +x stylua/stylua || true
           task format:check
-          task test
 
-      - name: Compute artifact name
-        if: ${{ success() }}
-        shell: bash
+      - name: Test
+        id: test
+        run: task test
+
+      - name: Build
+        id: build
+        run: task build:cd
+
+      - name: Syntax check
+        id: syntax-check
+        run: luac -p '${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}'
+
+      - name: Lua 5.1 compatibility check
+        id: lua51-compat
         run: |
-          set -e
-          TS=$(date -u +%Y%m%dT%H%M%SZ)
-          SHORT_SHA=${GITHUB_SHA::7}
-          echo "ART_NAME=harness-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${SHORT_SHA}-${TS}" >> $GITHUB_ENV
+          ERRORS=0
+          f='${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}'
+          if grep -nP '(?<![/:-])//' "$f" | grep -vP '^\d+:\s*--'; then
+            echo "::error file=$f::Found // (integer division) - use math.floor(a/b) instead"
+            ERRORS=1
+          fi
+          if grep -nP '\b(string\.pack|string\.unpack|string\.packsize|table\.move|table\.pack|table\.unpack|utf8\.)' "$f"; then
+            echo "::error file=$f::Found Lua 5.2+ stdlib function - not available in DCS Lua 5.1"
+            ERRORS=1
+          fi
+          if grep -nP '\bbit32\.' "$f"; then
+            echo "::error file=$f::Found bit32 - not available in Lua 5.1"
+            ERRORS=1
+          fi
+          exit $ERRORS
 
-      - name: Build artifact
+      - name: Verify version stamped
+        id: version-stamp-check
         run: |
-          task build:cd
+          if grep -q '{{VERSION}}' '${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}'; then
+            echo "::error::{{VERSION}} placeholder found in ${{ env.ARTIFACT_NAME }}"
+            exit 1
+          fi
 
-      - name: Lint built artifact with Selene
+      - name: Lint
+        id: lint
+        continue-on-error: true
         uses: YoloWingPixie/selene-lua-linter-action@v1
         with:
-          config-path: 'selene.toml'
-          lint-path: 'dist/harness.lua'
-          report-as-annotations: 'true'
-          working-directory: '.'
+          config-path: "selene.toml"
+          lint-path: "${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}"
+          report-as-annotations: "false"
+          selene-args: "--display-style Json"
+          working-directory: "."
 
-      - name: Upload build artifact
-        if: ${{ success() && hashFiles('dist/harness.lua') != '' }}
-        uses: actions/upload-artifact@v4
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          name: ${{ env.ART_NAME }}
-          path: dist/harness.lua
+          script: |
+            const testResult = '${{ steps.test.outcome }}';
+            const buildResult = '${{ steps.build.outcome }}';
+            const syntaxResult = '${{ steps.syntax-check.outcome }}';
+            const compatResult = '${{ steps.lua51-compat.outcome }}';
+            const stampResult = '${{ steps.version-stamp-check.outcome }}';
+            const lintResult = '${{ steps.lint.outcome }}';
 
+            const icon = (r) => r === 'success' ? '✅' : '❌';
+
+            let body = `## CI Results\n\n`;
+            body += `| Check | Result |\n|-------|--------|\n`;
+            body += `| Tests | ${icon(testResult)} ${testResult} |\n`;
+            body += `| Build | ${icon(buildResult)} ${buildResult} |\n`;
+            body += `| Syntax | ${icon(syntaxResult)} ${syntaxResult} |\n`;
+            body += `| Lua 5.1 compat | ${icon(compatResult)} ${compatResult} |\n`;
+            body += `| Version stamp | ${icon(stampResult)} ${stampResult} |\n`;
+            body += `| Lint | ${icon(lintResult)} ${lintResult} |\n`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('## CI Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+      - name: Compute artifact name
+        id: compute-artifact-name
+        run: |
+          set -e
+          SAFE_REF_NAME="${GITHUB_REF_NAME//\//-}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "ARTIFACT_NAME_SHA=harness.lua-${SAFE_REF_NAME}-${GITHUB_RUN_ID}-${SHORT_SHA}" >> "$GITHUB_ENV"
+
+      - name: Rename build artifact with SHA
+        id: rename
+        run: |
+          set -e
+          mv '${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}' '${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME_SHA }}'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        id: upload
+        with:
+          name: "${{ env.ARTIFACT_NAME_SHA }}"
+          path: "${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME_SHA }}"
+          retention-days: 14
+
+      - name: Log artifact digest
+        run: |
+          echo "### Artifact Digest" >> "$GITHUB_STEP_SUMMARY"
+          echo "- harness: \`${{ steps.upload.outputs.artifact-digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if critical checks failed
+        run: |
+          if [ "${{ steps.test.outcome }}" != "success" ] || \
+             [ "${{ steps.build.outcome }}" != "success" ] || \
+             [ "${{ steps.syntax-check.outcome }}" != "success" ] || \
+             [ "${{ steps.version-stamp-check.outcome }}" != "success" ]; then
+            echo "::error::Critical checks failed"
+            exit 1
+          fi

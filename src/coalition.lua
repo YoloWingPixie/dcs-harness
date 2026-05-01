@@ -5,6 +5,7 @@
     including country queries, group management, and unit spawning.
 ]]
 require("logger")
+require("group")
 
 --- Build a unit entry for use in GroupSpawnData
 --- @param typeName string DCS unit type name (e.g., "F-15C", "M-1 Abrams")
@@ -574,4 +575,151 @@ function GetCoalitionServiceProviders(coalitionId, serviceType)
     end
 
     return result
+end
+
+--- Get all ship units from both coalitions
+---@return table ships Array of ship unit objects
+---@usage local ships = GetAllShips()
+function GetAllShips()
+    local ships = {}
+
+    for _, side in ipairs({ 1, 2 }) do
+        local groups = GetCoalitionGroups(side, Group.Category.SHIP)
+        if groups then
+            for _, group in ipairs(groups) do
+                local success, units = pcall(function()
+                    return group:getUnits()
+                end)
+                if success and units then
+                    for _, unit in ipairs(units) do
+                        ships[#ships + 1] = unit
+                    end
+                end
+            end
+        end
+    end
+
+    return ships
+end
+
+--- Get all aircraft groups from both coalitions
+---@return table groups Array of aircraft group objects (airplanes and helicopters)
+---@usage local groups = GetAllAircraftGroups()
+function GetAllAircraftGroups()
+    local result = {}
+
+    for _, side in ipairs({ 1, 2 }) do
+        local planes = GetCoalitionGroups(side, Group.Category.AIRPLANE)
+        if planes then
+            for _, group in ipairs(planes) do
+                result[#result + 1] = group
+            end
+        end
+
+        local helis = GetCoalitionGroups(side, Group.Category.HELICOPTER)
+        if helis then
+            for _, group in ipairs(helis) do
+                result[#result + 1] = group
+            end
+        end
+    end
+
+    return result
+end
+
+--- Build a waypoint table for ground unit routing
+---@param position table Vec3 position {x, y, z}
+---@param action string? Waypoint action (default "Off Road")
+---@param speed number? Speed in m/s (default 10)
+---@return table waypoint Waypoint table for ground route
+---@usage local wp = BuildGroundWaypoint(pos, "On Road", 15)
+function BuildGroundWaypoint(position, action, speed)
+    if not position or type(position) ~= "table" then
+        _HarnessInternal.log.error(
+            "BuildGroundWaypoint requires valid position",
+            "Coalition.BuildGroundWaypoint"
+        )
+        return {
+            x = 0,
+            y = 0,
+            action = action or "Off Road",
+            speed = speed or 10,
+            type = "Turning Point",
+            ETA = 0,
+            ETA_locked = false,
+            formation_template = "",
+            speed_locked = true,
+            task = { id = "ComboTask", params = { tasks = {} } },
+        }
+    end
+
+    return {
+        x = position.x or 0,
+        y = position.z or 0,
+        action = action or "Off Road",
+        speed = speed or 10,
+        type = "Turning Point",
+        ETA = 0,
+        ETA_locked = false,
+        formation_template = "",
+        speed_locked = true,
+        task = { id = "ComboTask", params = { tasks = {} } },
+    }
+end
+
+--- Send a group along a route of waypoints
+---@param groupName string The name of the group
+---@param waypoints table Array of waypoint tables
+---@return boolean success True if route was set, false otherwise
+---@usage GoRoute("convoy-1", { BuildGroundWaypoint(pos1), BuildGroundWaypoint(pos2) })
+function GoRoute(groupName, waypoints)
+    if not groupName or type(groupName) ~= "string" then
+        _HarnessInternal.log.error("GoRoute requires string group name", "Coalition.GoRoute")
+        return false
+    end
+
+    if not waypoints or type(waypoints) ~= "table" or #waypoints == 0 then
+        _HarnessInternal.log.error(
+            "GoRoute requires non-empty waypoints array",
+            "Coalition.GoRoute"
+        )
+        return false
+    end
+
+    local group = GetGroup(groupName)
+    if not group then
+        _HarnessInternal.log.error("GoRoute group not found: " .. groupName, "Coalition.GoRoute")
+        return false
+    end
+
+    local success, controller = pcall(function()
+        return group:getController()
+    end)
+    if not success or not controller then
+        _HarnessInternal.log.error(
+            "GoRoute failed to get controller: " .. tostring(controller),
+            "Coalition.GoRoute"
+        )
+        return false
+    end
+
+    local route = {
+        id = "Mission",
+        params = {
+            route = {
+                points = waypoints,
+            },
+        },
+    }
+
+    local ok, err = pcall(controller.setTask, controller, route)
+    if not ok then
+        _HarnessInternal.log.error(
+            "GoRoute failed to set route: " .. tostring(err),
+            "Coalition.GoRoute"
+        )
+        return false
+    end
+
+    return true
 end

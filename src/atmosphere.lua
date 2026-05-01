@@ -219,3 +219,27 @@ function GetPressurehPa(point)
     end
     return PaTohPa(tp.pressurePa)
 end
+
+--- Get wind heading (direction wind is blowing TO) at a position
+---@param position table Vec3 position {x, y, z}
+---@return number? headingDeg Wind heading in degrees (0-360), nil on error
+---@usage local hdg = GetWindHeading(pos)
+function GetWindHeading(position)
+    local wind = GetWind(position)
+    if not wind then
+        return nil
+    end
+    return _ComputeHeadingDeg(wind)
+end
+
+--- Get wind speed magnitude at a position
+---@param position table Vec3 position {x, y, z}
+---@return number? speedMps Wind speed in m/s, nil on error
+---@usage local spd = GetWindSpeed(pos)
+function GetWindSpeed(position)
+    local wind = GetWind(position)
+    if not wind then
+        return nil
+    end
+    return _HorizontalSpeedMps(wind)
+end

@@ -56,6 +56,7 @@ PRIMITIVE_TYPE_MAP: Dict[str, str] = {
 # Use Selene's "property: new-fields" so consumers can access dynamic methods via colon calls.
 EXTRA_GLOBALS: Dict[str, Dict[str, Any]] = {
     "HarnessWorldEventBus": {"property": "new-fields"},
+    "HarnessConstants": {"property": "read-only"},
 }
 
 

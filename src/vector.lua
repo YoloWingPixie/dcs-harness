@@ -70,6 +70,14 @@ function IsVec3(vec)
     return type(vec.x) == "number" and type(vec.y) == "number" and type(vec.z) == "number"
 end
 
+--- Check if a position is a valid Vec3 and not at the world origin
+---@param pos any Position to validate
+---@return boolean isValid True if pos is a valid non-origin Vec3
+---@usage if IsNotAtMapOrigin(unit:getPoint()) then ... end
+function IsNotAtMapOrigin(pos)
+    return IsVec3(pos) and not (pos.x == 0 and pos.y == 0 and pos.z == 0)
+end
+
 --- Check if valid 2D vector (works with plain tables or Vec2 instances)
 ---@param vec any Value to check
 ---@return boolean isValid True if vec has numeric x, z components (or x, y for DCS compat)

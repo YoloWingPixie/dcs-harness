@@ -22,3 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BuildGroundWaypoint` and `GoRoute` ground unit routing helpers
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated

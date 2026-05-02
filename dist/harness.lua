@@ -1,13 +1,40 @@
 -- harness: 0.7.1 loading...
--- ==== BEGIN: src\_header.lua ====
+-- ==== BEGIN: src/_header.lua ====
 -- Version
 HARNESS_VERSION = "0.7.1"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
--- ==== END: src\_header.lua ====
+-- Shared constants
+HarnessConstants = {
+    -- Distance
+    NM_TO_METERS = 1852,
+    METERS_TO_NM = 1 / 1852,
+    FEET_TO_METERS = 0.3048,
+    METERS_TO_FEET = 1 / 0.3048,
+    KM_TO_METERS = 1000,
+    METERS_TO_KM = 0.001,
 
--- ==== BEGIN: src\datastructures.lua ====
+    -- Speed
+    MPS_TO_KNOTS = 1.943844492,
+    KNOTS_TO_MPS = 1 / 1.943844492,
+
+    -- Angles
+    DEG_TO_RAD = math.pi / 180,
+    RAD_TO_DEG = 180 / math.pi,
+
+    -- Geospatial
+    EARTH_RADIUS_M = 6371000,
+
+    -- ISA (International Standard Atmosphere)
+    ISA_SEA_LEVEL_TEMP_K = 288.15,
+    ISA_TEMP_LAPSE_RATE = 0.0065,
+    ISA_DENSITY_EXPONENT = 4.2559,
+}
+
+-- ==== END: src/_header.lua ====
+
+-- ==== BEGIN: src/datastructures.lua ====
 --[[
 ==================================================================================================
     DATA STRUCTURES MODULE
@@ -1013,6 +1040,30 @@ function RingBuffer(capacity, overwrite)
         return self._items[pos]
     end
 
+    local function prevIndex(index)
+        if index <= 1 then
+            return ring._capacity
+        end
+        return index - 1
+    end
+
+    --- Iterate from newest to oldest, calling fn for each item
+    ---@param fn function Callback receiving (item, index). Return false to stop early.
+    ---@usage ring:reverseIter(function(item, i) if item.age > 5 then return false end end)
+    function ring:reverseIter(fn)
+        if self._size == 0 or type(fn) ~= "function" then
+            return
+        end
+        local pos = self._tail
+        for i = 1, self._size do
+            local result = fn(self._items[pos], i)
+            if result == false then
+                return
+            end
+            pos = prevIndex(pos)
+        end
+    end
+
     --- Convert contents to array (head to tail order)
     ---@return table items Array of items
     function ring:toArray()
@@ -1059,9 +1110,9 @@ function RingBuffer(capacity, overwrite)
 
     return ring
 end
--- ==== END: src\datastructures.lua ====
+-- ==== END: src/datastructures.lua ====
 
--- ==== BEGIN: src\eventbus.lua ====
+-- ==== BEGIN: src/eventbus.lua ====
 --[[
     EventBus Module - minimal pub/sub for events
 
@@ -1266,9 +1317,9 @@ end
 
 -- Lazy init only creates the instance; it will not register with world
 InitHarnessWorldEventBus()
--- ==== END: src\eventbus.lua ====
+-- ==== END: src/eventbus.lua ====
 
--- ==== BEGIN: src\geogrid.lua ====
+-- ==== BEGIN: src/geogrid.lua ====
 --[[
 ==================================================================================================
     GEOGRID MODULE
@@ -1654,9 +1705,9 @@ function GeoGrid(cellSizeMeters, allowedTypes)
         has_bounds = false,
     }, { __index = GeoGridProto })
 end
--- ==== END: src\geogrid.lua ====
+-- ==== END: src/geogrid.lua ====
 
--- ==== BEGIN: src\id.lua ====
+-- ==== BEGIN: src/id.lua ====
 --[[
 ==================================================================================================
     ID MODULE
@@ -1790,9 +1841,9 @@ function NewULID()
 
     return table.concat(out)
 end
--- ==== END: src\id.lua ====
+-- ==== END: src/id.lua ====
 
--- ==== BEGIN: src\logger.lua ====
+-- ==== BEGIN: src/logger.lua ====
 --[[==================================================================================================
     LOGGER MODULE
     Configurable logging system with namespace support
@@ -1889,9 +1940,9 @@ _HarnessInternal.log = HarnessLogger("Harness")
 -- Or if they just use Log without configuration, it defaults to "Script"
 ---@type Logger
 Log = HarnessLogger("Script")
--- ==== END: src\logger.lua ====
+-- ==== END: src/logger.lua ====
 
--- ==== BEGIN: src\airbase.lua ====
+-- ==== BEGIN: src/airbase.lua ====
 --[[
     Airbase Module - DCS World Airbase API Wrappers
     
@@ -2630,9 +2681,9 @@ function GetAirbaseIsServiceProvided(airbase, service)
 
     return result
 end
--- ==== END: src\airbase.lua ====
+-- ==== END: src/airbase.lua ====
 
--- ==== BEGIN: src\cache.lua ====
+-- ==== BEGIN: src/cache.lua ====
 --[[
 ==================================================================================================
     CACHE MODULE
@@ -3140,587 +3191,9 @@ end
 function GetCachedController(key)
     return _HarnessInternal.cache.getController(key)
 end
--- ==== END: src\cache.lua ====
+-- ==== END: src/cache.lua ====
 
--- ==== BEGIN: src\coalition.lua ====
---[[
-    Coalition Module - DCS World Coalition API Wrappers
-    
-    This module provides validated wrapper functions for DCS coalition operations,
-    including country queries, group management, and unit spawning.
-]]
---- Build a unit entry for use in GroupSpawnData
---- @param typeName string DCS unit type name (e.g., "F-15C", "M-1 Abrams")
---- @param unitName string Unique unit name
---- @param posX number 2D map X coordinate (meters)
---- @param posY number 2D map Y coordinate (meters)
---- @param altitude number Altitude in meters AGL/MSL per alt_type
---- @param heading number Heading in radians (0 = east, math.pi/2 = north)
---- @param opts table|nil Optional overrides: { skill, payload, callsign, onboard_num, alt_type, psi }
---- @return table|nil unit Unit table suitable for GroupSpawnData or nil on error
-function BuildUnitEntry(typeName, unitName, posX, posY, altitude, heading, opts)
-    if type(typeName) ~= "string" or type(unitName) ~= "string" then
-        _HarnessInternal.log.error(
-            "BuildUnitEntry requires string typeName and unitName",
-            "Coalition.BuildUnitEntry"
-        )
-        return nil
-    end
-    if type(posX) ~= "number" or type(posY) ~= "number" then
-        _HarnessInternal.log.error(
-            "BuildUnitEntry requires numeric posX and posY",
-            "Coalition.BuildUnitEntry"
-        )
-        return nil
-    end
-    if type(altitude) ~= "number" or type(heading) ~= "number" then
-        _HarnessInternal.log.error(
-            "BuildUnitEntry requires numeric altitude and heading",
-            "Coalition.BuildUnitEntry"
-        )
-        return nil
-    end
-
-    local options = opts or {}
-
-    local unit = {
-        type = typeName,
-        skill = options.skill or (AI and AI.Skill and AI.Skill.AVERAGE) or "Average",
-        y = posY,
-        x = posX,
-        alt = altitude,
-        heading = heading,
-        payload = options.payload or {},
-        name = unitName,
-        alt_type = options.alt_type or "BARO",
-        callsign = options.callsign,
-        psi = options.psi or 0,
-        onboard_num = options.onboard_num,
-    }
-
-    return unit
-end
-
---- Build a standard Turning Point waypoint
---- @param x number 2D map X coordinate (meters)
---- @param y number 2D map Y coordinate (meters)
---- @param altitude number Altitude in meters
---- @param speed number Speed in m/s
---- @param tasks table|nil Optional array of task entries to attach (ComboTask)
---- @return table waypoint Waypoint table
-function BuildWaypoint(x, y, altitude, speed, tasks)
-    local wp = {
-        x = x,
-        y = altitude,
-        z = y,
-        action = "Turning Point",
-        speed = speed,
-        type = "Turning Point",
-        ETA = 0,
-        ETA_locked = false,
-        formation_template = "",
-        alt = altitude,
-        alt_type = "BARO",
-        speed_locked = true,
-        task = { id = "ComboTask", params = { tasks = {} } },
-    }
-
-    if tasks and type(tasks) == "table" then
-        for _, t in ipairs(tasks) do
-            wp.task.params.tasks[#wp.task.params.tasks + 1] = t
-        end
-    end
-
-    return wp
-end
-
---- Build a route table for GroupSpawnData
---- @param waypoints table Array of waypoint tables (from BuildWaypoint or compatible)
---- @param opts table|nil Optional overrides: none currently, reserved for future
---- @return table route Route table with points array
-function BuildRoute(waypoints, opts)
-    if type(waypoints) ~= "table" then
-        _HarnessInternal.log.error("BuildRoute requires waypoints array", "Coalition.BuildRoute")
-        return { points = {} }
-    end
-    return { points = waypoints }
-end
-
---- Build a GroupSpawnData table
---- @param groupName string Unique group name
---- @param task string Group task (e.g., "CAP", "Ground Nothing")
---- @param units table Array of unit tables (from BuildUnitEntry or compatible)
---- @param routePoints table|nil Array of waypoint tables; if nil, an empty route is used
---- @param opts table|nil Optional overrides: { visible, taskSelected, communication, start_time, frequency, modulation }
---- @return table|nil groupData GroupSpawnData or nil on error
-function BuildGroupData(groupName, task, units, routePoints, opts)
-    if type(groupName) ~= "string" or groupName == "" then
-        _HarnessInternal.log.error(
-            "BuildGroupData requires non-empty string groupName",
-            "Coalition.BuildGroupData"
-        )
-        return nil
-    end
-    if type(task) ~= "string" or task == "" then
-        _HarnessInternal.log.error(
-            "BuildGroupData requires non-empty string task",
-            "Coalition.BuildGroupData"
-        )
-        return nil
-    end
-    if type(units) ~= "table" or #units == 0 then
-        _HarnessInternal.log.error(
-            "BuildGroupData requires non-empty units array",
-            "Coalition.BuildGroupData"
-        )
-        return nil
-    end
-
-    local options = opts or {}
-    local groupData = {
-        visible = options.visible == nil and false or not not options.visible,
-        taskSelected = options.taskSelected == nil and true or not not options.taskSelected,
-        task = task,
-        modulation = options.modulation or 0,
-        units = units,
-        name = groupName,
-        communication = options.communication == nil and true or not not options.communication,
-        start_time = options.start_time or 0,
-        route = { points = routePoints or {} },
-        frequency = options.frequency,
-    }
-
-    return groupData
-end
---- Get the coalition ID for a given country
---- @param countryId number The country ID to query
---- @return number|nil coalitionId The coalition ID (0=neutral, 1=red, 2=blue) or nil on error
---- @usage local coalition = getCoalitionByCountry(country.id.USA)
-function GetCoalitionByCountry(countryId)
-    if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionByCountry requires valid country ID",
-            "Coalition.GetCoalitionByCountry"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getCountryCoalition, countryId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition for country: " .. tostring(result),
-            "Coalition.GetCoalitionByCountry"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get all players (clients) in a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @return table|nil players Array of player units or nil on error
---- @usage local bluePlayers = getCoalitionPlayers(coalition.side.BLUE)
-function GetCoalitionPlayers(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionPlayers requires valid coalition ID",
-            "Coalition.GetCoalitionPlayers"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getPlayers, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition players: " .. tostring(result),
-            "Coalition.GetCoalitionPlayers"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get all groups in a coalition, optionally filtered by category
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @param categoryId number|nil Optional category filter (0=airplane, 1=helicopter, 2=ground, 3=ship, 4=structure)
---- @return table|nil groups Array of group objects or nil on error
---- @usage local redGroundGroups = getCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
-function GetCoalitionGroups(coalitionId, categoryId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionGroups requires valid coalition ID",
-            "Coalition.GetCoalitionGroups"
-        )
-        return nil
-    end
-
-    if categoryId and type(categoryId) ~= "number" then
-        _HarnessInternal.log.error(
-            "categoryId must be a number if provided",
-            "Coalition.GetCoalitionGroups"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getGroups, coalitionId, categoryId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition groups: " .. tostring(result),
-            "Coalition.GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    return result or {}
-end
-
---- Get all airbases controlled by a coalition
---- @param coalitionId number The coalition ID (0=neutral, 1=red, 2=blue)
---- @return table|nil airbases Array of airbase objects or nil on error
---- @usage local blueAirbases = getCoalitionAirbases(coalition.side.BLUE)
-function GetCoalitionAirbases(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionAirbases requires valid coalition ID",
-            "Coalition.GetCoalitionAirbases"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getAirbases, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition airbases: " .. tostring(result),
-            "Coalition.GetCoalitionAirbases"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get all countries in a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @return table|nil countries Array of country IDs or nil on error
---- @usage local redCountries = getCoalitionCountries(coalition.side.RED)
-function GetCoalitionCountries(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionCountries requires valid coalition ID",
-            "Coalition.GetCoalitionCountries"
-        )
-        return nil
-    end
-
-    -- Derive based on documented APIs: iterate country.id and match coalition
-    local countries = {}
-    if not country or not country.id then
-        return countries
-    end
-    for _, id in pairs(country.id) do
-        if type(id) == "number" then
-            local ok, side = pcall(coalition.getCountryCoalition, id)
-            if ok and side == coalitionId then
-                table.insert(countries, id)
-            end
-        end
-    end
-    return countries
-end
-
---- Get all static objects belonging to a coalition
---- @param coalitionId number The coalition ID (0=neutral, 1=red, 2=blue)
---- @return table|nil staticObjects Array of static object references or nil on error
---- @usage local blueStatics = getCoalitionStaticObjects(coalition.side.BLUE)
-function GetCoalitionStaticObjects(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionStaticObjects requires valid coalition ID",
-            "Coalition.GetCoalitionStaticObjects"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getStaticObjects, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition static objects: " .. tostring(result),
-            "Coalition.GetCoalitionStaticObjects"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Add a new group to the mission for a specific country
---- @param countryId number The country ID that will own the group
---- @param categoryId number The category ID (0=airplane, 1=helicopter, 2=ground, 3=ship)
---- @param groupData table The group definition table with units, route, etc.
---- @return table|nil group The created group object or nil on error
---- @usage local newGroup = addCoalitionGroup(country.id.USA, Group.Category.AIRPLANE, groupDefinition)
-function AddCoalitionGroup(countryId, categoryId, groupData)
-    if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error(
-            "AddCoalitionGroup requires valid country ID",
-            "Coalition.AddGroup"
-        )
-        return nil
-    end
-
-    if not categoryId or type(categoryId) ~= "number" then
-        _HarnessInternal.log.error(
-            "AddCoalitionGroup requires valid category ID",
-            "Coalition.AddGroup"
-        )
-        return nil
-    end
-
-    if not groupData or type(groupData) ~= "table" then
-        _HarnessInternal.log.error(
-            "AddCoalitionGroup requires valid group data table",
-            "Coalition.AddGroup"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.addGroup, countryId, categoryId, groupData)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to add coalition group: " .. tostring(result),
-            "Coalition.AddGroup"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Add a new static object to the mission for a specific country
---- @param countryId number The country ID that will own the static object
---- @param staticData table The static object definition table
---- @return table|nil staticObject The created static object or nil on error
---- @usage local newStatic = addCoalitionStaticObject(country.id.USA, staticDefinition)
-function AddCoalitionStaticObject(countryId, staticData)
-    if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error(
-            "AddCoalitionStaticObject requires valid country ID",
-            "Coalition.AddStaticObject"
-        )
-        return nil
-    end
-
-    if not staticData or type(staticData) ~= "table" then
-        _HarnessInternal.log.error(
-            "AddCoalitionStaticObject requires valid static object data",
-            "Coalition.AddStaticObject"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.addStaticObject, countryId, staticData)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to add coalition static object: " .. tostring(result),
-            "Coalition.AddStaticObject"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get all reference points for a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @return table|nil refPoints Table of reference points or nil on error
---- @usage local blueRefPoints = getCoalitionRefPoints(coalition.side.BLUE)
-function GetCoalitionRefPoints(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionRefPoints requires valid coalition ID",
-            "Coalition.GetRefPoints"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getRefPoints, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition reference points: " .. tostring(result),
-            "Coalition.GetRefPoints"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get the main reference point (bullseye) for a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @return table|nil refPoint The main reference point with x, y, z coordinates or nil on error
---- @usage local blueBullseye = getCoalitionMainRefPoint(coalition.side.BLUE)
-function GetCoalitionMainRefPoint(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionMainRefPoint requires valid coalition ID",
-            "Coalition.GetMainRefPoint"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition main reference point: " .. tostring(result),
-            "Coalition.GetMainRefPoint"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get the bullseye coordinates for a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @return table|nil bullseye The bullseye position with x, y, z coordinates or nil on error
---- @usage local redBullseye = getCoalitionBullseye(coalition.side.RED)
-function GetCoalitionBullseye(coalitionId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionBullseye requires valid coalition ID",
-            "Coalition.GetBullseye"
-        )
-        return nil
-    end
-
-    -- Authoritative API name is getMainRefPoint (bullseye)
-    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition bullseye: " .. tostring(result),
-            "Coalition.GetCoalitionBullseye"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Add a reference point for a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @param refPointData table The reference point data table
---- @return table|nil refPoint The created reference point or nil on error
---- @usage local newRefPoint = addCoalitionRefPoint(coalition.side.BLUE, {callsign = "ALPHA", x = 100000, y = 0, z = 200000})
-function AddCoalitionRefPoint(coalitionId, refPointData)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "AddCoalitionRefPoint requires valid coalition ID",
-            "Coalition.AddRefPoint"
-        )
-        return nil
-    end
-
-    if not refPointData or type(refPointData) ~= "table" then
-        _HarnessInternal.log.error(
-            "AddCoalitionRefPoint requires valid reference point data",
-            "Coalition.AddRefPoint"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.addRefPoint, coalitionId, refPointData)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to add coalition reference point: " .. tostring(result),
-            "Coalition.AddRefPoint"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Remove a reference point from a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @param refPointId number|string The reference point ID to remove
---- @return boolean|nil success True if removed successfully, nil on error
---- @usage RemoveCoalitionRefPoint(coalition.side.BLUE, "ALPHA")
-function RemoveCoalitionRefPoint(coalitionId, refPointId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "RemoveCoalitionRefPoint requires valid coalition ID",
-            "Coalition.RemoveRefPoint"
-        )
-        return nil
-    end
-
-    if not refPointId then
-        _HarnessInternal.log.error(
-            "RemoveCoalitionRefPoint requires valid reference point ID",
-            "Coalition.RemoveRefPoint"
-        )
-        return nil
-    end
-
-    local remover = rawget(coalition, "removeRefPoint")
-    if type(remover) ~= "function" then
-        _HarnessInternal.log.error(
-            "coalition.removeRefPoint not available",
-            "Coalition.RemoveRefPoint"
-        )
-        return nil
-    end
-
-    local success, result = pcall(remover, coalitionId, refPointId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to remove coalition reference point: " .. tostring(result),
-            "Coalition.RemoveRefPoint"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Get service providers (tankers, AWACS, etc.) for a coalition
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @param serviceType number The service type to query
---- @return table|nil providers Array of units providing the service or nil on error
---- @usage local blueTankers = getCoalitionServiceProviders(coalition.side.BLUE, coalition.service.TANKER)
-function GetCoalitionServiceProviders(coalitionId, serviceType)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionServiceProviders requires valid coalition ID",
-            "Coalition.GetServiceProviders"
-        )
-        return nil
-    end
-
-    if not serviceType or type(serviceType) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionServiceProviders requires valid service type",
-            "Coalition.GetServiceProviders"
-        )
-        return nil
-    end
-
-    local success, result = pcall(coalition.getServiceProviders, coalitionId, serviceType)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition service providers: " .. tostring(result),
-            "Coalition.GetServiceProviders"
-        )
-        return nil
-    end
-
-    return result
-end
--- ==== END: src\coalition.lua ====
-
--- ==== BEGIN: src\controller.lua ====
+-- ==== BEGIN: src/controller.lua ====
 --[[
     Controller Module - DCS World Controller API Wrappers
     
@@ -5211,9 +4684,9 @@ function CreateWrappedAction(action, stopFlag)
 
     return task
 end
--- ==== END: src\controller.lua ====
+-- ==== END: src/controller.lua ====
 
--- ==== BEGIN: src\conversion.lua ====
+-- ==== BEGIN: src/conversion.lua ====
 --[[
 ==================================================================================================
     CONVERSION MODULE
@@ -5513,9 +4986,142 @@ function ConvertSpeed(value, from, to)
     _HarnessInternal.log.error("ConvertSpeed invalid units", "Conversion.ConvertSpeed")
     return 0
 end
--- ==== END: src\conversion.lua ====
 
--- ==== BEGIN: src\flag.lua ====
+--- Calculate TACAN frequency in Hz from channel and mode
+---@param channel number TACAN channel (1-126)
+---@param channelMode string TACAN mode ("X" or "Y")
+---@return number? frequency Frequency in Hz, or nil for invalid inputs
+---@usage local freq = GetTacanFrequency(71, "X")
+function GetTacanFrequency(channel, channelMode)
+    if type(channel) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency requires channel as number",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    if channel < 1 or channel > 126 or channel ~= math.floor(channel) then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency channel must be integer 1-126",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    if type(channelMode) ~= "string" then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency requires channelMode as string",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    local mode = string.upper(channelMode)
+    if mode ~= "X" and mode ~= "Y" then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency channelMode must be 'X' or 'Y'",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    local frequency
+    if channel <= 63 then
+        if mode == "X" then
+            frequency = (1025 + (channel - 1)) * 1e6
+        else
+            frequency = (1088 + (channel - 1)) * 1e6
+        end
+    else
+        if mode == "X" then
+            frequency = (961 + (channel - 64)) * 1e6
+        else
+            frequency = (1024 + (channel - 64)) * 1e6
+        end
+    end
+
+    return frequency
+end
+
+-- Local aliases for HarnessConstants (defined in _header.lua)
+local ISA_SEA_LEVEL_TEMP_K = HarnessConstants.ISA_SEA_LEVEL_TEMP_K
+local ISA_TEMP_LAPSE_RATE = HarnessConstants.ISA_TEMP_LAPSE_RATE
+local ISA_DENSITY_EXPONENT = HarnessConstants.ISA_DENSITY_EXPONENT
+local FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
+local MPS_TO_KNOTS = HarnessConstants.MPS_TO_KNOTS
+local KNOTS_TO_MPS = HarnessConstants.KNOTS_TO_MPS
+
+--- Convert KIAS to true ground speed in knots using ISA atmosphere model
+---@param iasKnots number Indicated airspeed in knots
+---@param altitudeFeet number Altitude in feet MSL
+---@param position table? Vec3 position for wind correction
+---@param trackBearing number? Track bearing in degrees for wind correction
+---@return number groundSpeedKnots Ground speed in knots
+---@usage local gs = ConvertKiasToGroundSpeed(250, 25000)
+function ConvertKiasToGroundSpeed(iasKnots, altitudeFeet, position, trackBearing)
+    if type(iasKnots) ~= "number" then
+        _HarnessInternal.log.error(
+            "ConvertKiasToGroundSpeed requires iasKnots as number",
+            "Conversion.ConvertKiasToGroundSpeed"
+        )
+        return 0
+    end
+
+    if type(altitudeFeet) ~= "number" then
+        _HarnessInternal.log.error(
+            "ConvertKiasToGroundSpeed requires altitudeFeet as number",
+            "Conversion.ConvertKiasToGroundSpeed"
+        )
+        return 0
+    end
+
+    local altMeters = altitudeFeet * FEET_TO_METERS
+
+    local tempRatio = 1 - (ISA_TEMP_LAPSE_RATE * altMeters / ISA_SEA_LEVEL_TEMP_K)
+    if tempRatio < 0 then
+        tempRatio = 0
+    end
+
+    local densityRatio = tempRatio ^ ISA_DENSITY_EXPONENT
+    if densityRatio <= 0 then
+        densityRatio = 0.001
+    end
+
+    local tasKnots = iasKnots / math.sqrt(densityRatio)
+
+    local groundSpeedKnots = tasKnots
+
+    if type(GetWind) == "function" and position and trackBearing then
+        local ok, wind = pcall(GetWind, position)
+        if ok and wind then
+            local trackRad = math.rad(trackBearing)
+            local headwind = (wind.x * math.cos(trackRad) + wind.z * math.sin(trackRad))
+            local headwindKnots = headwind * MPS_TO_KNOTS
+            groundSpeedKnots = tasKnots - headwindKnots
+        end
+    end
+
+    if groundSpeedKnots < 0 then
+        groundSpeedKnots = 0
+    end
+
+    return groundSpeedKnots
+end
+
+--- Convert KIAS to ground speed in meters per second using ISA atmosphere model
+---@param iasKnots number Indicated airspeed in knots
+---@param altitudeFeet number Altitude in feet MSL
+---@param position table? Vec3 position for wind correction
+---@param trackBearing number? Track bearing in degrees for wind correction
+---@return number groundSpeedMps Ground speed in m/s
+---@usage local gs = ConvertKiasToMps(250, 25000)
+function ConvertKiasToMps(iasKnots, altitudeFeet, position, trackBearing)
+    return ConvertKiasToGroundSpeed(iasKnots, altitudeFeet, position, trackBearing) * KNOTS_TO_MPS
+end
+-- ==== END: src/conversion.lua ====
+
+-- ==== BEGIN: src/flag.lua ====
 --[[
 ==================================================================================================
     FLAG MODULE
@@ -5718,9 +5324,9 @@ function ClearFlags(flagNames)
 
     return allSuccess
 end
--- ==== END: src\flag.lua ====
+-- ==== END: src/flag.lua ====
 
--- ==== BEGIN: src\misc.lua ====
+-- ==== BEGIN: src/misc.lua ====
 --[[
 ==================================================================================================
     MISC MODULE
@@ -6176,6 +5782,19 @@ function NormalizeAngle(angle)
     return angle
 end
 
+--- Calculate the reciprocal heading (heading + 180, normalized to 0-360)
+---@param heading number Heading in degrees
+---@return number inverse Reciprocal heading normalized to 0-360
+---@usage local recip = InverseHeading(90) -- 270
+function InverseHeading(heading)
+    if type(heading) ~= "number" then
+        _HarnessInternal.log.error("InverseHeading requires number", "InverseHeading")
+        return 0
+    end
+
+    return NormalizeAngle(heading + 180)
+end
+
 --- Get angle difference (shortest path)
 ---@param angle1 number First angle in degrees
 ---@param angle2 number Second angle in degrees
@@ -6614,9 +6233,9 @@ function CircuitBreaker(func, options)
         end
     end
 end
--- ==== END: src\misc.lua ====
+-- ==== END: src/misc.lua ====
 
--- ==== BEGIN: src\missioncommands.lua ====
+-- ==== BEGIN: src/missioncommands.lua ====
 --[[
     MissionCommands Module - DCS World Mission Commands API Wrappers
     
@@ -7037,13 +6656,13 @@ function CreateMenuPath(...)
     end
     return path
 end
--- ==== END: src\missioncommands.lua ====
+-- ==== END: src/missioncommands.lua ====
 
--- ==== BEGIN: src\namespace.lua ====
+-- ==== BEGIN: src/namespace.lua ====
 -- Harness is globally available when this build is loaded
--- ==== END: src\namespace.lua ====
+-- ==== END: src/namespace.lua ====
 
--- ==== BEGIN: src\net.lua ====
+-- ==== BEGIN: src/net.lua ====
 --[[
 ==================================================================================================
     NET MODULE
@@ -7305,463 +6924,9 @@ function ForcePlayerSlot(playerId, side, slotId)
     )
     return true
 end
--- ==== END: src\net.lua ====
+-- ==== END: src/net.lua ====
 
--- ==== BEGIN: src\staticobject.lua ====
---[[
-    StaticObject Module - DCS World Static Object API Wrappers
-    
-    This module provides validated wrapper functions for DCS static object operations,
-    including object queries, destruction, and property access.
-]]
-
---- Gets a static object by its name
----@param name string The name of the static object
----@return table? staticObject The static object or nil if not found
----@usage local static = GetStaticByName("Warehouse01")
-function GetStaticByName(name)
-    if not name or type(name) ~= "string" then
-        _HarnessInternal.log.error(
-            "GetStaticByName requires valid name string",
-            "StaticObject.GetByName"
-        )
-        return nil
-    end
-
-    local success, result = pcall(StaticObject.getByName, name)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object by name: " .. tostring(result),
-            "StaticObject.GetByName"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the ID of a static object
----@param staticObject table The static object
----@return number? id The ID of the static object or nil on error
----@usage local id = GetStaticID(staticObj)
-function GetStaticID(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error("GetStaticID requires valid static object", "StaticObject.GetID")
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getID, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object ID: " .. tostring(result),
-            "StaticObject.GetID"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the current life/health of a static object
----@param staticObject table The static object
----@return number? life The current life value or nil on error
----@usage local life = GetStaticLife(staticObj)
-function GetStaticLife(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticLife requires valid static object",
-            "StaticObject.GetLife"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getLife, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object life: " .. tostring(result),
-            "StaticObject.GetLife"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the cargo display name of a static object
----@param staticObject table The static object
----@return string? displayName The cargo display name or nil on error
----@usage local cargoName = GetStaticCargoDisplayName(staticObj)
-function GetStaticCargoDisplayName(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticCargoDisplayName requires valid static object",
-            "StaticObject.GetCargoDisplayName"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getCargoDisplayName, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get cargo display name: " .. tostring(result),
-            "StaticObject.GetCargoDisplayName"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the cargo weight of a static object
----@param staticObject table The static object
----@return number? weight The cargo weight in kg or nil on error
----@usage local weight = GetStaticCargoWeight(staticObj)
-function GetStaticCargoWeight(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticCargoWeight requires valid static object",
-            "StaticObject.GetCargoWeight"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getCargoWeight, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get cargo weight: " .. tostring(result),
-            "StaticObject.GetCargoWeight"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Destroys a static object
----@param staticObject table The static object to destroy
----@return boolean? success Returns true if successful, nil on error
----@usage DestroyStaticObject(staticObj)
-function DestroyStaticObject(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "DestroyStatic requires valid static object",
-            "StaticObject.Destroy"
-        )
-        return nil
-    end
-
-    -- Log that delete API was triggered
-    _HarnessInternal.log.info("DestroyStaticObject triggered", "StaticObject.Destroy")
-
-    local success, result = pcall(staticObject.destroy, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to destroy static object: " .. tostring(result),
-            "StaticObject.Destroy"
-        )
-        return nil
-    end
-
-    _HarnessInternal.log.info("Static object destroyed", "StaticObject.Destroy")
-    return true
-end
-
---- Gets the category of a static object
----@param staticObject table The static object
----@return number? category The object category or nil on error
----@usage local category = GetStaticCategory(staticObj)
-function GetStaticCategory(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticCategory requires valid static object",
-            "StaticObject.GetCategory"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getCategory, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object category: " .. tostring(result),
-            "StaticObject.GetCategory"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the type name of a static object
----@param staticObject table The static object
----@return string? typeName The type name or nil on error
----@usage local typeName = GetStaticTypeName(staticObj)
-function GetStaticTypeName(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticTypeName requires valid static object",
-            "StaticObject.GetTypeName"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getTypeName, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object type name: " .. tostring(result),
-            "StaticObject.GetTypeName"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the description of a static object
----@param staticObject table The static object
----@return table? desc The description table or nil on error
----@usage local desc = GetStaticDesc(staticObj)
-function GetStaticDesc(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticDesc requires valid static object",
-            "StaticObject.GetDesc"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getDesc, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object description: " .. tostring(result),
-            "StaticObject.GetDesc"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Checks if a static object exists
----@param staticObject table The static object to check
----@return boolean? exists Returns true if exists, false if not, nil on error
----@usage local exists = IsStaticExist(staticObj)
-function IsStaticExist(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "IsStaticExist requires valid static object",
-            "StaticObject.IsExist"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.isExist, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to check static object existence: " .. tostring(result),
-            "StaticObject.IsExist"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the coalition of a static object
----@param staticObject table The static object
----@return number? coalition The coalition ID or nil on error
----@usage local coalition = GetStaticCoalition(staticObj)
-function GetStaticCoalition(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticCoalition requires valid static object",
-            "StaticObject.GetCoalition"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getCoalition, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object coalition: " .. tostring(result),
-            "StaticObject.GetCoalition"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the country of a static object
----@param staticObject table The static object
----@return number? country The country ID or nil on error
----@usage local country = GetStaticCountry(staticObj)
-function GetStaticCountry(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticCountry requires valid static object",
-            "StaticObject.GetCountry"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getCountry, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object country: " .. tostring(result),
-            "StaticObject.GetCountry"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the 3D position point of a static object
----@param staticObject table The static object
----@return table? point Position table with x, y, z coordinates or nil on error
----@usage local point = GetStaticPoint(staticObj)
-function GetStaticPoint(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticPoint requires valid static object",
-            "StaticObject.GetPoint"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getPoint, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object point: " .. tostring(result),
-            "StaticObject.GetPoint"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the position and orientation of a static object
----@param staticObject table The static object
----@return table? position Position table with p (point) and x,y,z vectors or nil on error
----@usage local pos = GetStaticPosition(staticObj)
-function GetStaticPosition(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticPosition requires valid static object",
-            "StaticObject.GetPosition"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getPosition, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object position: " .. tostring(result),
-            "StaticObject.GetPosition"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Gets the velocity vector of a static object
----@param staticObject table The static object
----@return table? velocity Velocity vector with x, y, z components or nil on error
----@usage local vel = GetStaticVelocity(staticObj)
-function GetStaticVelocity(staticObject)
-    if not staticObject then
-        _HarnessInternal.log.error(
-            "GetStaticVelocity requires valid static object",
-            "StaticObject.GetVelocity"
-        )
-        return nil
-    end
-
-    local success, result = pcall(staticObject.getVelocity, staticObject)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get static object velocity: " .. tostring(result),
-            "StaticObject.GetVelocity"
-        )
-        return nil
-    end
-
-    return result
-end
-
---- Creates a new static object (DCS-native signature)
----@param countryId number The country ID that will own the static object
----@param staticData table Static object data table with required fields: name, type, x, y
----@return table? staticObject The created static object or nil on error
----@usage local static = CreateStaticObject(country.id.USA, { name = "dyn", type = "Cafe", x = 1000, y = 2000 })
-function CreateStaticObject(countryId, staticData)
-    if not countryId or type(countryId) ~= "number" then
-        _HarnessInternal.log.error(
-            "CreateStaticObject requires valid numeric country ID",
-            "StaticObject.Create"
-        )
-        return nil
-    end
-
-    if not staticData or type(staticData) ~= "table" then
-        _HarnessInternal.log.error(
-            "CreateStaticObject requires valid static data table",
-            "StaticObject.Create"
-        )
-        return nil
-    end
-
-    -- Validate required DCS fields
-    if not staticData.type or type(staticData.type) ~= "string" then
-        _HarnessInternal.log.error(
-            "CreateStaticObject requires valid type in static data",
-            "StaticObject.Create"
-        )
-        return nil
-    end
-
-    if type(staticData.x) ~= "number" or type(staticData.y) ~= "number" then
-        _HarnessInternal.log.error(
-            "CreateStaticObject requires valid x and y coordinates",
-            "StaticObject.Create"
-        )
-        return nil
-    end
-
-    -- Heading is radians per schema; default to 0 if missing or invalid
-    if staticData.heading ~= nil and type(staticData.heading) ~= "number" then
-        _HarnessInternal.log.error(
-            "CreateStaticObject heading must be a number (radians) if provided",
-            "StaticObject.Create"
-        )
-        return nil
-    end
-    if staticData.heading == nil then
-        staticData.heading = 0
-    end
-
-    -- Log that create API was triggered
-    _HarnessInternal.log.info(
-        "CreateStaticObject triggered: type="
-            .. tostring(staticData.type)
-            .. " country="
-            .. tostring(countryId)
-            .. " name="
-            .. tostring(staticData.name),
-        "StaticObject.Create"
-    )
-
-    local created = AddCoalitionStaticObject(countryId, staticData)
-    if created then
-        _HarnessInternal.log.info("Static object created", "StaticObject.Create")
-    end
-    return created
-end
--- ==== END: src\staticobject.lua ====
-
--- ==== BEGIN: src\time.lua ====
+-- ==== BEGIN: src/time.lua ====
 --[[
 ==================================================================================================
     TIME MODULE
@@ -7994,9 +7159,9 @@ end
 function GetElapsedRealTime()
     return GetAbsTime() - GetTime0()
 end
--- ==== END: src\time.lua ====
+-- ==== END: src/time.lua ====
 
--- ==== BEGIN: src\trees.lua ====
+-- ==== BEGIN: src/trees.lua ====
 --[[
 ==================================================================================================
     TREE STRUCTURES MODULE
@@ -9035,9 +8200,9 @@ function AVLTree(compareFunc)
 
     return avl
 end
--- ==== END: src\trees.lua ====
+-- ==== END: src/trees.lua ====
 
--- ==== BEGIN: src\vector.lua ====
+-- ==== BEGIN: src/vector.lua ====
 --[[
 ==================================================================================================
     VECTOR MODULE
@@ -9108,6 +8273,14 @@ function IsVec3(vec)
         return false
     end
     return type(vec.x) == "number" and type(vec.y) == "number" and type(vec.z) == "number"
+end
+
+--- Check if a position is a valid Vec3 and not at the world origin
+---@param pos any Position to validate
+---@return boolean isValid True if pos is a valid non-origin Vec3
+---@usage if IsNotAtMapOrigin(unit:getPoint()) then ... end
+function IsNotAtMapOrigin(pos)
+    return IsVec3(pos) and not (pos.x == 0 and pos.y == 0 and pos.z == 0)
 end
 
 --- Check if valid 2D vector (works with plain tables or Vec2 instances)
@@ -9812,9 +8985,9 @@ end
 function Vec3_mt.__tostring(a)
     return string.format("Vec3(%.3f, %.3f, %.3f)", a.x, a.y, a.z)
 end
--- ==== END: src\vector.lua ====
+-- ==== END: src/vector.lua ====
 
--- ==== BEGIN: src\atmosphere.lua ====
+-- ==== BEGIN: src/atmosphere.lua ====
 --[[
     Atmosphere Module - DCS World Atmosphere API Wrappers
     
@@ -10032,9 +9205,33 @@ function GetPressurehPa(point)
     end
     return PaTohPa(tp.pressurePa)
 end
--- ==== END: src\atmosphere.lua ====
 
--- ==== BEGIN: src\coord.lua ====
+--- Get wind heading (direction wind is blowing TO) at a position
+---@param position table Vec3 position {x, y, z}
+---@return number? headingDeg Wind heading in degrees (0-360), nil on error
+---@usage local hdg = GetWindHeading(pos)
+function GetWindHeading(position)
+    local wind = GetWind(position)
+    if not wind then
+        return nil
+    end
+    return _ComputeHeadingDeg(wind)
+end
+
+--- Get wind speed magnitude at a position
+---@param position table Vec3 position {x, y, z}
+---@return number? speedMps Wind speed in m/s, nil on error
+---@usage local spd = GetWindSpeed(pos)
+function GetWindSpeed(position)
+    local wind = GetWind(position)
+    if not wind then
+        return nil
+    end
+    return _HorizontalSpeedMps(wind)
+end
+-- ==== END: src/atmosphere.lua ====
+
+-- ==== BEGIN: src/coord.lua ====
 --[[
     Coord Module - DCS World Coordinate API Wrappers
     
@@ -10152,9 +9349,92 @@ function MGRStoLO(mgrsString)
 
     return lo
 end
--- ==== END: src\coord.lua ====
 
--- ==== BEGIN: src\geomath.lua ====
+--- Convert decimal degrees to degrees, minutes, seconds
+---@param decimal number Coordinate in decimal degrees
+---@return number degrees Whole degrees
+---@return number minutes Whole minutes
+---@return number seconds Seconds (with decimal precision)
+---@usage local d, m, s = DecimalToDMS(43.5678)
+function DecimalToDMS(decimal)
+    if type(decimal) ~= "number" then
+        _HarnessInternal.log.error("DecimalToDMS requires number", "Coord.DecimalToDMS")
+        return 0, 0, 0
+    end
+
+    local abs = math.abs(decimal)
+    local degrees = math.floor(abs)
+    local minutesDecimal = (abs - degrees) * 60
+    local minutes = math.floor(minutesDecimal)
+    local seconds = (minutesDecimal - minutes) * 60
+
+    return degrees, minutes, seconds
+end
+
+--- Get cardinal orientation strings for latitude and longitude
+---@param lat number Latitude in decimal degrees
+---@param lon number Longitude in decimal degrees
+---@return string latDir "N" or "S"
+---@return string lonDir "E" or "W"
+---@usage local ns, ew = GetLatLonOrientation(43.5, -39.2)
+function GetLatLonOrientation(lat, lon)
+    if type(lat) ~= "number" or type(lon) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetLatLonOrientation requires numeric lat and lon",
+            "Coord.GetLatLonOrientation"
+        )
+        return "N", "E"
+    end
+
+    local latDir = lat >= 0 and "N" or "S"
+    local lonDir = lon >= 0 and "E" or "W"
+    return latDir, lonDir
+end
+
+--- Convert lat/lon to formatted MGRS string
+---@param lat number Latitude in decimal degrees
+---@param lon number Longitude in decimal degrees
+---@param precision number? Grid precision (default 5, range 1-5)
+---@return string? mgrs Formatted MGRS string, nil on error
+---@usage local mgrs = CoordToMGRS(43.5, 41.2)
+function CoordToMGRS(lat, lon, precision)
+    if type(lat) ~= "number" or type(lon) ~= "number" then
+        _HarnessInternal.log.error("CoordToMGRS requires numeric lat and lon", "Coord.CoordToMGRS")
+        return nil
+    end
+
+    precision = precision or 5
+    if precision < 1 then
+        precision = 1
+    elseif precision > 5 then
+        precision = 5
+    end
+
+    local success, mgrs = pcall(coord.LLtoMGRS, lat, lon)
+    if not success or not mgrs then
+        _HarnessInternal.log.error(
+            "Failed to convert LL to MGRS: " .. tostring(mgrs),
+            "Coord.CoordToMGRS"
+        )
+        return nil
+    end
+
+    local UTMZone = mgrs.UTMZone or ""
+    local MGRSDigraph = mgrs.MGRSDigraph or ""
+    local Easting = mgrs.Easting or 0
+    local Northing = mgrs.Northing or 0
+
+    local eastStr = string.format("%05d", math.floor(Easting))
+    local northStr = string.format("%05d", math.floor(Northing))
+
+    eastStr = string.sub(eastStr, 1, precision)
+    northStr = string.sub(northStr, 1, precision)
+
+    return UTMZone .. " " .. MGRSDigraph .. " " .. eastStr .. " " .. northStr
+end
+-- ==== END: src/coord.lua ====
+
+-- ==== BEGIN: src/geomath.lua ====
 --[[
     GeoMath Module - Geospatial Mathematics and Calculations
     
@@ -10163,16 +9443,16 @@ end
     coordinate transformations, and geometric operations.
 ]]
 
--- Constants
-local NM_TO_METERS = 1852
-local METERS_TO_NM = 1 / 1852
-local FEET_TO_METERS = 0.3048
-local METERS_TO_FEET = 1 / 0.3048
-local KM_TO_METERS = 1000
-local METERS_TO_KM = 0.001
-local EARTH_RADIUS_M = 6371000
-local DEG_TO_RAD = math.pi / 180
-local RAD_TO_DEG = 180 / math.pi
+-- Local aliases for HarnessConstants (defined in _header.lua)
+local NM_TO_METERS = HarnessConstants.NM_TO_METERS
+local METERS_TO_NM = HarnessConstants.METERS_TO_NM
+local FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
+local METERS_TO_FEET = HarnessConstants.METERS_TO_FEET
+local KM_TO_METERS = HarnessConstants.KM_TO_METERS
+local METERS_TO_KM = HarnessConstants.METERS_TO_KM
+local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
+local DEG_TO_RAD = HarnessConstants.DEG_TO_RAD
+local RAD_TO_DEG = HarnessConstants.RAD_TO_DEG
 
 ---Converts degrees to radians
 ---@param degrees number The angle in degrees
@@ -11113,9 +10393,9 @@ function EstimateInterceptDeltaV(posA, velA, posB, velB, speedA)
         return dV, t, p, reqV
     end
 end
--- ==== END: src\geomath.lua ====
+-- ==== END: src/geomath.lua ====
 
--- ==== BEGIN: src\group.lua ====
+-- ==== BEGIN: src/group.lua ====
 --[[
 ==================================================================================================
     GROUP MODULE
@@ -11730,9 +11010,734 @@ function MarkGroup(group, point, text)
     _HarnessInternal.log.info("Marked group with: " .. text, "MarkGroup")
     return true
 end
--- ==== END: src\group.lua ====
+-- ==== END: src/group.lua ====
 
--- ==== BEGIN: src\shapes.lua ====
+-- ==== BEGIN: src/coalition.lua ====
+--[[
+    Coalition Module - DCS World Coalition API Wrappers
+    
+    This module provides validated wrapper functions for DCS coalition operations,
+    including country queries, group management, and unit spawning.
+]]
+--- Build a unit entry for use in GroupSpawnData
+--- @param typeName string DCS unit type name (e.g., "F-15C", "M-1 Abrams")
+--- @param unitName string Unique unit name
+--- @param posX number 2D map X coordinate (meters)
+--- @param posY number 2D map Y coordinate (meters)
+--- @param altitude number Altitude in meters AGL/MSL per alt_type
+--- @param heading number Heading in radians (0 = east, math.pi/2 = north)
+--- @param opts table|nil Optional overrides: { skill, payload, callsign, onboard_num, alt_type, psi }
+--- @return table|nil unit Unit table suitable for GroupSpawnData or nil on error
+function BuildUnitEntry(typeName, unitName, posX, posY, altitude, heading, opts)
+    if type(typeName) ~= "string" or type(unitName) ~= "string" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires string typeName and unitName",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+    if type(posX) ~= "number" or type(posY) ~= "number" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires numeric posX and posY",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+    if type(altitude) ~= "number" or type(heading) ~= "number" then
+        _HarnessInternal.log.error(
+            "BuildUnitEntry requires numeric altitude and heading",
+            "Coalition.BuildUnitEntry"
+        )
+        return nil
+    end
+
+    local options = opts or {}
+
+    local unit = {
+        type = typeName,
+        skill = options.skill or (AI and AI.Skill and AI.Skill.AVERAGE) or "Average",
+        y = posY,
+        x = posX,
+        alt = altitude,
+        heading = heading,
+        payload = options.payload or {},
+        name = unitName,
+        alt_type = options.alt_type or "BARO",
+        callsign = options.callsign,
+        psi = options.psi or 0,
+        onboard_num = options.onboard_num,
+    }
+
+    return unit
+end
+
+--- Build a standard Turning Point waypoint
+--- @param x number 2D map X coordinate (meters)
+--- @param y number 2D map Y coordinate (meters)
+--- @param altitude number Altitude in meters
+--- @param speed number Speed in m/s
+--- @param tasks table|nil Optional array of task entries to attach (ComboTask)
+--- @return table waypoint Waypoint table
+function BuildWaypoint(x, y, altitude, speed, tasks)
+    local wp = {
+        x = x,
+        y = altitude,
+        z = y,
+        action = "Turning Point",
+        speed = speed,
+        type = "Turning Point",
+        ETA = 0,
+        ETA_locked = false,
+        formation_template = "",
+        alt = altitude,
+        alt_type = "BARO",
+        speed_locked = true,
+        task = { id = "ComboTask", params = { tasks = {} } },
+    }
+
+    if tasks and type(tasks) == "table" then
+        for _, t in ipairs(tasks) do
+            wp.task.params.tasks[#wp.task.params.tasks + 1] = t
+        end
+    end
+
+    return wp
+end
+
+--- Build a route table for GroupSpawnData
+--- @param waypoints table Array of waypoint tables (from BuildWaypoint or compatible)
+--- @param opts table|nil Optional overrides: none currently, reserved for future
+--- @return table route Route table with points array
+function BuildRoute(waypoints, opts)
+    if type(waypoints) ~= "table" then
+        _HarnessInternal.log.error("BuildRoute requires waypoints array", "Coalition.BuildRoute")
+        return { points = {} }
+    end
+    return { points = waypoints }
+end
+
+--- Build a GroupSpawnData table
+--- @param groupName string Unique group name
+--- @param task string Group task (e.g., "CAP", "Ground Nothing")
+--- @param units table Array of unit tables (from BuildUnitEntry or compatible)
+--- @param routePoints table|nil Array of waypoint tables; if nil, an empty route is used
+--- @param opts table|nil Optional overrides: { visible, taskSelected, communication, start_time, frequency, modulation }
+--- @return table|nil groupData GroupSpawnData or nil on error
+function BuildGroupData(groupName, task, units, routePoints, opts)
+    if type(groupName) ~= "string" or groupName == "" then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty string groupName",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+    if type(task) ~= "string" or task == "" then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty string task",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+    if type(units) ~= "table" or #units == 0 then
+        _HarnessInternal.log.error(
+            "BuildGroupData requires non-empty units array",
+            "Coalition.BuildGroupData"
+        )
+        return nil
+    end
+
+    local options = opts or {}
+    local groupData = {
+        visible = options.visible == nil and false or not not options.visible,
+        taskSelected = options.taskSelected == nil and true or not not options.taskSelected,
+        task = task,
+        modulation = options.modulation or 0,
+        units = units,
+        name = groupName,
+        communication = options.communication == nil and true or not not options.communication,
+        start_time = options.start_time or 0,
+        route = { points = routePoints or {} },
+        frequency = options.frequency,
+    }
+
+    return groupData
+end
+--- Get the coalition ID for a given country
+--- @param countryId number The country ID to query
+--- @return number|nil coalitionId The coalition ID (0=neutral, 1=red, 2=blue) or nil on error
+--- @usage local coalition = getCoalitionByCountry(country.id.USA)
+function GetCoalitionByCountry(countryId)
+    if not countryId or type(countryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionByCountry requires valid country ID",
+            "Coalition.GetCoalitionByCountry"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getCountryCoalition, countryId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition for country: " .. tostring(result),
+            "Coalition.GetCoalitionByCountry"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get all players (clients) in a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @return table|nil players Array of player units or nil on error
+--- @usage local bluePlayers = getCoalitionPlayers(coalition.side.BLUE)
+function GetCoalitionPlayers(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionPlayers requires valid coalition ID",
+            "Coalition.GetCoalitionPlayers"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getPlayers, coalitionId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition players: " .. tostring(result),
+            "Coalition.GetCoalitionPlayers"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get all groups in a coalition, optionally filtered by category
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @param categoryId number|nil Optional category filter (0=airplane, 1=helicopter, 2=ground, 3=ship, 4=structure)
+--- @return table|nil groups Array of group objects or nil on error
+--- @usage local redGroundGroups = getCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
+function GetCoalitionGroups(coalitionId, categoryId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionGroups requires valid coalition ID",
+            "Coalition.GetCoalitionGroups"
+        )
+        return nil
+    end
+
+    if categoryId and type(categoryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "categoryId must be a number if provided",
+            "Coalition.GetCoalitionGroups"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getGroups, coalitionId, categoryId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition groups: " .. tostring(result),
+            "Coalition.GetCoalitionGroups"
+        )
+        return {}
+    end
+
+    return result or {}
+end
+
+--- Get all airbases controlled by a coalition
+--- @param coalitionId number The coalition ID (0=neutral, 1=red, 2=blue)
+--- @return table|nil airbases Array of airbase objects or nil on error
+--- @usage local blueAirbases = getCoalitionAirbases(coalition.side.BLUE)
+function GetCoalitionAirbases(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionAirbases requires valid coalition ID",
+            "Coalition.GetCoalitionAirbases"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getAirbases, coalitionId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition airbases: " .. tostring(result),
+            "Coalition.GetCoalitionAirbases"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get all countries in a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @return table|nil countries Array of country IDs or nil on error
+--- @usage local redCountries = getCoalitionCountries(coalition.side.RED)
+function GetCoalitionCountries(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionCountries requires valid coalition ID",
+            "Coalition.GetCoalitionCountries"
+        )
+        return nil
+    end
+
+    -- Derive based on documented APIs: iterate country.id and match coalition
+    local countries = {}
+    if not country or not country.id then
+        return countries
+    end
+    for _, id in pairs(country.id) do
+        if type(id) == "number" then
+            local ok, side = pcall(coalition.getCountryCoalition, id)
+            if ok and side == coalitionId then
+                table.insert(countries, id)
+            end
+        end
+    end
+    return countries
+end
+
+--- Get all static objects belonging to a coalition
+--- @param coalitionId number The coalition ID (0=neutral, 1=red, 2=blue)
+--- @return table|nil staticObjects Array of static object references or nil on error
+--- @usage local blueStatics = getCoalitionStaticObjects(coalition.side.BLUE)
+function GetCoalitionStaticObjects(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionStaticObjects requires valid coalition ID",
+            "Coalition.GetCoalitionStaticObjects"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getStaticObjects, coalitionId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition static objects: " .. tostring(result),
+            "Coalition.GetCoalitionStaticObjects"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Add a new group to the mission for a specific country
+--- @param countryId number The country ID that will own the group
+--- @param categoryId number The category ID (0=airplane, 1=helicopter, 2=ground, 3=ship)
+--- @param groupData table The group definition table with units, route, etc.
+--- @return table|nil group The created group object or nil on error
+--- @usage local newGroup = addCoalitionGroup(country.id.USA, Group.Category.AIRPLANE, groupDefinition)
+function AddCoalitionGroup(countryId, categoryId, groupData)
+    if not countryId or type(countryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid country ID",
+            "Coalition.AddGroup"
+        )
+        return nil
+    end
+
+    if not categoryId or type(categoryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid category ID",
+            "Coalition.AddGroup"
+        )
+        return nil
+    end
+
+    if not groupData or type(groupData) ~= "table" then
+        _HarnessInternal.log.error(
+            "AddCoalitionGroup requires valid group data table",
+            "Coalition.AddGroup"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.addGroup, countryId, categoryId, groupData)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to add coalition group: " .. tostring(result),
+            "Coalition.AddGroup"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Add a new static object to the mission for a specific country
+--- @param countryId number The country ID that will own the static object
+--- @param staticData table The static object definition table
+--- @return table|nil staticObject The created static object or nil on error
+--- @usage local newStatic = addCoalitionStaticObject(country.id.USA, staticDefinition)
+function AddCoalitionStaticObject(countryId, staticData)
+    if not countryId or type(countryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "AddCoalitionStaticObject requires valid country ID",
+            "Coalition.AddStaticObject"
+        )
+        return nil
+    end
+
+    if not staticData or type(staticData) ~= "table" then
+        _HarnessInternal.log.error(
+            "AddCoalitionStaticObject requires valid static object data",
+            "Coalition.AddStaticObject"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.addStaticObject, countryId, staticData)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to add coalition static object: " .. tostring(result),
+            "Coalition.AddStaticObject"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get all reference points for a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @return table|nil refPoints Table of reference points or nil on error
+--- @usage local blueRefPoints = getCoalitionRefPoints(coalition.side.BLUE)
+function GetCoalitionRefPoints(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionRefPoints requires valid coalition ID",
+            "Coalition.GetRefPoints"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getRefPoints, coalitionId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition reference points: " .. tostring(result),
+            "Coalition.GetRefPoints"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get the main reference point (bullseye) for a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @return table|nil refPoint The main reference point with x, y, z coordinates or nil on error
+--- @usage local blueBullseye = getCoalitionMainRefPoint(coalition.side.BLUE)
+function GetCoalitionMainRefPoint(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionMainRefPoint requires valid coalition ID",
+            "Coalition.GetMainRefPoint"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition main reference point: " .. tostring(result),
+            "Coalition.GetMainRefPoint"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get the bullseye coordinates for a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @return table|nil bullseye The bullseye position with x, y, z coordinates or nil on error
+--- @usage local redBullseye = getCoalitionBullseye(coalition.side.RED)
+function GetCoalitionBullseye(coalitionId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionBullseye requires valid coalition ID",
+            "Coalition.GetBullseye"
+        )
+        return nil
+    end
+
+    -- Authoritative API name is getMainRefPoint (bullseye)
+    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition bullseye: " .. tostring(result),
+            "Coalition.GetCoalitionBullseye"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Add a reference point for a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @param refPointData table The reference point data table
+--- @return table|nil refPoint The created reference point or nil on error
+--- @usage local newRefPoint = addCoalitionRefPoint(coalition.side.BLUE, {callsign = "ALPHA", x = 100000, y = 0, z = 200000})
+function AddCoalitionRefPoint(coalitionId, refPointData)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "AddCoalitionRefPoint requires valid coalition ID",
+            "Coalition.AddRefPoint"
+        )
+        return nil
+    end
+
+    if not refPointData or type(refPointData) ~= "table" then
+        _HarnessInternal.log.error(
+            "AddCoalitionRefPoint requires valid reference point data",
+            "Coalition.AddRefPoint"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.addRefPoint, coalitionId, refPointData)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to add coalition reference point: " .. tostring(result),
+            "Coalition.AddRefPoint"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Remove a reference point from a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @param refPointId number|string The reference point ID to remove
+--- @return boolean|nil success True if removed successfully, nil on error
+--- @usage RemoveCoalitionRefPoint(coalition.side.BLUE, "ALPHA")
+function RemoveCoalitionRefPoint(coalitionId, refPointId)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "RemoveCoalitionRefPoint requires valid coalition ID",
+            "Coalition.RemoveRefPoint"
+        )
+        return nil
+    end
+
+    if not refPointId then
+        _HarnessInternal.log.error(
+            "RemoveCoalitionRefPoint requires valid reference point ID",
+            "Coalition.RemoveRefPoint"
+        )
+        return nil
+    end
+
+    local remover = rawget(coalition, "removeRefPoint")
+    if type(remover) ~= "function" then
+        _HarnessInternal.log.error(
+            "coalition.removeRefPoint not available",
+            "Coalition.RemoveRefPoint"
+        )
+        return nil
+    end
+
+    local success, result = pcall(remover, coalitionId, refPointId)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to remove coalition reference point: " .. tostring(result),
+            "Coalition.RemoveRefPoint"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get service providers (tankers, AWACS, etc.) for a coalition
+--- @param coalitionId number The coalition ID (1=red, 2=blue)
+--- @param serviceType number The service type to query
+--- @return table|nil providers Array of units providing the service or nil on error
+--- @usage local blueTankers = getCoalitionServiceProviders(coalition.side.BLUE, coalition.service.TANKER)
+function GetCoalitionServiceProviders(coalitionId, serviceType)
+    if not coalitionId or type(coalitionId) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionServiceProviders requires valid coalition ID",
+            "Coalition.GetServiceProviders"
+        )
+        return nil
+    end
+
+    if not serviceType or type(serviceType) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetCoalitionServiceProviders requires valid service type",
+            "Coalition.GetServiceProviders"
+        )
+        return nil
+    end
+
+    local success, result = pcall(coalition.getServiceProviders, coalitionId, serviceType)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get coalition service providers: " .. tostring(result),
+            "Coalition.GetServiceProviders"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Get all ship units from both coalitions
+---@return table ships Array of ship unit objects
+---@usage local ships = GetAllShips()
+function GetAllShips()
+    local ships = {}
+
+    for _, side in ipairs({ 1, 2 }) do
+        local groups = GetCoalitionGroups(side, Group.Category.SHIP)
+        if groups then
+            for _, group in ipairs(groups) do
+                local success, units = pcall(function()
+                    return group:getUnits()
+                end)
+                if success and units then
+                    for _, unit in ipairs(units) do
+                        ships[#ships + 1] = unit
+                    end
+                end
+            end
+        end
+    end
+
+    return ships
+end
+
+--- Get all aircraft groups from both coalitions
+---@return table groups Array of aircraft group objects (airplanes and helicopters)
+---@usage local groups = GetAllAircraftGroups()
+function GetAllAircraftGroups()
+    local result = {}
+
+    for _, side in ipairs({ 1, 2 }) do
+        local planes = GetCoalitionGroups(side, Group.Category.AIRPLANE)
+        if planes then
+            for _, group in ipairs(planes) do
+                result[#result + 1] = group
+            end
+        end
+
+        local helis = GetCoalitionGroups(side, Group.Category.HELICOPTER)
+        if helis then
+            for _, group in ipairs(helis) do
+                result[#result + 1] = group
+            end
+        end
+    end
+
+    return result
+end
+
+--- Build a waypoint table for ground unit routing
+---@param position table Vec3 position {x, y, z}
+---@param action string? Waypoint action (default "Off Road")
+---@param speed number? Speed in m/s (default 10)
+---@return table waypoint Waypoint table for ground route
+---@usage local wp = BuildGroundWaypoint(pos, "On Road", 15)
+function BuildGroundWaypoint(position, action, speed)
+    if not position or type(position) ~= "table" then
+        _HarnessInternal.log.error(
+            "BuildGroundWaypoint requires valid position",
+            "Coalition.BuildGroundWaypoint"
+        )
+        return {
+            x = 0,
+            y = 0,
+            action = action or "Off Road",
+            speed = speed or 10,
+            type = "Turning Point",
+            ETA = 0,
+            ETA_locked = false,
+            formation_template = "",
+            speed_locked = true,
+            task = { id = "ComboTask", params = { tasks = {} } },
+        }
+    end
+
+    return {
+        x = position.x or 0,
+        y = position.z or 0,
+        action = action or "Off Road",
+        speed = speed or 10,
+        type = "Turning Point",
+        ETA = 0,
+        ETA_locked = false,
+        formation_template = "",
+        speed_locked = true,
+        task = { id = "ComboTask", params = { tasks = {} } },
+    }
+end
+
+--- Send a group along a route of waypoints
+---@param groupName string The name of the group
+---@param waypoints table Array of waypoint tables
+---@return boolean success True if route was set, false otherwise
+---@usage GoRoute("convoy-1", { BuildGroundWaypoint(pos1), BuildGroundWaypoint(pos2) })
+function GoRoute(groupName, waypoints)
+    if not groupName or type(groupName) ~= "string" then
+        _HarnessInternal.log.error("GoRoute requires string group name", "Coalition.GoRoute")
+        return false
+    end
+
+    if not waypoints or type(waypoints) ~= "table" or #waypoints == 0 then
+        _HarnessInternal.log.error(
+            "GoRoute requires non-empty waypoints array",
+            "Coalition.GoRoute"
+        )
+        return false
+    end
+
+    local group = GetGroup(groupName)
+    if not group then
+        _HarnessInternal.log.error("GoRoute group not found: " .. groupName, "Coalition.GoRoute")
+        return false
+    end
+
+    local success, controller = pcall(function()
+        return group:getController()
+    end)
+    if not success or not controller then
+        _HarnessInternal.log.error(
+            "GoRoute failed to get controller: " .. tostring(controller),
+            "Coalition.GoRoute"
+        )
+        return false
+    end
+
+    local route = {
+        id = "Mission",
+        params = {
+            route = {
+                points = waypoints,
+            },
+        },
+    }
+
+    local ok, err = pcall(controller.setTask, controller, route)
+    if not ok then
+        _HarnessInternal.log.error(
+            "GoRoute failed to set route: " .. tostring(err),
+            "Coalition.GoRoute"
+        )
+        return false
+    end
+
+    return true
+end
+-- ==== END: src/coalition.lua ====
+
+-- ==== BEGIN: src/shapes.lua ====
 --[[
     Shapes Module - Geospatial Shape Generation
     
@@ -12295,9 +12300,9 @@ function ShapeToVec3(shape, altitude)
 
     return result
 end
--- ==== END: src\shapes.lua ====
+-- ==== END: src/shapes.lua ====
 
--- ==== BEGIN: src\spot.lua ====
+-- ==== BEGIN: src/spot.lua ====
 --[[
 ==================================================================================================
     SPOT MODULE
@@ -12554,9 +12559,463 @@ function GetSpotCategory(spot)
     end
     return category
 end
--- ==== END: src\spot.lua ====
+-- ==== END: src/spot.lua ====
 
--- ==== BEGIN: src\terrain.lua ====
+-- ==== BEGIN: src/staticobject.lua ====
+--[[
+    StaticObject Module - DCS World Static Object API Wrappers
+    
+    This module provides validated wrapper functions for DCS static object operations,
+    including object queries, destruction, and property access.
+]]
+
+--- Gets a static object by its name
+---@param name string The name of the static object
+---@return table? staticObject The static object or nil if not found
+---@usage local static = GetStaticByName("Warehouse01")
+function GetStaticByName(name)
+    if not name or type(name) ~= "string" then
+        _HarnessInternal.log.error(
+            "GetStaticByName requires valid name string",
+            "StaticObject.GetByName"
+        )
+        return nil
+    end
+
+    local success, result = pcall(StaticObject.getByName, name)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object by name: " .. tostring(result),
+            "StaticObject.GetByName"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the ID of a static object
+---@param staticObject table The static object
+---@return number? id The ID of the static object or nil on error
+---@usage local id = GetStaticID(staticObj)
+function GetStaticID(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error("GetStaticID requires valid static object", "StaticObject.GetID")
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getID, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object ID: " .. tostring(result),
+            "StaticObject.GetID"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the current life/health of a static object
+---@param staticObject table The static object
+---@return number? life The current life value or nil on error
+---@usage local life = GetStaticLife(staticObj)
+function GetStaticLife(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticLife requires valid static object",
+            "StaticObject.GetLife"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getLife, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object life: " .. tostring(result),
+            "StaticObject.GetLife"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the cargo display name of a static object
+---@param staticObject table The static object
+---@return string? displayName The cargo display name or nil on error
+---@usage local cargoName = GetStaticCargoDisplayName(staticObj)
+function GetStaticCargoDisplayName(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticCargoDisplayName requires valid static object",
+            "StaticObject.GetCargoDisplayName"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getCargoDisplayName, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get cargo display name: " .. tostring(result),
+            "StaticObject.GetCargoDisplayName"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the cargo weight of a static object
+---@param staticObject table The static object
+---@return number? weight The cargo weight in kg or nil on error
+---@usage local weight = GetStaticCargoWeight(staticObj)
+function GetStaticCargoWeight(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticCargoWeight requires valid static object",
+            "StaticObject.GetCargoWeight"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getCargoWeight, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get cargo weight: " .. tostring(result),
+            "StaticObject.GetCargoWeight"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Destroys a static object
+---@param staticObject table The static object to destroy
+---@return boolean? success Returns true if successful, nil on error
+---@usage DestroyStaticObject(staticObj)
+function DestroyStaticObject(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "DestroyStatic requires valid static object",
+            "StaticObject.Destroy"
+        )
+        return nil
+    end
+
+    -- Log that delete API was triggered
+    _HarnessInternal.log.info("DestroyStaticObject triggered", "StaticObject.Destroy")
+
+    local success, result = pcall(staticObject.destroy, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to destroy static object: " .. tostring(result),
+            "StaticObject.Destroy"
+        )
+        return nil
+    end
+
+    _HarnessInternal.log.info("Static object destroyed", "StaticObject.Destroy")
+    return true
+end
+
+--- Gets the category of a static object
+---@param staticObject table The static object
+---@return number? category The object category or nil on error
+---@usage local category = GetStaticCategory(staticObj)
+function GetStaticCategory(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticCategory requires valid static object",
+            "StaticObject.GetCategory"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getCategory, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object category: " .. tostring(result),
+            "StaticObject.GetCategory"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the type name of a static object
+---@param staticObject table The static object
+---@return string? typeName The type name or nil on error
+---@usage local typeName = GetStaticTypeName(staticObj)
+function GetStaticTypeName(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticTypeName requires valid static object",
+            "StaticObject.GetTypeName"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getTypeName, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object type name: " .. tostring(result),
+            "StaticObject.GetTypeName"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the description of a static object
+---@param staticObject table The static object
+---@return table? desc The description table or nil on error
+---@usage local desc = GetStaticDesc(staticObj)
+function GetStaticDesc(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticDesc requires valid static object",
+            "StaticObject.GetDesc"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getDesc, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object description: " .. tostring(result),
+            "StaticObject.GetDesc"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Checks if a static object exists
+---@param staticObject table The static object to check
+---@return boolean? exists Returns true if exists, false if not, nil on error
+---@usage local exists = IsStaticExist(staticObj)
+function IsStaticExist(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "IsStaticExist requires valid static object",
+            "StaticObject.IsExist"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.isExist, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to check static object existence: " .. tostring(result),
+            "StaticObject.IsExist"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the coalition of a static object
+---@param staticObject table The static object
+---@return number? coalition The coalition ID or nil on error
+---@usage local coalition = GetStaticCoalition(staticObj)
+function GetStaticCoalition(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticCoalition requires valid static object",
+            "StaticObject.GetCoalition"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getCoalition, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object coalition: " .. tostring(result),
+            "StaticObject.GetCoalition"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the country of a static object
+---@param staticObject table The static object
+---@return number? country The country ID or nil on error
+---@usage local country = GetStaticCountry(staticObj)
+function GetStaticCountry(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticCountry requires valid static object",
+            "StaticObject.GetCountry"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getCountry, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object country: " .. tostring(result),
+            "StaticObject.GetCountry"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the 3D position point of a static object
+---@param staticObject table The static object
+---@return table? point Position table with x, y, z coordinates or nil on error
+---@usage local point = GetStaticPoint(staticObj)
+function GetStaticPoint(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticPoint requires valid static object",
+            "StaticObject.GetPoint"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getPoint, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object point: " .. tostring(result),
+            "StaticObject.GetPoint"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the position and orientation of a static object
+---@param staticObject table The static object
+---@return table? position Position table with p (point) and x,y,z vectors or nil on error
+---@usage local pos = GetStaticPosition(staticObj)
+function GetStaticPosition(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticPosition requires valid static object",
+            "StaticObject.GetPosition"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getPosition, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object position: " .. tostring(result),
+            "StaticObject.GetPosition"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Gets the velocity vector of a static object
+---@param staticObject table The static object
+---@return table? velocity Velocity vector with x, y, z components or nil on error
+---@usage local vel = GetStaticVelocity(staticObj)
+function GetStaticVelocity(staticObject)
+    if not staticObject then
+        _HarnessInternal.log.error(
+            "GetStaticVelocity requires valid static object",
+            "StaticObject.GetVelocity"
+        )
+        return nil
+    end
+
+    local success, result = pcall(staticObject.getVelocity, staticObject)
+    if not success then
+        _HarnessInternal.log.error(
+            "Failed to get static object velocity: " .. tostring(result),
+            "StaticObject.GetVelocity"
+        )
+        return nil
+    end
+
+    return result
+end
+
+--- Creates a new static object (DCS-native signature)
+---@param countryId number The country ID that will own the static object
+---@param staticData table Static object data table with required fields: name, type, x, y
+---@return table? staticObject The created static object or nil on error
+---@usage local static = CreateStaticObject(country.id.USA, { name = "dyn", type = "Cafe", x = 1000, y = 2000 })
+function CreateStaticObject(countryId, staticData)
+    if not countryId or type(countryId) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid numeric country ID",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+
+    if not staticData or type(staticData) ~= "table" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid static data table",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+
+    -- Validate required DCS fields
+    if not staticData.type or type(staticData.type) ~= "string" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid type in static data",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+
+    if type(staticData.x) ~= "number" or type(staticData.y) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject requires valid x and y coordinates",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+
+    -- Heading is radians per schema; default to 0 if missing or invalid
+    if staticData.heading ~= nil and type(staticData.heading) ~= "number" then
+        _HarnessInternal.log.error(
+            "CreateStaticObject heading must be a number (radians) if provided",
+            "StaticObject.Create"
+        )
+        return nil
+    end
+    if staticData.heading == nil then
+        staticData.heading = 0
+    end
+
+    -- Log that create API was triggered
+    _HarnessInternal.log.info(
+        "CreateStaticObject triggered: type="
+            .. tostring(staticData.type)
+            .. " country="
+            .. tostring(countryId)
+            .. " name="
+            .. tostring(staticData.name),
+        "StaticObject.Create"
+    )
+
+    local created = AddCoalitionStaticObject(countryId, staticData)
+    if created then
+        _HarnessInternal.log.info("Static object created", "StaticObject.Create")
+    end
+    return created
+end
+-- ==== END: src/staticobject.lua ====
+
+-- ==== BEGIN: src/terrain.lua ====
 --[[
 ==================================================================================================
     TERRAIN MODULE
@@ -12883,9 +13342,9 @@ function FindRoadPath(from, to, roadType)
 
     return path or {}
 end
--- ==== END: src\terrain.lua ====
+-- ==== END: src/terrain.lua ====
 
--- ==== BEGIN: src\trigger.lua ====
+-- ==== BEGIN: src/trigger.lua ====
 --[[
     Trigger Module - DCS World Trigger API Wrappers
     
@@ -14622,9 +15081,9 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
 
     return true
 end
--- ==== END: src\trigger.lua ====
+-- ==== END: src/trigger.lua ====
 
--- ==== BEGIN: src\unit.lua ====
+-- ==== BEGIN: src/unit.lua ====
 --[[
 ==================================================================================================
     UNIT MODULE
@@ -14763,12 +15222,24 @@ function GetUnitPosition(unitOrName)
 end
 
 --- Get unit heading in degrees
----@param unitName string The name of the unit
+---@param unitOrName string|table The name of the unit or unit object
 ---@return number? heading The heading in degrees (0-360) if found, nil otherwise
----@usage local heading = GetUnitHeading("Player")
-function GetUnitHeading(unitName)
-    local unit = GetUnit(unitName)
-    if not unit then
+---@usage local heading = GetUnitHeading("Player") or GetUnitHeading(unitObject)
+function GetUnitHeading(unitOrName)
+    local unit
+
+    if type(unitOrName) == "string" then
+        unit = GetUnit(unitOrName)
+        if not unit then
+            return nil
+        end
+    elseif type(unitOrName) == "table" and unitOrName.getPosition then
+        unit = unitOrName
+    else
+        _HarnessInternal.log.error(
+            "GetUnitHeading requires unit name or unit object",
+            "GetUnitHeading"
+        )
         return nil
     end
 
@@ -14781,17 +15252,93 @@ function GetUnitHeading(unitName)
         return nil
     end
 
-    -- Extract heading from orientation matrix
-    -- position.x is the forward vector, so heading is atan2(forward.z, forward.x)
     local heading = math.atan2(position.x.z, position.x.x)
     heading = math.deg(heading)
 
-    -- Normalize to 0-360
     if heading < 0 then
         heading = heading + 360
     end
 
     return heading
+end
+
+--- Get unit position and heading in one call
+---@param unitOrName string|table The name of the unit or unit object
+---@return table? position The position {x, y, z} if found, nil otherwise
+---@return number? heading The heading in degrees (0-360) if found, nil otherwise
+---@usage local pos, hdg = GetUnitOrientation("Player")
+function GetUnitOrientation(unitOrName)
+    local unit
+
+    if type(unitOrName) == "string" then
+        unit = GetUnit(unitOrName)
+        if not unit then
+            return nil, nil
+        end
+    elseif type(unitOrName) == "table" and unitOrName.getPosition then
+        unit = unitOrName
+    else
+        _HarnessInternal.log.error(
+            "GetUnitOrientation requires unit name or unit object",
+            "GetUnitOrientation"
+        )
+        return nil, nil
+    end
+
+    local success, position = pcall(unit.getPosition, unit)
+    if not success or not position or not position.p then
+        _HarnessInternal.log.error(
+            "Failed to get unit position for orientation: " .. tostring(position),
+            "GetUnitOrientation"
+        )
+        return nil, nil
+    end
+
+    local heading = math.atan2(position.x.z, position.x.x)
+    heading = math.deg(heading)
+    if heading < 0 then
+        heading = heading + 360
+    end
+
+    return position.p, heading
+end
+
+--- Get unit position, heading, and unit object in one call
+---@param unitName string The name of the unit
+---@return table? position The position {x, y, z} if found, nil otherwise
+---@return number? heading The heading in degrees (0-360) if found, nil otherwise
+---@return table? unit The unit object if found, nil otherwise
+---@usage local pos, hdg, unit = GetUnitPositionAndHeading("Player")
+function GetUnitPositionAndHeading(unitName)
+    if not unitName or type(unitName) ~= "string" then
+        _HarnessInternal.log.error(
+            "GetUnitPositionAndHeading requires string unit name",
+            "GetUnitPositionAndHeading"
+        )
+        return nil, nil, nil
+    end
+
+    local unit = GetUnit(unitName)
+    if not unit then
+        return nil, nil, nil
+    end
+
+    local success, position = pcall(unit.getPosition, unit)
+    if not success or not position or not position.p then
+        _HarnessInternal.log.error(
+            "Failed to get unit position for data: " .. tostring(position),
+            "GetUnitPositionAndHeading"
+        )
+        return nil, nil, nil
+    end
+
+    local heading = math.atan2(position.x.z, position.x.x)
+    heading = math.deg(heading)
+    if heading < 0 then
+        heading = heading + 360
+    end
+
+    return position.p, heading, unit
 end
 
 --- Get unit velocity
@@ -15857,6 +16404,35 @@ function UnitHasCarrier(unit)
     return hasCarrier
 end
 
+--- Check if a unit is a known supercarrier type
+---@param unit table Unit object
+---@return boolean isSuperCarrier True if unit is a supercarrier type
+---@usage if IsSuperCarrier(unit) then ... end
+function IsSuperCarrier(unit)
+    if not unit then
+        _HarnessInternal.log.error("IsSuperCarrier requires unit", "IsSuperCarrier")
+        return false
+    end
+
+    local success, typeName = pcall(function()
+        return unit:getTypeName()
+    end)
+    if not success or not typeName then
+        return false
+    end
+
+    local superCarrierTypes = {
+        ["CVN_71"] = true,
+        ["CVN_72"] = true,
+        ["CVN_73"] = true,
+        ["CVN_74"] = true,
+        ["CVN_75"] = true,
+        ["Forrestal"] = true,
+    }
+
+    return superCarrierTypes[typeName] == true
+end
+
 --- Get nearest cargo for aircraft
 ---@param unit table Unit object
 ---@return table cargos Array of cargo objects
@@ -16011,9 +16587,9 @@ function GetUnitSeats(unit)
 
     return seats
 end
--- ==== END: src\unit.lua ====
+-- ==== END: src/unit.lua ====
 
--- ==== BEGIN: src\vectorops.lua ====
+-- ==== BEGIN: src/vectorops.lua ====
 --[[
     VectorOps Module - Vector Operations and Shape Merging
     
@@ -16614,9 +17190,9 @@ function PointInTriangle2D(p, a, b, c)
 
     return not (has_neg and has_pos)
 end
--- ==== END: src\vectorops.lua ====
+-- ==== END: src/vectorops.lua ====
 
--- ==== BEGIN: src\weapon.lua ====
+-- ==== BEGIN: src/weapon.lua ====
 --[[
     Weapon Module - DCS World Weapon API Wrappers
     
@@ -16974,9 +17550,9 @@ function IsWeaponActive(weapon)
     end
     return exists == true
 end
--- ==== END: src\weapon.lua ====
+-- ==== END: src/weapon.lua ====
 
--- ==== BEGIN: src\world.lua ====
+-- ==== BEGIN: src/world.lua ====
 --[[
     World Module - DCS World API Wrappers
     
@@ -17592,9 +18168,9 @@ function CreateSegmentVolume(from, to)
         to = to,
     })
 end
--- ==== END: src\world.lua ====
+-- ==== END: src/world.lua ====
 
--- ==== BEGIN: src\drawing.lua ====
+-- ==== BEGIN: src/drawing.lua ====
 --[[
     Drawing Module - DCS World Drawing API Wrappers
     
@@ -18118,9 +18694,9 @@ function ClearDrawingCache()
         }
     end
 end
--- ==== END: src\drawing.lua ====
+-- ==== END: src/drawing.lua ====
 
--- ==== BEGIN: src\zone.lua ====
+-- ==== BEGIN: src/zone.lua ====
 --[[
 ==================================================================================================
     ZONE MODULE
@@ -18795,9 +19371,9 @@ function ClearZoneCache()
         }
     end
 end
--- ==== END: src\zone.lua ====
+-- ==== END: src/zone.lua ====
 
--- ==== BEGIN: src\shapecache.lua ====
+-- ==== BEGIN: src/shapecache.lua ====
 --[[
     ShapeCache Module - Combined cache for drawings and trigger zones
     
@@ -19060,5 +19636,5 @@ function AutoInitializeShapeCache()
 
     return false
 end
--- ==== END: src\shapecache.lua ====
+-- ==== END: src/shapecache.lua ====
 

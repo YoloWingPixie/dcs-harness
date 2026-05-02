@@ -19,14 +19,17 @@ require("test_utils")
 -- Load mock DCS environment
 require("mock_dcs")
 
--- Initialize Harness internal structure (mimicking _header.lua)
-HARNESS_VERSION = "1.0.0-test"
-_HarnessInternal = {
-    loggers = {},
-    defaultNamespace = "Harness",
-}
+-- Load the real _header.lua so constants, version, and _HarnessInternal stay in sync
+dofile("../src/_header.lua")
 
--- Ensure cache structure exists (mimic _header.lua)
+-- Override version for test context
+HARNESS_VERSION = "1.0.0-test"
+
+-- Ensure internal structure has test-needed fields
+_HarnessInternal.loggers = _HarnessInternal.loggers or {}
+_HarnessInternal.defaultNamespace = _HarnessInternal.defaultNamespace or "Harness"
+
+-- Ensure cache structure exists
 if not _HarnessInternal.cache then
     _HarnessInternal.cache = {
         units = {},

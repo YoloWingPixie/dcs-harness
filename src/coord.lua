@@ -118,3 +118,86 @@ function MGRStoLO(mgrsString)
 
     return lo
 end
+
+--- Convert decimal degrees to degrees, minutes, seconds
+---@param decimal number Coordinate in decimal degrees
+---@return number degrees Whole degrees
+---@return number minutes Whole minutes
+---@return number seconds Seconds (with decimal precision)
+---@usage local d, m, s = DecimalToDMS(43.5678)
+function DecimalToDMS(decimal)
+    if type(decimal) ~= "number" then
+        _HarnessInternal.log.error("DecimalToDMS requires number", "Coord.DecimalToDMS")
+        return 0, 0, 0
+    end
+
+    local abs = math.abs(decimal)
+    local degrees = math.floor(abs)
+    local minutesDecimal = (abs - degrees) * 60
+    local minutes = math.floor(minutesDecimal)
+    local seconds = (minutesDecimal - minutes) * 60
+
+    return degrees, minutes, seconds
+end
+
+--- Get cardinal orientation strings for latitude and longitude
+---@param lat number Latitude in decimal degrees
+---@param lon number Longitude in decimal degrees
+---@return string latDir "N" or "S"
+---@return string lonDir "E" or "W"
+---@usage local ns, ew = GetLatLonOrientation(43.5, -39.2)
+function GetLatLonOrientation(lat, lon)
+    if type(lat) ~= "number" or type(lon) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetLatLonOrientation requires numeric lat and lon",
+            "Coord.GetLatLonOrientation"
+        )
+        return "N", "E"
+    end
+
+    local latDir = lat >= 0 and "N" or "S"
+    local lonDir = lon >= 0 and "E" or "W"
+    return latDir, lonDir
+end
+
+--- Convert lat/lon to formatted MGRS string
+---@param lat number Latitude in decimal degrees
+---@param lon number Longitude in decimal degrees
+---@param precision number? Grid precision (default 5, range 1-5)
+---@return string? mgrs Formatted MGRS string, nil on error
+---@usage local mgrs = CoordToMGRS(43.5, 41.2)
+function CoordToMGRS(lat, lon, precision)
+    if type(lat) ~= "number" or type(lon) ~= "number" then
+        _HarnessInternal.log.error("CoordToMGRS requires numeric lat and lon", "Coord.CoordToMGRS")
+        return nil
+    end
+
+    precision = precision or 5
+    if precision < 1 then
+        precision = 1
+    elseif precision > 5 then
+        precision = 5
+    end
+
+    local success, mgrs = pcall(coord.LLtoMGRS, lat, lon)
+    if not success or not mgrs then
+        _HarnessInternal.log.error(
+            "Failed to convert LL to MGRS: " .. tostring(mgrs),
+            "Coord.CoordToMGRS"
+        )
+        return nil
+    end
+
+    local UTMZone = mgrs.UTMZone or ""
+    local MGRSDigraph = mgrs.MGRSDigraph or ""
+    local Easting = mgrs.Easting or 0
+    local Northing = mgrs.Northing or 0
+
+    local eastStr = string.format("%05d", math.floor(Easting))
+    local northStr = string.format("%05d", math.floor(Northing))
+
+    eastStr = string.sub(eastStr, 1, precision)
+    northStr = string.sub(northStr, 1, precision)
+
+    return UTMZone .. " " .. MGRSDigraph .. " " .. eastStr .. " " .. northStr
+end

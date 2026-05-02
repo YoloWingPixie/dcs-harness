@@ -9,16 +9,16 @@
 require("logger")
 require("vector")
 
--- Constants
-local NM_TO_METERS = 1852
-local METERS_TO_NM = 1 / 1852
-local FEET_TO_METERS = 0.3048
-local METERS_TO_FEET = 1 / 0.3048
-local KM_TO_METERS = 1000
-local METERS_TO_KM = 0.001
-local EARTH_RADIUS_M = 6371000
-local DEG_TO_RAD = math.pi / 180
-local RAD_TO_DEG = 180 / math.pi
+-- Local aliases for HarnessConstants (defined in _header.lua)
+local NM_TO_METERS = HarnessConstants.NM_TO_METERS
+local METERS_TO_NM = HarnessConstants.METERS_TO_NM
+local FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
+local METERS_TO_FEET = HarnessConstants.METERS_TO_FEET
+local KM_TO_METERS = HarnessConstants.KM_TO_METERS
+local METERS_TO_KM = HarnessConstants.METERS_TO_KM
+local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
+local DEG_TO_RAD = HarnessConstants.DEG_TO_RAD
+local RAD_TO_DEG = HarnessConstants.RAD_TO_DEG
 
 ---Converts degrees to radians
 ---@param degrees number The angle in degrees

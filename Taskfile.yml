@@ -73,9 +73,12 @@ tasks:
 
   lint:
     deps: [build:cd]
-    desc: Run linter on source files
+    desc: Run Selene on build artifact
     cmds:
-      - selene --config selene.toml {{.BUILD_DIR}}/harness.lua
+      - cmd: ./tools/selene/selene --allow-warnings --config selene.toml {{.BUILD_DIR}}/harness.lua
+        platforms: [linux, darwin]
+      - cmd: ./tools/selene/selene.exe --allow-warnings --config selene.toml {{.BUILD_DIR}}/harness.lua
+        platforms: [windows]
 
   format:
     desc: Format Lua sources with Stylua (vendored)

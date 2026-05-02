@@ -454,6 +454,19 @@ function NormalizeAngle(angle)
     return angle
 end
 
+--- Calculate the reciprocal heading (heading + 180, normalized to 0-360)
+---@param heading number Heading in degrees
+---@return number inverse Reciprocal heading normalized to 0-360
+---@usage local recip = InverseHeading(90) -- 270
+function InverseHeading(heading)
+    if type(heading) ~= "number" then
+        _HarnessInternal.log.error("InverseHeading requires number", "InverseHeading")
+        return 0
+    end
+
+    return NormalizeAngle(heading + 180)
+end
+
 --- Get angle difference (shortest path)
 ---@param angle1 number First angle in degrees
 ---@param angle2 number Second angle in degrees

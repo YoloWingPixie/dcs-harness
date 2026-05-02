@@ -112,19 +112,57 @@ tasks:
       - task: build:cd
 
   bump:patch:
-    desc: Bump pyproject.toml version (patch)
+    desc: Bump patch version (pyproject.toml + CHANGELOG.md)
     cmds:
-      - 'python -c "import pathlib,re,sys; p=pathlib.Path(\"pyproject.toml\"); s=p.read_text(encoding=\"utf-8\"); pat=r\"(?m)^version\\s*=\\s*\\\"(\\d+)\\.(\\d+)\\.(\\d+)\\\"\"; m=re.search(pat,s); m or sys.exit(\"version not found\"); a,b,c=map(int,m.groups()); c+=1; new=f\"version = \\\"{a}.{b}.{c}\\\"\"; p.write_text(re.sub(pat,new,s,1), encoding=\"utf-8\"); print(f\"{a}.{b}.{c}\")"'
+      - python build/scripts/bump_version.py patch
 
   bump:minor:
-    desc: Bump pyproject.toml version (minor)
+    desc: Bump minor version (pyproject.toml + CHANGELOG.md)
     cmds:
-      - 'python -c "import pathlib,re,sys; p=pathlib.Path(\"pyproject.toml\"); s=p.read_text(encoding=\"utf-8\"); pat=r\"(?m)^version\\s*=\\s*\\\"(\\d+)\\.(\\d+)\\.(\\d+)\\\"\"; m=re.search(pat,s); m or sys.exit(\"version not found\"); a,b,c=map(int,m.groups()); b+=1; c=0; new=f\"version = \\\"{a}.{b}.{c}\\\"\"; p.write_text(re.sub(pat,new,s,1), encoding=\"utf-8\"); print(f\"{a}.{b}.{c}\")"'
+      - python build/scripts/bump_version.py minor
 
   bump:major:
-    desc: Bump pyproject.toml version (major)
+    desc: Bump major version (pyproject.toml + CHANGELOG.md)
     cmds:
-      - 'python -c "import pathlib,re,sys; p=pathlib.Path(\"pyproject.toml\"); s=p.read_text(encoding=\"utf-8\"); pat=r\"(?m)^version\\s*=\\s*\\\"(\\d+)\\.(\\d+)\\.(\\d+)\\\"\"; m=re.search(pat,s); m or sys.exit(\"version not found\"); a,b,c=map(int,m.groups()); a+=1; b=0; c=0; new=f\"version = \\\"{a}.{b}.{c}\\\"\"; p.write_text(re.sub(pat,new,s,1), encoding=\"utf-8\"); print(f\"{a}.{b}.{c}\")"'
+      - python build/scripts/bump_version.py major
+
+  tag:
+    desc: Create and push git tag from pyproject version
+    cmds:
+      - python build/scripts/tag_version.py
+
+  release:
+    desc: "Full release: bump version, commit, tag, and push (usage: task release -- patch)"
+    vars:
+      PART: '{{.CLI_ARGS | default "minor"}}'
+    cmds:
+      - task: ci
+      - python build/scripts/bump_version.py {{.PART}}
+      - cmd: git add pyproject.toml CHANGELOG.md
+      - cmd: 'git commit -m "Release v$(python -c "import re; from pathlib import Path; m=re.search(r''version\s*=\s*\"([\d.]+)\"'', Path(''pyproject.toml'').read_text()); print(m.group(1))")"'
+      - task: tag
+
+  release:dry-run:
+    desc: "Show what a release would do without executing (usage: task release:dry-run -- patch)"
+    vars:
+      PART: '{{.CLI_ARGS | default "minor"}}'
+    cmds:
+      - cmd: |
+          set -e
+          CURRENT=$(python -c "import re; from pathlib import Path; m=re.search(r'version\s*=\s*\"([\d.]+)\"', Path('pyproject.toml').read_text()); print(m.group(1))")
+          NEXT=$(python -c "
+          v='$CURRENT'.split('.')
+          part='{{.PART}}'
+          if part=='major': v=[str(int(v[0])+1),'0','0']
+          elif part=='minor': v=[v[0],str(int(v[1])+1),'0']
+          else: v=[v[0],v[1],str(int(v[2])+1)]
+          print('.'.join(v))
+          ")
+          echo "Would bump {{.PART}}: $CURRENT -> $NEXT"
+          echo "Would commit: Release v$NEXT"
+          echo "Would tag: v$NEXT"
+          echo "Would push tag to origin"
+        platforms: [linux, darwin]
 
   help:
     desc: Show available tasks

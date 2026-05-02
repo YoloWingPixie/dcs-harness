@@ -142,12 +142,24 @@ function GetUnitPosition(unitOrName)
 end
 
 --- Get unit heading in degrees
----@param unitName string The name of the unit
+---@param unitOrName string|table The name of the unit or unit object
 ---@return number? heading The heading in degrees (0-360) if found, nil otherwise
----@usage local heading = GetUnitHeading("Player")
-function GetUnitHeading(unitName)
-    local unit = GetUnit(unitName)
-    if not unit then
+---@usage local heading = GetUnitHeading("Player") or GetUnitHeading(unitObject)
+function GetUnitHeading(unitOrName)
+    local unit
+
+    if type(unitOrName) == "string" then
+        unit = GetUnit(unitOrName)
+        if not unit then
+            return nil
+        end
+    elseif type(unitOrName) == "table" and unitOrName.getPosition then
+        unit = unitOrName
+    else
+        _HarnessInternal.log.error(
+            "GetUnitHeading requires unit name or unit object",
+            "GetUnitHeading"
+        )
         return nil
     end
 
@@ -160,17 +172,93 @@ function GetUnitHeading(unitName)
         return nil
     end
 
-    -- Extract heading from orientation matrix
-    -- position.x is the forward vector, so heading is atan2(forward.z, forward.x)
     local heading = math.atan2(position.x.z, position.x.x)
     heading = math.deg(heading)
 
-    -- Normalize to 0-360
     if heading < 0 then
         heading = heading + 360
     end
 
     return heading
+end
+
+--- Get unit position and heading in one call
+---@param unitOrName string|table The name of the unit or unit object
+---@return table? position The position {x, y, z} if found, nil otherwise
+---@return number? heading The heading in degrees (0-360) if found, nil otherwise
+---@usage local pos, hdg = GetUnitOrientation("Player")
+function GetUnitOrientation(unitOrName)
+    local unit
+
+    if type(unitOrName) == "string" then
+        unit = GetUnit(unitOrName)
+        if not unit then
+            return nil, nil
+        end
+    elseif type(unitOrName) == "table" and unitOrName.getPosition then
+        unit = unitOrName
+    else
+        _HarnessInternal.log.error(
+            "GetUnitOrientation requires unit name or unit object",
+            "GetUnitOrientation"
+        )
+        return nil, nil
+    end
+
+    local success, position = pcall(unit.getPosition, unit)
+    if not success or not position or not position.p then
+        _HarnessInternal.log.error(
+            "Failed to get unit position for orientation: " .. tostring(position),
+            "GetUnitOrientation"
+        )
+        return nil, nil
+    end
+
+    local heading = math.atan2(position.x.z, position.x.x)
+    heading = math.deg(heading)
+    if heading < 0 then
+        heading = heading + 360
+    end
+
+    return position.p, heading
+end
+
+--- Get unit position, heading, and unit object in one call
+---@param unitName string The name of the unit
+---@return table? position The position {x, y, z} if found, nil otherwise
+---@return number? heading The heading in degrees (0-360) if found, nil otherwise
+---@return table? unit The unit object if found, nil otherwise
+---@usage local pos, hdg, unit = GetUnitPositionAndHeading("Player")
+function GetUnitPositionAndHeading(unitName)
+    if not unitName or type(unitName) ~= "string" then
+        _HarnessInternal.log.error(
+            "GetUnitPositionAndHeading requires string unit name",
+            "GetUnitPositionAndHeading"
+        )
+        return nil, nil, nil
+    end
+
+    local unit = GetUnit(unitName)
+    if not unit then
+        return nil, nil, nil
+    end
+
+    local success, position = pcall(unit.getPosition, unit)
+    if not success or not position or not position.p then
+        _HarnessInternal.log.error(
+            "Failed to get unit position for data: " .. tostring(position),
+            "GetUnitPositionAndHeading"
+        )
+        return nil, nil, nil
+    end
+
+    local heading = math.atan2(position.x.z, position.x.x)
+    heading = math.deg(heading)
+    if heading < 0 then
+        heading = heading + 360
+    end
+
+    return position.p, heading, unit
 end
 
 --- Get unit velocity
@@ -1234,6 +1322,35 @@ function UnitHasCarrier(unit)
     end
 
     return hasCarrier
+end
+
+--- Check if a unit is a known supercarrier type
+---@param unit table Unit object
+---@return boolean isSuperCarrier True if unit is a supercarrier type
+---@usage if IsSuperCarrier(unit) then ... end
+function IsSuperCarrier(unit)
+    if not unit then
+        _HarnessInternal.log.error("IsSuperCarrier requires unit", "IsSuperCarrier")
+        return false
+    end
+
+    local success, typeName = pcall(function()
+        return unit:getTypeName()
+    end)
+    if not success or not typeName then
+        return false
+    end
+
+    local superCarrierTypes = {
+        ["CVN_71"] = true,
+        ["CVN_72"] = true,
+        ["CVN_73"] = true,
+        ["CVN_74"] = true,
+        ["CVN_75"] = true,
+        ["Forrestal"] = true,
+    }
+
+    return superCarrierTypes[typeName] == true
 end
 
 --- Get nearest cargo for aircraft

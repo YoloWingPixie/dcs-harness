@@ -159,6 +159,12 @@ globals:
   GetPressurehPa:
     args:
     - type: table
+  GetWindHeading:
+    args:
+    - type: table
+  GetWindSpeed:
+    args:
+    - type: table
   ClearAllCaches:
     args: []
   ClearUnitCache:
@@ -273,6 +279,21 @@ globals:
     args:
     - type: any
     - type: any
+  GetAllShips:
+    args: []
+  GetAllAircraftGroups:
+    args: []
+  BuildGroundWaypoint:
+    args:
+    - type: table
+    - type: string
+      required: false
+    - type: number
+      required: false
+  GoRoute:
+    args:
+    - type: string
+    - type: table
   GetControllerDomain:
     args:
     - type: table
@@ -615,6 +636,26 @@ globals:
         display: number|string
     - type: string
     - type: string
+  GetTacanFrequency:
+    args:
+    - type: number
+    - type: string
+  ConvertKiasToGroundSpeed:
+    args:
+    - type: number
+    - type: number
+    - type: table
+      required: false
+    - type: number
+      required: false
+  ConvertKiasToMps:
+    args:
+    - type: number
+    - type: number
+    - type: table
+      required: false
+    - type: number
+      required: false
   LOtoLL:
     args:
     - type: table
@@ -630,6 +671,19 @@ globals:
   MGRStoLO:
     args:
     - type: string
+  DecimalToDMS:
+    args:
+    - type: number
+  GetLatLonOrientation:
+    args:
+    - type: number
+    - type: number
+  CoordToMGRS:
+    args:
+    - type: number
+    - type: number
+    - type: number
+      required: false
   Queue:
     args: []
   Stack:
@@ -1085,6 +1139,9 @@ globals:
     - type: any
     - type: any
   NormalizeAngle:
+    args:
+    - type: number
+  InverseHeading:
     args:
     - type: number
   AngleDiff:
@@ -1724,6 +1781,14 @@ globals:
         display: string|table
   GetUnitHeading:
     args:
+    - type:
+        display: string|table
+  GetUnitOrientation:
+    args:
+    - type:
+        display: string|table
+  GetUnitPositionAndHeading:
+    args:
     - type: string
   GetUnitVelocity:
     args:
@@ -1863,6 +1928,9 @@ globals:
   UnitHasCarrier:
     args:
     - type: table
+  IsSuperCarrier:
+    args:
+    - type: table
   GetUnitNearestCargosForAircraft:
     args:
     - type: table
@@ -1899,6 +1967,9 @@ globals:
     - type: number
       required: false
   IsVec3:
+    args:
+    - type: any
+  IsNotAtMapOrigin:
     args:
     - type: any
   IsVec2:
@@ -2235,3 +2306,5 @@ globals:
     args: []
   HarnessWorldEventBus:
     property: new-fields
+  HarnessConstants:
+    property: read-only

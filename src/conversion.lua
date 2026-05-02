@@ -299,3 +299,136 @@ function ConvertSpeed(value, from, to)
     _HarnessInternal.log.error("ConvertSpeed invalid units", "Conversion.ConvertSpeed")
     return 0
 end
+
+--- Calculate TACAN frequency in Hz from channel and mode
+---@param channel number TACAN channel (1-126)
+---@param channelMode string TACAN mode ("X" or "Y")
+---@return number? frequency Frequency in Hz, or nil for invalid inputs
+---@usage local freq = GetTacanFrequency(71, "X")
+function GetTacanFrequency(channel, channelMode)
+    if type(channel) ~= "number" then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency requires channel as number",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    if channel < 1 or channel > 126 or channel ~= math.floor(channel) then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency channel must be integer 1-126",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    if type(channelMode) ~= "string" then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency requires channelMode as string",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    local mode = string.upper(channelMode)
+    if mode ~= "X" and mode ~= "Y" then
+        _HarnessInternal.log.error(
+            "GetTacanFrequency channelMode must be 'X' or 'Y'",
+            "Conversion.GetTacanFrequency"
+        )
+        return nil
+    end
+
+    local frequency
+    if channel <= 63 then
+        if mode == "X" then
+            frequency = (1025 + (channel - 1)) * 1e6
+        else
+            frequency = (1088 + (channel - 1)) * 1e6
+        end
+    else
+        if mode == "X" then
+            frequency = (961 + (channel - 64)) * 1e6
+        else
+            frequency = (1024 + (channel - 64)) * 1e6
+        end
+    end
+
+    return frequency
+end
+
+-- Local aliases for HarnessConstants (defined in _header.lua)
+local ISA_SEA_LEVEL_TEMP_K = HarnessConstants.ISA_SEA_LEVEL_TEMP_K
+local ISA_TEMP_LAPSE_RATE = HarnessConstants.ISA_TEMP_LAPSE_RATE
+local ISA_DENSITY_EXPONENT = HarnessConstants.ISA_DENSITY_EXPONENT
+local FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
+local MPS_TO_KNOTS = HarnessConstants.MPS_TO_KNOTS
+local KNOTS_TO_MPS = HarnessConstants.KNOTS_TO_MPS
+
+--- Convert KIAS to true ground speed in knots using ISA atmosphere model
+---@param iasKnots number Indicated airspeed in knots
+---@param altitudeFeet number Altitude in feet MSL
+---@param position table? Vec3 position for wind correction
+---@param trackBearing number? Track bearing in degrees for wind correction
+---@return number groundSpeedKnots Ground speed in knots
+---@usage local gs = ConvertKiasToGroundSpeed(250, 25000)
+function ConvertKiasToGroundSpeed(iasKnots, altitudeFeet, position, trackBearing)
+    if type(iasKnots) ~= "number" then
+        _HarnessInternal.log.error(
+            "ConvertKiasToGroundSpeed requires iasKnots as number",
+            "Conversion.ConvertKiasToGroundSpeed"
+        )
+        return 0
+    end
+
+    if type(altitudeFeet) ~= "number" then
+        _HarnessInternal.log.error(
+            "ConvertKiasToGroundSpeed requires altitudeFeet as number",
+            "Conversion.ConvertKiasToGroundSpeed"
+        )
+        return 0
+    end
+
+    local altMeters = altitudeFeet * FEET_TO_METERS
+
+    local tempRatio = 1 - (ISA_TEMP_LAPSE_RATE * altMeters / ISA_SEA_LEVEL_TEMP_K)
+    if tempRatio < 0 then
+        tempRatio = 0
+    end
+
+    local densityRatio = tempRatio ^ ISA_DENSITY_EXPONENT
+    if densityRatio <= 0 then
+        densityRatio = 0.001
+    end
+
+    local tasKnots = iasKnots / math.sqrt(densityRatio)
+
+    local groundSpeedKnots = tasKnots
+
+    if type(GetWind) == "function" and position and trackBearing then
+        local ok, wind = pcall(GetWind, position)
+        if ok and wind then
+            local trackRad = math.rad(trackBearing)
+            local headwind = (wind.x * math.cos(trackRad) + wind.z * math.sin(trackRad))
+            local headwindKnots = headwind * MPS_TO_KNOTS
+            groundSpeedKnots = tasKnots - headwindKnots
+        end
+    end
+
+    if groundSpeedKnots < 0 then
+        groundSpeedKnots = 0
+    end
+
+    return groundSpeedKnots
+end
+
+--- Convert KIAS to ground speed in meters per second using ISA atmosphere model
+---@param iasKnots number Indicated airspeed in knots
+---@param altitudeFeet number Altitude in feet MSL
+---@param position table? Vec3 position for wind correction
+---@param trackBearing number? Track bearing in degrees for wind correction
+---@return number groundSpeedMps Ground speed in m/s
+---@usage local gs = ConvertKiasToMps(250, 25000)
+function ConvertKiasToMps(iasKnots, altitudeFeet, position, trackBearing)
+    return ConvertKiasToGroundSpeed(iasKnots, altitudeFeet, position, trackBearing) * KNOTS_TO_MPS
+end

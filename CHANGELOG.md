@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+
+## [0.8.0] - 2026-05-01
+### Added
+
 - `HarnessConstants` global table consolidating all shared constants
 - `GetTacanFrequency` TACAN frequency calculator
 - `GetWindHeading` and `GetWindSpeed` atmosphere helpers
@@ -22,3 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BuildGroundWaypoint` and `GoRoute` ground unit routing helpers
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
+
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/YoloWingPixie/dcs-harness/releases/tag/v0.8.0

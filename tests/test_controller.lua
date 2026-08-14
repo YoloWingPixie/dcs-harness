@@ -72,7 +72,7 @@ function TestController:when_creating_tasks_should_match_expected_shape()
 
     local fire = CreateFireAtPointTask({ x = 0, y = 0, z = 0 }, 100)
     lu.assertNotNil(fire)
-    lu.assertEquals(fire.id, "fireAtPoint")
+    lu.assertEquals(fire.id, "FireAtPoint")
 
     local hold = CreateHoldTask()
     lu.assertNotNil(hold)
@@ -85,6 +85,12 @@ function TestController:when_creating_tasks_should_match_expected_shape()
     local wrapped = CreateWrappedAction({ id = "Script", params = {} }, true)
     lu.assertNotNil(wrapped)
     lu.assertEquals(wrapped.id, "WrappedAction")
+end
+
+function TestController:test_fire_at_point_uses_dcs_task_id()
+    local task = CreateFireAtPointTask({ x = 0, y = 0, z = 0 }, 100)
+
+    lu.assertEquals(task.id, "FireAtPoint")
 end
 
 function TestController:when_setting_common_options_should_call_setOption()

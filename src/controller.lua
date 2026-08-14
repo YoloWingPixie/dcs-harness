@@ -1420,7 +1420,7 @@ function CreateFireAtPointTask(
     end
 
     local task = {
-        id = "fireAtPoint",
+        id = "FireAtPoint",
         params = {
             point = point,
             radius = radius or 50,

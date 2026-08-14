@@ -1,7 +1,7 @@
--- harness: 0.7.1 loading...
+-- harness: 0.8.0 loading...
 -- ==== BEGIN: src/_header.lua ====
 -- Version
-HARNESS_VERSION = "0.7.1"
+HARNESS_VERSION = "0.8.0"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
@@ -4613,7 +4613,7 @@ function CreateFireAtPointTask(
     end
 
     local task = {
-        id = "fireAtPoint",
+        id = "FireAtPoint",
         params = {
             point = point,
             radius = radius or 50,

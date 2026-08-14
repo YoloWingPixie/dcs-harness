@@ -281,17 +281,17 @@ function GetAllPlayerUnits()
 end
 
 --- Get all groups in a coalition, optionally filtered by category
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @param categoryId number|nil Optional category filter (0=airplane, 1=helicopter, 2=ground, 3=ship, 4=structure)
---- @return table|nil groups Array of group objects or nil on error
---- @usage local redGroundGroups = getCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
+---@param coalitionId number The coalition ID (1=red, 2=blue)
+---@param categoryId number? Optional category filter (0=airplane, 1=helicopter, 2=ground, 3=ship, 4=structure)
+---@return table groups Array of group objects, empty on error
+---@usage local redGroundGroups = GetCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
 function GetCoalitionGroups(coalitionId, categoryId)
     if not coalitionId or type(coalitionId) ~= "number" then
         _HarnessInternal.log.error(
             "GetCoalitionGroups requires valid coalition ID",
             "Coalition.GetCoalitionGroups"
         )
-        return nil
+        return {}
     end
 
     if categoryId and type(categoryId) ~= "number" then
@@ -299,7 +299,7 @@ function GetCoalitionGroups(coalitionId, categoryId)
             "categoryId must be a number if provided",
             "Coalition.GetCoalitionGroups"
         )
-        return nil
+        return {}
     end
 
     local success, result = pcall(coalition.getGroups, coalitionId, categoryId)

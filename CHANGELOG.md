@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `dist/harness.d.lua` provides the generated LuaLS public API definition.
 - `HeadingVector2D` returns the DCS Vec2 unit vector for a heading.
 - `GroundTrackFromVelocity` returns track from horizontal Vec3 velocity above a configurable minimum speed.
 - `HeadingFrame2D` creates forward and right axes at a Vec3 origin.
@@ -65,7 +66,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Version changed from 0.8.0 to 1.0.0.
+- Version changed from 0.8.0 to 1.0.0-rc2.
+- `ControllerSetROE` now exports a Selene signature that accepts numeric and named ROE values.
+- `ControllerSetAlarmState` now exports a Selene signature that accepts numeric and named alarm states.
+- `GeoGrid` now exports its optional cell size and allowed-type table accurately to Selene.
+- `EventBus` now exports its key selector as an optional function.
+- `GetCoalitionGroups` now has one authoritative definition and returns an empty array on invalid input or API failure.
 - `Vec2` now stores DCS `{x,y}` fields instead of `{x,z}`.
 - `IsVec2` now accepts only DCS `{x,y}` values without a Z component.
 - `ToVec2` now returns DCS `{x,y}` and maps Vec3 Z to Vec2 Y.

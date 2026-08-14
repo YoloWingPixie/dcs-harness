@@ -17,6 +17,7 @@ tasks:
     cmds:
       - lua test_runner.lua
       - python -m unittest test_export_harness_selene.py
+      - python -m unittest test_export_harness_luals.py
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - '{{.TEST_DIR}}/**/*.lua'
@@ -41,37 +42,43 @@ tasks:
       - task: test
 
   build:
-    desc: Format then build dist/harness.lua (developer build)
+    desc: Format then build Harness distribution artifacts
     cmds:
       - task: format
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
       - python build/scripts/export_harness_selene.py --src src --output dist/harness-selene.yml
+      - python build/scripts/export_harness_luals.py --src src --output dist/harness.d.lua
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - 'build/scripts/build_single_lua_release.py'
       - 'build/scripts/stamp_harness_version.py'
       - 'build/scripts/export_harness_selene.py'
+      - 'build/scripts/export_harness_luals.py'
       - '.buildrc'
     generates:
       - 'dist/harness.lua'
       - 'dist/harness-selene.yml'
+      - 'dist/harness.d.lua'
 
   build:cd:
-    desc: Build dist/harness.lua without formatting (CI/CD build)
+    desc: Build Harness distribution artifacts without formatting
     cmds:
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
       - python build/scripts/export_harness_selene.py --src src --output dist/harness-selene.yml
+      - python build/scripts/export_harness_luals.py --src src --output dist/harness.d.lua
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - 'build/scripts/build_single_lua_release.py'
       - 'build/scripts/stamp_harness_version.py'
       - 'build/scripts/export_harness_selene.py'
+      - 'build/scripts/export_harness_luals.py'
       - '.buildrc'
     generates:
       - 'dist/harness.lua'
       - 'dist/harness-selene.yml'
+      - 'dist/harness.d.lua'
 
   clean:
     desc: Clean build artifacts

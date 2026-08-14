@@ -1,10 +1,34 @@
 -- Version
-HARNESS_VERSION = "1.0.0"
+---@type string
+HARNESS_VERSION = "1.0.0-rc2"
 
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
 -- Shared constants
+---@class HarnessConstants
+---@field NM_TO_METERS number
+---@field METERS_TO_NM number
+---@field FEET_TO_METERS number
+---@field METERS_TO_FEET number
+---@field KM_TO_METERS number
+---@field METERS_TO_KM number
+---@field MPS_TO_KNOTS number
+---@field KNOTS_TO_MPS number
+---@field DEG_TO_RAD number
+---@field RAD_TO_DEG number
+---@field EARTH_RADIUS_M number
+---@field SEA_LEVEL_TEMPERATURE_K number
+---@field SEA_LEVEL_PRESSURE_PA number
+---@field SEA_LEVEL_DENSITY_KG_M3 number
+---@field AIR_SPECIFIC_HEAT_RATIO number
+---@field DRY_AIR_GAS_CONSTANT_J_KG_K number
+---@field ISA_TEMP_LAPSE_RATE number
+---@field ISA_DENSITY_EXPONENT number
+---@field AIR_DATA_SOURCE_DCS string
+---@field AIR_DATA_SOURCE_ISA string
+---@field ISA_SEA_LEVEL_TEMP_K number
+---@type HarnessConstants
 HarnessConstants = {
     -- Distance
     NM_TO_METERS = 1852,

@@ -366,7 +366,7 @@ end
 
 --- Convenience setters for common controller options
 ---@param controller table Controller object
----@param value integer|ROEAir|ROEGround|ROENaval ROE value or name
+---@param value integer|ROEAir|ROEGround|ROENaval Numeric ROE value or named ROE value
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetROE(controller, value)
     local d = _resolveControllerDomain(controller, nil, "Air")
@@ -533,7 +533,7 @@ end
 
 --- Set alarm state
 ---@param controller table Controller object
----@param value integer|AlarmState Alarm state value or name (e.g. "RED")
+---@param value integer|AlarmState Numeric alarm state or named alarm state (e.g. "RED")
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetAlarmState(controller, value)
     local d = _resolveControllerDomain(controller, nil, "Ground")

@@ -8,12 +8,11 @@
 
 require("logger")
 require("vector")
+require("conversion")
 
 -- Local aliases for HarnessConstants (defined in _header.lua)
 local NM_TO_METERS = HarnessConstants.NM_TO_METERS
 local METERS_TO_NM = HarnessConstants.METERS_TO_NM
-local GEOMATH_FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
-local METERS_TO_FEET = HarnessConstants.METERS_TO_FEET
 local KM_TO_METERS = HarnessConstants.KM_TO_METERS
 local METERS_TO_KM = HarnessConstants.METERS_TO_KM
 local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
@@ -102,67 +101,6 @@ function MetersToNauticalMiles(meters)
         return nil
     end
     return meters * METERS_TO_NM
-end
-
----Converts feet to meters
----@param feet number Height/distance in feet
----@return number? meters Height/distance in meters, or nil if input is invalid
----@usage
---- local meters = FeetToMeters(1000) -- Returns 304.8 (1000 feet)
---- local altitude = FeetToMeters(35000) -- Returns 10668 (FL350)
-function FeetToMeters(feet)
-    if not feet or type(feet) ~= "number" then
-        _HarnessInternal.log.error("FeetToMeters requires valid feet", "GeoMath.FeetToMeters")
-        return nil
-    end
-    return feet * GEOMATH_FEET_TO_METERS
-end
-
----Converts meters to feet
----@param meters number Height/distance in meters
----@return number? feet Height/distance in feet, or nil if input is invalid
----@usage
---- local feet = MetersToFeet(304.8) -- Returns 1000 (1000 feet)
---- local fl = MetersToFeet(10668) -- Returns 35000 (FL350)
-function MetersToFeet(meters)
-    if not meters or type(meters) ~= "number" then
-        _HarnessInternal.log.error("MetersToFeet requires valid meters", "GeoMath.MetersToFeet")
-        return nil
-    end
-    return meters * METERS_TO_FEET
-end
-
----Calculates the 2D distance between two points (ignoring altitude)
----@param point1 table|Vec2|Vec3 First point
----@param point2 table|Vec2|Vec3 Second point
----@return number? distance Distance in meters, or nil if inputs are invalid
----@usage
---- local dist = Distance2D({x=0, y=0}, {x=100, y=100}) -- Returns 141.42 (diagonal)
---- local range = Distance2D(unit1:getPoint(), unit2:getPoint()) -- Distance between units
-function Distance2D(point1, point2)
-    if not point1 or not point2 then
-        _HarnessInternal.log.error("Distance2D requires two valid points", "GeoMath.Distance2D")
-        return nil
-    end
-
-    local point1East = GeoMathInternal.groundEast(point1)
-    local point2East = GeoMathInternal.groundEast(point2)
-    if
-        not GeoMathInternal.isFiniteNumber(point1.x)
-        or point1East == nil
-        or not GeoMathInternal.isFiniteNumber(point2.x)
-        or point2East == nil
-    then
-        _HarnessInternal.log.error(
-            "Distance2D points must be DCS Vec2 or Vec3 values",
-            "GeoMath.Distance2D"
-        )
-        return nil
-    end
-
-    local dx = point2.x - point1.x
-    local de = point2East - point1East
-    return math.sqrt(dx * dx + de * de)
 end
 
 ---Calculates the 3D distance between two points (including altitude)

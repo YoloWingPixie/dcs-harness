@@ -400,32 +400,6 @@ function ActivateGroup(groupName)
     return true
 end
 
---- Get all groups of coalition and category
----@param coalitionId number The coalition ID to query
----@param categoryId number? Optional category ID to filter by
----@return table groups Array of group objects (empty if error)
----@usage local blueAirGroups = GetCoalitionGroups(coalition.side.BLUE, Group.Category.AIRPLANE)
-function GetCoalitionGroups(coalitionId, categoryId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionGroups requires numeric coalition ID",
-            "GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    local success, groups = pcall(coalition.getGroups, coalitionId, categoryId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition groups: " .. tostring(groups),
-            "GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    return groups or {}
-end
-
 -- Advanced Group Functions
 
 --- Get group name

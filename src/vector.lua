@@ -6,6 +6,19 @@
 ]]
 
 -- Vec2 Type Definition with metatables for operator overloading
+---@class Vec2
+---@field x number DCS world X coordinate
+---@field y number DCS world Z coordinate at the Vec2 boundary
+---@field toVec3 fun(self: Vec2, y?: number): Vec3
+---@field length fun(self: Vec2): number
+---@field normalized fun(self: Vec2): Vec2
+---@field dot fun(self: Vec2, other: Vec2): number
+---@field distanceTo fun(self: Vec2, other: Vec2): number
+---@field bearingTo fun(self: Vec2, other: Vec2): number?
+---@field displace fun(self: Vec2, bearingDeg: number, distance: number): Vec2?
+---@field midpointTo fun(self: Vec2, other: Vec2): Vec2
+---@field angleTo fun(self: Vec2, other: Vec2): number
+---@field rotate fun(self: Vec2, angleDeg: number): Vec2
 local Vec2_mt = {}
 Vec2_mt.__index = Vec2_mt
 
@@ -28,7 +41,7 @@ end
 --- Creates a DCS Vec2 (x, y coordinates)
 ---@param x number|table? X coordinate or table {x, y} or {[1], [2]}
 ---@param y number? Y coordinate (if x is not a table)
----@return table vec2 New Vec2 instance with metatables
+---@return Vec2 vec2 New DCS Vec2 instance with metatables
 ---@usage local v = Vec2(100, 200) or Vec2({x=100, y=200})
 function Vec2(x, y)
     if type(x) == "table" then
@@ -46,6 +59,23 @@ function Vec2(x, y)
 end
 
 -- Vec3 Type Definition with metatables for operator overloading
+---@class Vec3
+---@field x number DCS world X coordinate
+---@field y number DCS altitude coordinate
+---@field z number DCS world Z coordinate
+---@field toVec2 fun(self: Vec3): Vec2
+---@field length fun(self: Vec3): number
+---@field length2D fun(self: Vec3): number
+---@field normalized fun(self: Vec3): Vec3
+---@field normalized2D fun(self: Vec3): Vec3
+---@field dot fun(self: Vec3, other: Vec3): number
+---@field cross fun(self: Vec3, other: Vec3): Vec3
+---@field distanceTo fun(self: Vec3, other: Vec3): number
+---@field distance2DTo fun(self: Vec3, other: Vec2|Vec3): number
+---@field bearingTo fun(self: Vec3, other: Vec2|Vec3): number?
+---@field displace2D fun(self: Vec3, bearingDeg: number, distance: number): Vec3?
+---@field midpointTo fun(self: Vec3, other: Vec3): Vec3
+---@field angleTo fun(self: Vec3, other: Vec3): number
 local Vec3_mt = {}
 Vec3_mt.__index = Vec3_mt
 
@@ -53,7 +83,7 @@ Vec3_mt.__index = Vec3_mt
 ---@param x number|table? X coordinate or table {x, y, z} or {[1], [2], [3]}
 ---@param y number? Y coordinate (if x is not a table)
 ---@param z number? Z coordinate (if x is not a table)
----@return table vec3 New Vec3 instance with metatables
+---@return Vec3 vec3 New DCS Vec3 instance with metatables
 ---@usage local v = Vec3(100, 50, 200) or Vec3({x=100, y=50, z=200})
 function Vec3(x, y, z)
     if type(x) == "table" then
@@ -107,7 +137,7 @@ end
 -- Conversion functions
 --- Convert to Vec2 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert
----@return table? vec2 Converted Vec2 or nil on error
+---@return Vec2? vec2 Converted DCS Vec2 or nil on error
 ---@usage local v2 = ToVec2({x=100, y=200})
 function ToVec2(t)
     if not t then
@@ -147,7 +177,7 @@ end
 --- Convert to Vec3 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert
 ---@param altitude number? Y coordinate for Vec2 to Vec3 conversion (default 0)
----@return table? vec3 Converted Vec3 or nil on error
+---@return Vec3? vec3 Converted DCS Vec3 or nil on error
 ---@usage local v3 = ToVec3({x=100, y=50, z=200})
 function ToVec3(t, altitude)
     if not t then

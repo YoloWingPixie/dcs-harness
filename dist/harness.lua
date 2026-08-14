@@ -1,11 +1,35 @@
--- harness: 1.0.0 loading...
+-- harness: 1.0.0-rc2 loading...
 -- ==== BEGIN: src/_header.lua ====
 -- Version
-HARNESS_VERSION = "1.0.0"
+---@type string
+HARNESS_VERSION = "1.0.0-rc2"
 -- Internal namespace for logger
 _HarnessInternal = _HarnessInternal or {}
 
 -- Shared constants
+---@class HarnessConstants
+---@field NM_TO_METERS number
+---@field METERS_TO_NM number
+---@field FEET_TO_METERS number
+---@field METERS_TO_FEET number
+---@field KM_TO_METERS number
+---@field METERS_TO_KM number
+---@field MPS_TO_KNOTS number
+---@field KNOTS_TO_MPS number
+---@field DEG_TO_RAD number
+---@field RAD_TO_DEG number
+---@field EARTH_RADIUS_M number
+---@field SEA_LEVEL_TEMPERATURE_K number
+---@field SEA_LEVEL_PRESSURE_PA number
+---@field SEA_LEVEL_DENSITY_KG_M3 number
+---@field AIR_SPECIFIC_HEAT_RATIO number
+---@field DRY_AIR_GAS_CONSTANT_J_KG_K number
+---@field ISA_TEMP_LAPSE_RATE number
+---@field ISA_DENSITY_EXPONENT number
+---@field AIR_DATA_SOURCE_DCS string
+---@field AIR_DATA_SOURCE_ISA string
+---@field ISA_SEA_LEVEL_TEMP_K number
+---@type HarnessConstants
 HarnessConstants = {
     -- Distance
     NM_TO_METERS = 1852,
@@ -1222,7 +1246,13 @@ local ACTIVE_HANDLER = nil
 ---@field _subscribers table<any, table> Map of topicKey -> array of subscriber records
 ---@field _nextSubId number
 ---@field _keySelector fun(event: table): any
----@return table EventBus
+---@field subscribe fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
+---@field unsubscribe fun(self: EventBus, subscriptionId: number): boolean
+---@field sub fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
+---@field unsub fun(self: EventBus, subscriptionId: number): boolean
+---@field publish fun(self: EventBus, event: table)
+---@param keySelector function?
+---@return EventBus
 function EventBus(keySelector)
     local selector = nil
     if type(keySelector) == "function" then
@@ -1328,7 +1358,8 @@ end
 
 ---@class HarnessWorldEventBus : EventBus
 ---@field _handler table
----@return table HarnessWorldEventBus
+---@field dispose fun(self: HarnessWorldEventBus)
+---@return HarnessWorldEventBus
 function CreateHarnessWorldEventBus()
     local bus = EventBus()
     bus._registered = false
@@ -1393,11 +1424,14 @@ function CreateHarnessWorldEventBus()
 end
 
 -- Provide a globally accessible singleton for harness initialization if desired
+---@type HarnessWorldEventBus?
 HarnessWorldEventBus = nil
 -- Back-compat alias
+---@type HarnessWorldEventBus?
 HarnessWorldEventBusInstance = nil
 
 --- Initialize global HarnessWorldEventBus if not already created
+---@return HarnessWorldEventBus
 function InitHarnessWorldEventBus()
     if not HarnessWorldEventBus then
         HarnessWorldEventBus = CreateHarnessWorldEventBus()
@@ -1769,7 +1803,7 @@ function GeoGridProto:fromTable(t)
 end
 
 ---
----@param cellSizeMeters number|nil
+---@param cellSizeMeters number?
 ---@param allowedTypes string[]
 ---@return GeoGrid
 function GeoGrid(cellSizeMeters, allowedTypes)
@@ -2909,7 +2943,7 @@ end
 
 --- Convenience setters for common controller options
 ---@param controller table Controller object
----@param value integer|ROEAir|ROEGround|ROENaval ROE value or name
+---@param value integer|ROEAir|ROEGround|ROENaval Numeric ROE value or named ROE value
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetROE(controller, value)
     local d = _resolveControllerDomain(controller, nil, "Air")
@@ -3076,7 +3110,7 @@ end
 
 --- Set alarm state
 ---@param controller table Controller object
----@param value integer|AlarmState Alarm state value or name (e.g. "RED")
+---@param value integer|AlarmState Numeric alarm state or named alarm state (e.g. "RED")
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetAlarmState(controller, value)
     local d = _resolveControllerDomain(controller, nil, "Ground")
@@ -8055,6 +8089,19 @@ end
 ]]
 
 -- Vec2 Type Definition with metatables for operator overloading
+---@class Vec2
+---@field x number DCS world X coordinate
+---@field y number DCS world Z coordinate at the Vec2 boundary
+---@field toVec3 fun(self: Vec2, y?: number): Vec3
+---@field length fun(self: Vec2): number
+---@field normalized fun(self: Vec2): Vec2
+---@field dot fun(self: Vec2, other: Vec2): number
+---@field distanceTo fun(self: Vec2, other: Vec2): number
+---@field bearingTo fun(self: Vec2, other: Vec2): number?
+---@field displace fun(self: Vec2, bearingDeg: number, distance: number): Vec2?
+---@field midpointTo fun(self: Vec2, other: Vec2): Vec2
+---@field angleTo fun(self: Vec2, other: Vec2): number
+---@field rotate fun(self: Vec2, angleDeg: number): Vec2
 local Vec2_mt = {}
 Vec2_mt.__index = Vec2_mt
 
@@ -8077,7 +8124,7 @@ end
 --- Creates a DCS Vec2 (x, y coordinates)
 ---@param x number|table? X coordinate or table {x, y} or {[1], [2]}
 ---@param y number? Y coordinate (if x is not a table)
----@return table vec2 New Vec2 instance with metatables
+---@return Vec2 vec2 New DCS Vec2 instance with metatables
 ---@usage local v = Vec2(100, 200) or Vec2({x=100, y=200})
 function Vec2(x, y)
     if type(x) == "table" then
@@ -8095,6 +8142,23 @@ function Vec2(x, y)
 end
 
 -- Vec3 Type Definition with metatables for operator overloading
+---@class Vec3
+---@field x number DCS world X coordinate
+---@field y number DCS altitude coordinate
+---@field z number DCS world Z coordinate
+---@field toVec2 fun(self: Vec3): Vec2
+---@field length fun(self: Vec3): number
+---@field length2D fun(self: Vec3): number
+---@field normalized fun(self: Vec3): Vec3
+---@field normalized2D fun(self: Vec3): Vec3
+---@field dot fun(self: Vec3, other: Vec3): number
+---@field cross fun(self: Vec3, other: Vec3): Vec3
+---@field distanceTo fun(self: Vec3, other: Vec3): number
+---@field distance2DTo fun(self: Vec3, other: Vec2|Vec3): number
+---@field bearingTo fun(self: Vec3, other: Vec2|Vec3): number?
+---@field displace2D fun(self: Vec3, bearingDeg: number, distance: number): Vec3?
+---@field midpointTo fun(self: Vec3, other: Vec3): Vec3
+---@field angleTo fun(self: Vec3, other: Vec3): number
 local Vec3_mt = {}
 Vec3_mt.__index = Vec3_mt
 
@@ -8102,7 +8166,7 @@ Vec3_mt.__index = Vec3_mt
 ---@param x number|table? X coordinate or table {x, y, z} or {[1], [2], [3]}
 ---@param y number? Y coordinate (if x is not a table)
 ---@param z number? Z coordinate (if x is not a table)
----@return table vec3 New Vec3 instance with metatables
+---@return Vec3 vec3 New DCS Vec3 instance with metatables
 ---@usage local v = Vec3(100, 50, 200) or Vec3({x=100, y=50, z=200})
 function Vec3(x, y, z)
     if type(x) == "table" then
@@ -8156,7 +8220,7 @@ end
 -- Conversion functions
 --- Convert to Vec2 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert
----@return table? vec2 Converted Vec2 or nil on error
+---@return Vec2? vec2 Converted DCS Vec2 or nil on error
 ---@usage local v2 = ToVec2({x=100, y=200})
 function ToVec2(t)
     if not t then
@@ -8196,7 +8260,7 @@ end
 --- Convert to Vec3 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert
 ---@param altitude number? Y coordinate for Vec2 to Vec3 conversion (default 0)
----@return table? vec3 Converted Vec3 or nil on error
+---@return Vec3? vec3 Converted DCS Vec3 or nil on error
 ---@usage local v3 = ToVec3({x=100, y=50, z=200})
 function ToVec3(t, altitude)
     if not t then
@@ -9629,8 +9693,6 @@ end
 -- Local aliases for HarnessConstants (defined in _header.lua)
 local NM_TO_METERS = HarnessConstants.NM_TO_METERS
 local METERS_TO_NM = HarnessConstants.METERS_TO_NM
-local GEOMATH_FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
-local METERS_TO_FEET = HarnessConstants.METERS_TO_FEET
 local KM_TO_METERS = HarnessConstants.KM_TO_METERS
 local METERS_TO_KM = HarnessConstants.METERS_TO_KM
 local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
@@ -9719,67 +9781,6 @@ function MetersToNauticalMiles(meters)
         return nil
     end
     return meters * METERS_TO_NM
-end
-
----Converts feet to meters
----@param feet number Height/distance in feet
----@return number? meters Height/distance in meters, or nil if input is invalid
----@usage
---- local meters = FeetToMeters(1000) -- Returns 304.8 (1000 feet)
---- local altitude = FeetToMeters(35000) -- Returns 10668 (FL350)
-function FeetToMeters(feet)
-    if not feet or type(feet) ~= "number" then
-        _HarnessInternal.log.error("FeetToMeters requires valid feet", "GeoMath.FeetToMeters")
-        return nil
-    end
-    return feet * GEOMATH_FEET_TO_METERS
-end
-
----Converts meters to feet
----@param meters number Height/distance in meters
----@return number? feet Height/distance in feet, or nil if input is invalid
----@usage
---- local feet = MetersToFeet(304.8) -- Returns 1000 (1000 feet)
---- local fl = MetersToFeet(10668) -- Returns 35000 (FL350)
-function MetersToFeet(meters)
-    if not meters or type(meters) ~= "number" then
-        _HarnessInternal.log.error("MetersToFeet requires valid meters", "GeoMath.MetersToFeet")
-        return nil
-    end
-    return meters * METERS_TO_FEET
-end
-
----Calculates the 2D distance between two points (ignoring altitude)
----@param point1 table|Vec2|Vec3 First point
----@param point2 table|Vec2|Vec3 Second point
----@return number? distance Distance in meters, or nil if inputs are invalid
----@usage
---- local dist = Distance2D({x=0, y=0}, {x=100, y=100}) -- Returns 141.42 (diagonal)
---- local range = Distance2D(unit1:getPoint(), unit2:getPoint()) -- Distance between units
-function Distance2D(point1, point2)
-    if not point1 or not point2 then
-        _HarnessInternal.log.error("Distance2D requires two valid points", "GeoMath.Distance2D")
-        return nil
-    end
-
-    local point1East = GeoMathInternal.groundEast(point1)
-    local point2East = GeoMathInternal.groundEast(point2)
-    if
-        not GeoMathInternal.isFiniteNumber(point1.x)
-        or point1East == nil
-        or not GeoMathInternal.isFiniteNumber(point2.x)
-        or point2East == nil
-    then
-        _HarnessInternal.log.error(
-            "Distance2D points must be DCS Vec2 or Vec3 values",
-            "GeoMath.Distance2D"
-        )
-        return nil
-    end
-
-    local dx = point2.x - point1.x
-    local de = point2East - point1East
-    return math.sqrt(dx * dx + de * de)
 end
 
 ---Calculates the 3D distance between two points (including altitude)
@@ -12403,32 +12404,6 @@ function ActivateGroup(groupName)
     return true
 end
 
---- Get all groups of coalition and category
----@param coalitionId number The coalition ID to query
----@param categoryId number? Optional category ID to filter by
----@return table groups Array of group objects (empty if error)
----@usage local blueAirGroups = GetCoalitionGroups(coalition.side.BLUE, Group.Category.AIRPLANE)
-function GetCoalitionGroups(coalitionId, categoryId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionGroups requires numeric coalition ID",
-            "GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    local success, groups = pcall(coalition.getGroups, coalitionId, categoryId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition groups: " .. tostring(groups),
-            "GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    return groups or {}
-end
-
 -- Advanced Group Functions
 
 --- Get group name
@@ -12902,17 +12877,17 @@ function GetAllPlayerUnits()
 end
 
 --- Get all groups in a coalition, optionally filtered by category
---- @param coalitionId number The coalition ID (1=red, 2=blue)
---- @param categoryId number|nil Optional category filter (0=airplane, 1=helicopter, 2=ground, 3=ship, 4=structure)
---- @return table|nil groups Array of group objects or nil on error
---- @usage local redGroundGroups = getCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
+---@param coalitionId number The coalition ID (1=red, 2=blue)
+---@param categoryId number? Optional category filter (0=airplane, 1=helicopter, 2=ground, 3=ship, 4=structure)
+---@return table groups Array of group objects, empty on error
+---@usage local redGroundGroups = GetCoalitionGroups(coalition.side.RED, Group.Category.GROUND)
 function GetCoalitionGroups(coalitionId, categoryId)
     if not coalitionId or type(coalitionId) ~= "number" then
         _HarnessInternal.log.error(
             "GetCoalitionGroups requires valid coalition ID",
             "Coalition.GetCoalitionGroups"
         )
-        return nil
+        return {}
     end
 
     if categoryId and type(categoryId) ~= "number" then
@@ -12920,7 +12895,7 @@ function GetCoalitionGroups(coalitionId, categoryId)
             "categoryId must be a number if provided",
             "Coalition.GetCoalitionGroups"
         )
-        return nil
+        return {}
     end
 
     local success, result = pcall(coalition.getGroups, coalitionId, categoryId)

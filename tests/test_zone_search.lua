@@ -91,7 +91,7 @@ function TestZoneSearch:setUp()
                 return "Unit1"
             end,
             getPosition = function()
-                return { p = { x = 1050, y = 100, z = 2050 } }
+                return MockPosition3({ x = 1050, y = 100, z = 2050 })
             end,
             getCoalition = function()
                 return 1
@@ -102,7 +102,7 @@ function TestZoneSearch:setUp()
                 return "Unit2"
             end,
             getPosition = function()
-                return { p = { x = 100, y = 100, z = 100 } }
+                return MockPosition3({ x = 100, y = 100, z = 100 })
             end,
             getCoalition = function()
                 return 2
@@ -113,7 +113,7 @@ function TestZoneSearch:setUp()
                 return "Unit3"
             end,
             getPosition = function()
-                return { p = { x = 5000, y = 100, z = 5000 } }
+                return MockPosition3({ x = 5000, y = 100, z = 5000 })
             end,
             getCoalition = function()
                 return 1

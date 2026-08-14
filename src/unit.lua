@@ -21,6 +21,76 @@ _HarnessInternal.cache.airbases = _HarnessInternal.cache.airbases or {}
 _HarnessInternal.cache.stats = _HarnessInternal.cache.stats
     or { hits = 0, misses = 0, evictions = 0 }
 
+local UnitInternal = {}
+
+function UnitInternal.validVector(vector)
+    return type(vector) == "table"
+        and type(vector.x) == "number"
+        and vector.x == vector.x
+        and vector.x > -math.huge
+        and vector.x < math.huge
+        and type(vector.y) == "number"
+        and vector.y == vector.y
+        and vector.y > -math.huge
+        and vector.y < math.huge
+        and type(vector.z) == "number"
+        and vector.z == vector.z
+        and vector.z > -math.huge
+        and vector.z < math.huge
+end
+
+function UnitInternal.isCompletePosition3(value)
+    return type(value) == "table"
+        and UnitInternal.validVector(value.p)
+        and UnitInternal.validVector(value.x)
+        and UnitInternal.validVector(value.y)
+        and UnitInternal.validVector(value.z)
+end
+
+function UnitInternal.normalizeId(value)
+    local numeric = tonumber(value)
+    if
+        type(numeric) ~= "number"
+        or numeric ~= numeric
+        or numeric <= 0
+        or numeric >= math.huge
+        or numeric % 1 ~= 0
+    then
+        return nil
+    end
+    return numeric
+end
+
+function UnitInternal.resolve(unitOrName, requiredMethod, caller)
+    if type(unitOrName) == "string" then
+        return GetUnit(unitOrName)
+    end
+    if type(unitOrName) ~= "table" and type(unitOrName) ~= "userdata" then
+        _HarnessInternal.log.error(caller .. " requires unit name or unit object", caller)
+        return nil
+    end
+    local success, method = pcall(function()
+        return unitOrName[requiredMethod]
+    end)
+    if not success or type(method) ~= "function" then
+        _HarnessInternal.log.error(caller .. " requires a unit with " .. requiredMethod, caller)
+        return nil
+    end
+    return unitOrName
+end
+
+function UnitInternal.readPosition3(unit, caller)
+    local success, position3 = pcall(unit.getPosition, unit)
+    if not success or not UnitInternal.isCompletePosition3(position3) then
+        _HarnessInternal.log.error(
+            "Failed to get complete unit Position3: " .. tostring(position3),
+            caller
+        )
+        return nil
+    end
+    return position3
+end
+
 --- Get unit by name with validation and error handling
 ---@param unitName string The name of the unit to retrieve
 ---@return table? unit The unit object if found, nil otherwise
@@ -106,39 +176,38 @@ function UnitExists(unitName)
     return exists
 end
 
+--- Get complete DCS Position3 for a unit
+---@param unitOrName string|table The name of the unit or unit object
+---@return table? position3 Complete Position3 or nil
+function GetUnitPosition3(unitOrName)
+    local unit = UnitInternal.resolve(unitOrName, "getPosition", "GetUnitPosition3")
+    return unit and UnitInternal.readPosition3(unit, "GetUnitPosition3") or nil
+end
+
+--- Calculate attitude from a complete DCS Position3
+---@param position3 table DCS Position3
+---@return table? attitude Heading, pitch, and bank in degrees
+function GetAttitudeFromPosition3(position3)
+    if not UnitInternal.isCompletePosition3(position3) then
+        _HarnessInternal.log.error(
+            "GetAttitudeFromPosition3 requires complete Position3 axes",
+            "GetAttitudeFromPosition3"
+        )
+        return nil
+    end
+    local headingDeg = (math.deg(math.atan2(position3.x.z, position3.x.x)) + 360) % 360
+    local pitchDeg = math.deg(math.asin(math.max(-1, math.min(1, position3.x.y))))
+    local bankDeg = math.deg(math.atan2(position3.z.y, position3.y.y))
+    return { headingDeg = headingDeg, pitchDeg = pitchDeg, bankDeg = bankDeg }
+end
+
 --- Get unit position
 ---@param unitOrName string|table The name of the unit or unit object
 ---@return table? position The position {x, y, z} if found, nil otherwise
 ---@usage local pos = GetUnitPosition("Player") or GetUnitPosition(unitObject)
 function GetUnitPosition(unitOrName)
-    local unit
-
-    -- Handle both unit objects and unit names
-    if type(unitOrName) == "string" then
-        unit = GetUnit(unitOrName)
-        if not unit then
-            return nil
-        end
-    elseif type(unitOrName) == "table" and unitOrName.getPosition then
-        unit = unitOrName
-    else
-        _HarnessInternal.log.error(
-            "GetUnitPosition requires unit name or unit object",
-            "GetUnitPosition"
-        )
-        return nil
-    end
-
-    local success, position = pcall(unit.getPosition, unit)
-    if not success or not position or not position.p then
-        _HarnessInternal.log.error(
-            "Failed to get unit position: " .. tostring(position),
-            "GetUnitPosition"
-        )
-        return nil
-    end
-
-    return position.p
+    local position3 = GetUnitPosition3(unitOrName)
+    return position3 and position3.p or nil
 end
 
 --- Get unit heading in degrees
@@ -146,40 +215,8 @@ end
 ---@return number? heading The heading in degrees (0-360) if found, nil otherwise
 ---@usage local heading = GetUnitHeading("Player") or GetUnitHeading(unitObject)
 function GetUnitHeading(unitOrName)
-    local unit
-
-    if type(unitOrName) == "string" then
-        unit = GetUnit(unitOrName)
-        if not unit then
-            return nil
-        end
-    elseif type(unitOrName) == "table" and unitOrName.getPosition then
-        unit = unitOrName
-    else
-        _HarnessInternal.log.error(
-            "GetUnitHeading requires unit name or unit object",
-            "GetUnitHeading"
-        )
-        return nil
-    end
-
-    local success, position = pcall(unit.getPosition, unit)
-    if not success or not position then
-        _HarnessInternal.log.error(
-            "Failed to get unit position for heading: " .. tostring(position),
-            "GetUnitHeading"
-        )
-        return nil
-    end
-
-    local heading = math.atan2(position.x.z, position.x.x)
-    heading = math.deg(heading)
-
-    if heading < 0 then
-        heading = heading + 360
-    end
-
-    return heading
+    local attitude = GetAttitudeFromPosition3(GetUnitPosition3(unitOrName))
+    return attitude and attitude.headingDeg or nil
 end
 
 --- Get unit position and heading in one call
@@ -188,39 +225,12 @@ end
 ---@return number? heading The heading in degrees (0-360) if found, nil otherwise
 ---@usage local pos, hdg = GetUnitOrientation("Player")
 function GetUnitOrientation(unitOrName)
-    local unit
-
-    if type(unitOrName) == "string" then
-        unit = GetUnit(unitOrName)
-        if not unit then
-            return nil, nil
-        end
-    elseif type(unitOrName) == "table" and unitOrName.getPosition then
-        unit = unitOrName
-    else
-        _HarnessInternal.log.error(
-            "GetUnitOrientation requires unit name or unit object",
-            "GetUnitOrientation"
-        )
+    local position3 = GetUnitPosition3(unitOrName)
+    local attitude = position3 and GetAttitudeFromPosition3(position3) or nil
+    if not attitude then
         return nil, nil
     end
-
-    local success, position = pcall(unit.getPosition, unit)
-    if not success or not position or not position.p then
-        _HarnessInternal.log.error(
-            "Failed to get unit position for orientation: " .. tostring(position),
-            "GetUnitOrientation"
-        )
-        return nil, nil
-    end
-
-    local heading = math.atan2(position.x.z, position.x.x)
-    heading = math.deg(heading)
-    if heading < 0 then
-        heading = heading + 360
-    end
-
-    return position.p, heading
+    return position3.p, attitude.headingDeg
 end
 
 --- Get unit position, heading, and unit object in one call
@@ -238,41 +248,30 @@ function GetUnitPositionAndHeading(unitName)
         return nil, nil, nil
     end
 
-    local unit = GetUnit(unitName)
+    local unit = UnitInternal.resolve(unitName, "getPosition", "GetUnitPositionAndHeading")
     if not unit then
         return nil, nil, nil
     end
-
-    local success, position = pcall(unit.getPosition, unit)
-    if not success or not position or not position.p then
-        _HarnessInternal.log.error(
-            "Failed to get unit position for data: " .. tostring(position),
-            "GetUnitPositionAndHeading"
-        )
+    local position3 = UnitInternal.readPosition3(unit, "GetUnitPositionAndHeading")
+    local attitude = position3 and GetAttitudeFromPosition3(position3) or nil
+    if not attitude then
         return nil, nil, nil
     end
-
-    local heading = math.atan2(position.x.z, position.x.x)
-    heading = math.deg(heading)
-    if heading < 0 then
-        heading = heading + 360
-    end
-
-    return position.p, heading, unit
+    return position3.p, attitude.headingDeg, unit
 end
 
 --- Get unit velocity
----@param unitName string The name of the unit
+---@param unitOrName string|table The name of the unit or unit object
 ---@return table? velocity The velocity vector {x, y, z} if found, nil otherwise
 ---@usage local vel = GetUnitVelocity("Player")
-function GetUnitVelocity(unitName)
-    local unit = GetUnit(unitName)
+function GetUnitVelocity(unitOrName)
+    local unit = UnitInternal.resolve(unitOrName, "getVelocity", "GetUnitVelocity")
     if not unit then
         return nil
     end
 
     local success, velocity = pcall(unit.getVelocity, unit)
-    if not success then
+    if not success or not UnitInternal.validVector(velocity) then
         _HarnessInternal.log.error(
             "Failed to get unit velocity: " .. tostring(velocity),
             "GetUnitVelocity"
@@ -280,7 +279,7 @@ function GetUnitVelocity(unitName)
         return nil
     end
 
-    return velocity
+    return Vec3(velocity)
 end
 
 -- =========================================
@@ -572,24 +571,25 @@ end
 -- Advanced Unit Functions
 
 --- Get unit ID
----@param unit table Unit object
----@return number? id Unit ID or nil on error
+---@param unitOrName string|table Unit name or object
+---@return integer? id Positive integral unit ID or nil on error
 ---@usage local id = GetUnitID(unit)
-function GetUnitID(unit)
+function GetUnitID(unitOrName)
+    local unit = UnitInternal.resolve(unitOrName, "getID", "GetUnitID")
     if not unit then
-        _HarnessInternal.log.error("GetUnitID requires unit", "GetUnitID")
         return nil
     end
-
-    local success, id = pcall(function()
-        return unit:getID()
-    end)
+    local success, id = pcall(unit.getID, unit)
     if not success then
         _HarnessInternal.log.error("Failed to get unit ID: " .. tostring(id), "GetUnitID")
         return nil
     end
-
-    return id
+    local normalized = UnitInternal.normalizeId(id)
+    if not normalized then
+        _HarnessInternal.log.error("Invalid unit ID: " .. tostring(id), "GetUnitID")
+        return nil
+    end
+    return normalized
 end
 
 --- Get unit number within group
@@ -1431,36 +1431,93 @@ end
 -- Other Functions
 
 --- Get draw argument value
----@param unit table Unit object
+---@param unitOrName string|table Unit name or object
 ---@param arg number Animation argument number
 ---@return number? value Draw argument value or nil on error
 ---@usage local gearPos = GetUnitDrawArgument(unit, 0) -- Landing gear
-function GetUnitDrawArgument(unit, arg)
-    if not unit then
-        _HarnessInternal.log.error("GetUnitDrawArgument requires unit", "GetUnitDrawArgument")
-        return nil
-    end
-
-    if not arg or type(arg) ~= "number" then
+function GetUnitDrawArgument(unitOrName, arg)
+    if type(arg) ~= "number" or arg ~= arg or arg < 0 or arg >= math.huge or arg % 1 ~= 0 then
         _HarnessInternal.log.error(
-            "GetUnitDrawArgument requires numeric argument",
+            "Invalid draw argument ID: " .. tostring(arg),
             "GetUnitDrawArgument"
         )
         return nil
     end
+    local values = GetUnitDrawArguments(unitOrName, { arg })
+    return values and values[arg] or nil
+end
 
-    local success, value = pcall(function()
-        return unit:getDrawArgumentValue(arg)
-    end)
-    if not success then
+--- Read multiple external-model draw arguments
+---@param unitOrName string|table Unit name or object
+---@param argumentIds table Array of numeric draw-argument IDs
+---@return table? values Values keyed by argument ID
+---@return boolean complete True only when every argument returned a number
+function GetUnitDrawArguments(unitOrName, argumentIds)
+    local unit = UnitInternal.resolve(unitOrName, "getDrawArgumentValue", "GetUnitDrawArguments")
+    if not unit or type(argumentIds) ~= "table" then
         _HarnessInternal.log.error(
-            "Failed to get draw argument: " .. tostring(value),
-            "GetUnitDrawArgument"
+            "GetUnitDrawArguments requires a unit and argument ID array",
+            "GetUnitDrawArguments"
         )
-        return nil
+        return nil, false
     end
 
-    return value
+    local keyCount = 0
+    for key in pairs(argumentIds) do
+        keyCount = keyCount + 1
+        if type(key) ~= "number" or key < 1 or key % 1 ~= 0 then
+            _HarnessInternal.log.error(
+                "GetUnitDrawArguments requires an array",
+                "GetUnitDrawArguments"
+            )
+            return nil, false
+        end
+    end
+    if keyCount ~= #argumentIds then
+        _HarnessInternal.log.error(
+            "GetUnitDrawArguments requires a contiguous array",
+            "GetUnitDrawArguments"
+        )
+        return nil, false
+    end
+
+    for _, argumentId in ipairs(argumentIds) do
+        if
+            type(argumentId) ~= "number"
+            or argumentId ~= argumentId
+            or argumentId < 0
+            or argumentId >= math.huge
+            or argumentId % 1 ~= 0
+        then
+            _HarnessInternal.log.error(
+                "Invalid draw argument ID: " .. tostring(argumentId),
+                "GetUnitDrawArguments"
+            )
+            return nil, false
+        end
+    end
+
+    local values = {}
+    local complete = true
+    for _, argumentId in ipairs(argumentIds) do
+        local success, value = pcall(unit.getDrawArgumentValue, unit, argumentId)
+        if
+            success
+            and type(value) == "number"
+            and value == value
+            and value > -math.huge
+            and value < math.huge
+        then
+            values[argumentId] = value
+        else
+            complete = false
+            _HarnessInternal.log.error(
+                "Failed draw argument " .. tostring(argumentId) .. ": " .. tostring(value),
+                "GetUnitDrawArguments"
+            )
+        end
+    end
+    return values, complete
 end
 
 --- Get unit communicator

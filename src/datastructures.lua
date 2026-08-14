@@ -2,7 +2,7 @@
 ==================================================================================================
     DATA STRUCTURES MODULE
     Common data structures optimized for DCS World scripting
-    
+
     Structures Provided:
     - Queue
     - Stack
@@ -89,6 +89,88 @@ function Queue()
     end
 
     return queue
+end
+
+--- Create a constant-size time-weighted statistics accumulator
+---@return table stats Time-weighted statistics object
+function TimeWeightedStats()
+    local stats = {}
+
+    function stats:reset()
+        self._count = 0
+        self._duration = 0
+        self._sum = 0
+        self._sumSquared = 0
+        self._minimum = nil
+        self._maximum = nil
+        self._peakAbsolute = nil
+        self._peakSigned = nil
+        self._peakLabel = nil
+        return nil
+    end
+
+    ---@param value number Sample value
+    ---@param durationS number Sample duration in seconds
+    ---@param label any? Label stored with a new absolute peak
+    ---@return boolean accepted True when the sample was accepted
+    function stats:add(value, durationS, label)
+        if
+            type(value) ~= "number"
+            or value ~= value
+            or value <= -math.huge
+            or value >= math.huge
+            or type(durationS) ~= "number"
+            or durationS ~= durationS
+            or durationS <= 0
+            or durationS >= math.huge
+        then
+            return false
+        end
+        self._count = self._count + 1
+        self._duration = self._duration + durationS
+        self._sum = self._sum + value * durationS
+        self._sumSquared = self._sumSquared + value * value * durationS
+        self._minimum = self._minimum == nil and value or math.min(self._minimum, value)
+        self._maximum = self._maximum == nil and value or math.max(self._maximum, value)
+        local absolute = math.abs(value)
+        if self._peakAbsolute == nil or absolute > self._peakAbsolute then
+            self._peakAbsolute = absolute
+            self._peakSigned = value
+            self._peakLabel = label
+        end
+        return true
+    end
+
+    function stats:count()
+        return self._count
+    end
+
+    function stats:duration()
+        return self._duration
+    end
+
+    function stats:mean()
+        return self._count > 0 and self._sum / self._duration or nil
+    end
+
+    function stats:rms()
+        return self._count > 0 and math.sqrt(self._sumSquared / self._duration) or nil
+    end
+
+    function stats:min()
+        return self._minimum
+    end
+
+    function stats:max()
+        return self._maximum
+    end
+
+    function stats:peak()
+        return self._peakSigned, self._peakLabel
+    end
+
+    stats:reset()
+    return stats
 end
 
 -- Stack Implementation (LIFO - Last In First Out)

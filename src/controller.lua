@@ -1,6 +1,6 @@
 --[[
     Controller Module - DCS World Controller API Wrappers
-    
+
     This module provides validated wrapper functions for DCS controller operations,
     including AI tasking, commands, and behavior management.
 ]]

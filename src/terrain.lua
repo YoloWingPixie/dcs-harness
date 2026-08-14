@@ -13,19 +13,17 @@ require("vector")
 ---@return number height Terrain height at position (0 on error)
 ---@usage local height = GetTerrainHeight(position)
 function GetTerrainHeight(position)
-    if not position then
-        _HarnessInternal.log.error("GetTerrainHeight requires position", "GetTerrainHeight")
-        return 0
-    end
-
-    local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-
-    if not IsVec2(vec2) then
+    local position2 = ToVec2(position)
+    if not position2 then
         _HarnessInternal.log.error("GetTerrainHeight requires Vec2 or Vec3", "GetTerrainHeight")
         return 0
     end
+    if type(land) ~= "table" or type(land.getHeight) ~= "function" then
+        _HarnessInternal.log.error("land.getHeight is unavailable", "GetTerrainHeight")
+        return 0
+    end
 
-    local success, height = pcall(land.getHeight, vec2)
+    local success, height = pcall(land.getHeight, position2)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get terrain height: " .. tostring(height),
@@ -34,7 +32,7 @@ function GetTerrainHeight(position)
         return 0
     end
 
-    return height or 0
+    return type(height) == "number" and height or 0
 end
 
 --- Get altitude above ground level
@@ -135,19 +133,17 @@ end
 ---@return number? surfaceType Surface type ID (1=land, 2=shallow water, 3=water, 4=road, 5=runway)
 ---@usage local surface = GetSurfaceType(position)
 function GetSurfaceType(position)
-    if not position then
-        _HarnessInternal.log.error("GetSurfaceType requires position", "GetSurfaceType")
-        return nil
-    end
-
-    local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-
-    if not IsVec2(vec2) then
+    local position2 = ToVec2(position)
+    if not position2 then
         _HarnessInternal.log.error("GetSurfaceType requires Vec2 or Vec3", "GetSurfaceType")
         return nil
     end
+    if type(land) ~= "table" or type(land.getSurfaceType) ~= "function" then
+        _HarnessInternal.log.error("land.getSurfaceType is unavailable", "GetSurfaceType")
+        return nil
+    end
 
-    local success, surfaceType = pcall(land.getSurfaceType, vec2)
+    local success, surfaceType = pcall(land.getSurfaceType, position2)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get surface type: " .. tostring(surfaceType),
@@ -243,14 +239,8 @@ end
 ---@return table? point Closest point on road if found
 ---@usage local roadPoint = GetClosestRoadPoint(position, "roads")
 function GetClosestRoadPoint(position, roadType)
-    if not position then
-        _HarnessInternal.log.error("GetClosestRoadPoint requires position", "GetClosestRoadPoint")
-        return nil
-    end
-
-    local vec2 = IsVec3(position) and Vec2(position.x, position.z) or ToVec2(position)
-
-    if not IsVec2(vec2) then
+    local position2 = ToVec2(position)
+    if not position2 then
         _HarnessInternal.log.error(
             "GetClosestRoadPoint requires Vec2 or Vec3",
             "GetClosestRoadPoint"
@@ -264,16 +254,15 @@ function GetClosestRoadPoint(position, roadType)
         roadType = "railroads"
     end
 
-    if type(vec2.x) ~= "number" or type(vec2.z) ~= "number" then
+    if type(land) ~= "table" or type(land.getClosestPointOnRoads) ~= "function" then
         _HarnessInternal.log.error(
-            "GetClosestRoadPoint requires numeric x/z on position",
+            "land.getClosestPointOnRoads is unavailable",
             "GetClosestRoadPoint"
         )
         return nil
     end
 
-    local success, r1, r2 =
-        pcall(land.getClosestPointOnRoads, roadType, tonumber(vec2.x), tonumber(vec2.z))
+    local success, r1, r2 = pcall(land.getClosestPointOnRoads, roadType, position2.x, position2.y)
     if not success then
         _HarnessInternal.log.error(
             "Failed to get closest road point: " .. tostring(r1),
@@ -284,10 +273,10 @@ function GetClosestRoadPoint(position, roadType)
 
     -- Normalize return: API may return table or two numeric coordinates
     if type(r1) == "table" then
-        return r1
+        return ToVec2(r1)
     end
     if type(r1) == "number" and type(r2) == "number" then
-        return { x = r1, y = r2 }
+        return Vec2(r1, r2)
     end
     return nil
 end
@@ -299,15 +288,9 @@ end
 ---@return table path Array of path points (empty on error)
 ---@usage local path = FindRoadPath(start, finish, "roads")
 function FindRoadPath(from, to, roadType)
-    if not from or not to then
-        _HarnessInternal.log.error("FindRoadPath requires from and to positions", "FindRoadPath")
-        return {}
-    end
-
-    local fromVec2 = IsVec3(from) and Vec2(from.x, from.z) or from
-    local toVec2 = IsVec3(to) and Vec2(to.x, to.z) or to
-
-    if not IsVec2(fromVec2) or not IsVec2(toVec2) then
+    local fromVec2 = ToVec2(from)
+    local toVec2 = ToVec2(to)
+    if not fromVec2 or not toVec2 then
         _HarnessInternal.log.error("FindRoadPath requires Vec2 or Vec3 positions", "FindRoadPath")
         return {}
     end
@@ -318,12 +301,37 @@ function FindRoadPath(from, to, roadType)
         roadType = "rails"
     end
 
+    if type(land) ~= "table" or type(land.findPathOnRoads) ~= "function" then
+        _HarnessInternal.log.error("land.findPathOnRoads is unavailable", "FindRoadPath")
+        return {}
+    end
+
     local success, path =
-        pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.z, toVec2.x, toVec2.z)
+        pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.y, toVec2.x, toVec2.y)
     if not success then
         _HarnessInternal.log.error("Failed to find road path: " .. tostring(path), "FindRoadPath")
         return {}
     end
 
-    return path or {}
+    if path == nil then
+        return {}
+    end
+    if type(path) ~= "table" then
+        _HarnessInternal.log.error("Road path result was not an array", "FindRoadPath")
+        return {}
+    end
+
+    local result = {}
+    for index, point in ipairs(path) do
+        local pathPoint = ToVec2(point)
+        if pathPoint then
+            result[#result + 1] = pathPoint
+        else
+            _HarnessInternal.log.error(
+                "Road path point " .. tostring(index) .. " was invalid",
+                "FindRoadPath"
+            )
+        end
+    end
+    return result
 end

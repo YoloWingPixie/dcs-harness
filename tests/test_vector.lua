@@ -27,12 +27,14 @@ end
 function TestVector:testVec2Creation()
     local v1 = Vec2(4, 5)
     lu.assertEquals(v1.x, 4)
-    lu.assertEquals(v1.z, 5)
+    lu.assertEquals(v1.y, 5)
+    lu.assertNil(v1.z)
 
     -- Test default values
     local v2 = Vec2()
     lu.assertEquals(v2.x, 0)
-    lu.assertEquals(v2.z, 0)
+    lu.assertEquals(v2.y, 0)
+    lu.assertNil(v2.z)
 end
 
 -- Test IsVec3 validation
@@ -51,6 +53,8 @@ end
 function TestVector:testIsVec2()
     lu.assertTrue(IsVec2(Vec2(1, 2)))
     lu.assertTrue(IsVec2({ x = 1, y = 2 }))
+    lu.assertFalse(IsVec2({ x = 1, z = 2 }))
+    lu.assertFalse(IsVec2({ x = 1, y = 2, z = 3 }))
 
     lu.assertFalse(IsVec2(nil))
     lu.assertFalse(IsVec2("string"))
@@ -78,7 +82,11 @@ function TestVector:testToVec2()
     local v2 = ToVec2(v3)
 
     lu.assertEquals(v2.x, 10)
-    lu.assertEquals(v2.z, 20) -- Vec3.z becomes Vec2.z
+    lu.assertEquals(v2.y, 20) -- Vec3.z becomes Vec2.y
+    lu.assertNil(v2.z)
+    lu.assertEquals(ToVec2({ x = 10, y = 20 }), Vec2(10, 20))
+    lu.assertNil(ToVec2({ x = 10, z = 20 }))
+    lu.assertNil(ToVec2({}))
 end
 
 -- Test vector addition
@@ -241,19 +249,19 @@ function TestVector:testBearing()
     local from = Vec3(0, 0, 0)
 
     -- North (0°)
-    local to_north = Vec3(0, 0, 10)
+    local to_north = Vec3(10, 0, 0)
     lu.assertAlmostEquals(Bearing(from, to_north), 0, 0.0001)
 
     -- East (90°)
-    local to_east = Vec3(10, 0, 0)
+    local to_east = Vec3(0, 0, 10)
     lu.assertAlmostEquals(Bearing(from, to_east), 90, 0.0001)
 
     -- South (180°)
-    local to_south = Vec3(0, 0, -10)
+    local to_south = Vec3(-10, 0, 0)
     lu.assertAlmostEquals(Bearing(from, to_south), 180, 0.0001)
 
     -- West (270°)
-    local to_west = Vec3(-10, 0, 0)
+    local to_west = Vec3(0, 0, -10)
     lu.assertAlmostEquals(Bearing(from, to_west), 270, 0.0001)
 end
 
@@ -263,15 +271,51 @@ function TestVector:testFromBearingDistance()
 
     -- North
     local north = FromBearingDistance(origin, 0, 100)
-    lu.assertAlmostEquals(north.x, 100, 0.0001)
+    lu.assertAlmostEquals(north.x, 200, 0.0001)
     lu.assertEquals(north.y, 50) -- altitude preserved
-    lu.assertAlmostEquals(north.z, 300, 0.0001)
+    lu.assertAlmostEquals(north.z, 200, 0.0001)
 
     -- East
     local east = FromBearingDistance(origin, 90, 100)
-    lu.assertAlmostEquals(east.x, 200, 0.0001)
+    lu.assertAlmostEquals(east.x, 100, 0.0001)
     lu.assertEquals(east.y, 50)
-    lu.assertAlmostEquals(east.z, 200, 0.0001)
+    lu.assertAlmostEquals(east.z, 300, 0.0001)
+
+    local diagonal = FromBearingDistance(origin, 45, 100)
+    lu.assertAlmostEquals(Bearing(origin, diagonal), 45, 0.0001)
+    lu.assertAlmostEquals(Distance2D(origin, diagonal), 100, 0.0001)
+
+    local groundEast = FromBearingDistance(Vec2(100, 200), 90, 100)
+    lu.assertAlmostEquals(groundEast.x, 100, 0.0001)
+    lu.assertAlmostEquals(groundEast.y, 300, 0.0001)
+    lu.assertNil(groundEast.z)
+end
+
+function TestVector:testBearingAndDisplacementRoundTrip()
+    local origin3 = Vec3(100, 50, 200)
+    local origin2 = Vec2(100, 200)
+    for _, heading in ipairs({ 0, 45, 90, 180, 270 }) do
+        local point3 = FromBearingDistance(origin3, heading, 100)
+        lu.assertAlmostEquals(Bearing(origin3, point3), heading, 0.0001)
+        lu.assertAlmostEquals(Distance2D(origin3, point3), 100, 0.0001)
+
+        local point2 = FromBearingDistance(origin2, heading, 100)
+        lu.assertAlmostEquals(Bearing(origin2, point2), heading, 0.0001)
+        lu.assertAlmostEquals(Distance2D(origin2, point2), 100, 0.0001)
+    end
+end
+
+function TestVector:testVec2OperationsUseDcsFields()
+    local first = Vec2(3, 4)
+    local second = Vec2(1, 2)
+
+    lu.assertEquals(first + second, Vec2(4, 6))
+    lu.assertEquals(first - second, Vec2(2, 2))
+    lu.assertEquals(first * 2, Vec2(6, 8))
+    lu.assertEquals(first:dot(second), 11)
+    lu.assertEquals(first:length(), 5)
+    lu.assertEquals(first:toVec3(10), Vec3(3, 10, 4))
+    lu.assertNil((first + second).z)
 end
 
 -- Test angle between vectors

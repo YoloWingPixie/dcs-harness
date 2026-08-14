@@ -1,6 +1,6 @@
 --[[
     Drawing Module - DCS World Drawing API Wrappers
-    
+
     This module provides validated wrapper functions for DCS drawing operations,
     including getting drawing objects from the mission.
 ]]
@@ -291,18 +291,27 @@ end
 
 --- Check if a point is inside a drawing shape
 ---@param drawing table Drawing geometry
----@param point table Point with x, z coordinates
+---@param point table DCS Vec2 or Vec3 point
 ---@return boolean isInside True if point is inside the shape
 function IsPointInDrawing(drawing, point)
     if not drawing or not point then
         return false
     end
 
+    local point2 = ToVec2(point)
+    if not point2 then
+        return false
+    end
+
     if drawing.type == "Polygon" then
         if drawing.polygonMode == "circle" and drawing.center and drawing.radius then
-            local dx = point.x - drawing.center.x
-            local dz = point.z - drawing.center.z
-            return (dx * dx + dz * dz) <= (drawing.radius * drawing.radius)
+            local center2 = ToVec2(drawing.center)
+            if not center2 then
+                return false
+            end
+            local dx = point2.x - center2.x
+            local dy = point2.y - center2.y
+            return (dx * dx + dy * dy) <= (drawing.radius * drawing.radius)
         elseif
             drawing.polygonMode == "rect"
             and drawing.center
@@ -312,12 +321,16 @@ function IsPointInDrawing(drawing, point)
             -- Simple axis-aligned check (ignoring rotation for now)
             local halfWidth = drawing.width / 2
             local halfHeight = drawing.height / 2
-            local dx = math.abs(point.x - drawing.center.x)
-            local dz = math.abs(point.z - drawing.center.z)
-            return dx <= halfWidth and dz <= halfHeight
+            local center2 = ToVec2(drawing.center)
+            if not center2 then
+                return false
+            end
+            local dx = math.abs(point2.x - center2.x)
+            local dy = math.abs(point2.y - center2.y)
+            return dx <= halfWidth and dy <= halfHeight
         elseif drawing.points and #drawing.points >= 3 then
             -- Point-in-polygon test using ray casting algorithm
-            local x, z = point.x, point.z
+            local x, y = point2.x, point2.y
             local inside = false
             local j = #drawing.points
 
@@ -325,7 +338,7 @@ function IsPointInDrawing(drawing, point)
                 local xi, zi = drawing.points[i].x, drawing.points[i].z
                 local xj, zj = drawing.points[j].x, drawing.points[j].z
 
-                if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
+                if ((zi > y) ~= (zj > y)) and (x < (xj - xi) * (y - zi) / (zj - zi) + xi) then
                     inside = not inside
                 end
                 j = i
@@ -340,7 +353,7 @@ function IsPointInDrawing(drawing, point)
         and #drawing.points >= 3
     then
         -- Closed lines form polygons, use same algorithm
-        local x, z = point.x, point.z
+        local x, y = point2.x, point2.y
         local inside = false
         local j = #drawing.points
 
@@ -348,7 +361,7 @@ function IsPointInDrawing(drawing, point)
             local xi, zi = drawing.points[i].x, drawing.points[i].z
             local xj, zj = drawing.points[j].x, drawing.points[j].z
 
-            if ((zi > z) ~= (zj > z)) and (x < (xj - xi) * (z - zi) / (zj - zi) + xi) then
+            if ((zi > y) ~= (zj > y)) and (x < (xj - xi) * (y - zi) / (zj - zi) + xi) then
                 inside = not inside
             end
             j = i
@@ -361,7 +374,7 @@ function IsPointInDrawing(drawing, point)
 end
 
 --- Calculate bounding sphere for a set of points
----@param points table Array of points with x, z coordinates
+---@param points table Array of Vec3 points
 ---@return table center Center point of bounding sphere
 ---@return number radius Radius of bounding sphere
 local function CalculateDrawingBoundingSphere(points)
@@ -468,7 +481,7 @@ function GetUnitsInDrawing(drawingName, coalitionId)
         -- Get unit position for precise drawing check
         local pos = GetUnitPosition(unit)
         if pos then
-            local point = { x = pos.x, z = pos.z }
+            local point = Vec2(pos.x, pos.z)
 
             -- Check if unit is actually in the drawing (not just the bounding sphere)
             if IsPointInDrawing(drawing, point) then
@@ -487,14 +500,14 @@ function GetUnitsInDrawing(drawingName, coalitionId)
 end
 
 --- Get drawings containing a specific point
----@param point table Point with x, z coordinates
+---@param point table DCS Vec2 or Vec3 point
 ---@param drawingType string? Optional filter by drawing type
 ---@return table drawings Array of drawings containing the point
----@usage local drawings = GetDrawingsAtPoint({x=1000, z=2000})
+---@usage local drawings = GetDrawingsAtPoint({x=1000, y=2000})
 function GetDrawingsAtPoint(point, drawingType)
-    if not point or type(point) ~= "table" or not point.x or not point.z then
+    if not (IsVec2(point) or IsVec3(point)) then
         _HarnessInternal.log.error(
-            "GetDrawingsAtPoint requires valid point with x, z",
+            "GetDrawingsAtPoint requires a DCS Vec2 or Vec3 point",
             "Drawing.GetDrawingsAtPoint"
         )
         return {}

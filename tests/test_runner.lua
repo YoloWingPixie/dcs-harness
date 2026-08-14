@@ -43,10 +43,12 @@ end
 -- Load all Harness modules
 -- We need to load them in dependency order
 dofile("../src/logger.lua")
+dofile("../src/missionfile.lua")
 dofile("../src/cache.lua")
 dofile("../src/namespace.lua")
 dofile("../src/datastructures.lua")
 dofile("../src/vector.lua")
+dofile("../src/flight.lua")
 dofile("../src/geomath.lua")
 dofile("../src/misc.lua")
 dofile("../src/coord.lua")

@@ -1,19 +1,19 @@
 --[[
     MissionCommands Module - DCS World Mission Commands API Wrappers
-    
+
     This module provides validated wrapper functions for DCS F10 radio menu operations,
     including menu creation, command handling, and menu removal.
 ]]
 require("logger")
 --- Adds a command to the F10 radio menu
---- @param path table Array of menu path elements (numbers or strings)
+--- @param path table? Native parent Path, or nil for root
 --- @param menuItem table Menu item definition with name, enabled, and removable fields
 --- @param handler function Function to call when menu item is selected
 --- @param params any? Optional parameters to pass to the handler
---- @return number|nil commandId The command ID if successful, nil otherwise
+--- @return table|nil commandPath Native Path if successful, nil otherwise
 --- @usage local cmdId = AddCommand({"Main", "SubMenu"}, {name="Test", enabled=true}, function() print("Selected") end)
 function AddCommand(path, menuItem, handler, params)
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "AddCommand requires valid path table",
             "MissionCommands.AddCommand"
@@ -21,7 +21,7 @@ function AddCommand(path, menuItem, handler, params)
         return nil
     end
 
-    if not menuItem or type(menuItem) ~= "table" then
+    if type(menuItem) ~= "table" or type(menuItem.name) ~= "string" or menuItem.name == "" then
         _HarnessInternal.log.error(
             "AddCommand requires valid menu item table",
             "MissionCommands.AddCommand"
@@ -37,7 +37,14 @@ function AddCommand(path, menuItem, handler, params)
         return nil
     end
 
-    local success, result = pcall(missionCommands.addCommand, path, menuItem, handler, params)
+    if type(missionCommands) ~= "table" or type(missionCommands.addCommand) ~= "function" then
+        _HarnessInternal.log.error(
+            "missionCommands.addCommand is unavailable",
+            "MissionCommands.AddCommand"
+        )
+        return nil
+    end
+    local success, result = pcall(missionCommands.addCommand, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
             "Failed to add command: " .. tostring(result),
@@ -50,12 +57,12 @@ function AddCommand(path, menuItem, handler, params)
 end
 
 --- Adds a submenu to the F10 radio menu
---- @param path table Array of menu path elements (numbers or strings)
+--- @param path table? Native parent Path, or nil for root
 --- @param name string The name of the submenu to create
 --- @return table|nil submenuPath The path to the new submenu if successful, nil otherwise
 --- @usage local subPath = AddSubMenu({}, "My Menu")
 function AddSubMenu(path, name)
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "AddSubMenu requires valid path table",
             "MissionCommands.AddSubMenu"
@@ -63,7 +70,7 @@ function AddSubMenu(path, name)
         return nil
     end
 
-    if not name or type(name) ~= "string" then
+    if type(name) ~= "string" or name == "" then
         _HarnessInternal.log.error(
             "AddSubMenu requires valid name string",
             "MissionCommands.AddSubMenu"
@@ -71,6 +78,13 @@ function AddSubMenu(path, name)
         return nil
     end
 
+    if type(missionCommands) ~= "table" or type(missionCommands.addSubMenu) ~= "function" then
+        _HarnessInternal.log.error(
+            "missionCommands.addSubMenu is unavailable",
+            "MissionCommands.AddSubMenu"
+        )
+        return nil
+    end
     local success, result = pcall(missionCommands.addSubMenu, name, path)
     if not success then
         _HarnessInternal.log.error(
@@ -84,11 +98,11 @@ function AddSubMenu(path, name)
 end
 
 --- Removes a menu item or submenu from the F10 radio menu
---- @param path table Array of menu path elements to remove
+--- @param path table? Native Path, or nil for root removal
 --- @return boolean|nil success True if removed successfully, nil otherwise
 --- @usage RemoveItem({"Main", "SubMenu", "Command"})
 function RemoveItem(path)
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "RemoveItem requires valid path table",
             "MissionCommands.RemoveItem"
@@ -96,6 +110,13 @@ function RemoveItem(path)
         return nil
     end
 
+    if type(missionCommands) ~= "table" or type(missionCommands.removeItem) ~= "function" then
+        _HarnessInternal.log.error(
+            "missionCommands.removeItem is unavailable",
+            "MissionCommands.RemoveItem"
+        )
+        return nil
+    end
     local success, result = pcall(missionCommands.removeItem, path)
     if not success then
         _HarnessInternal.log.error(
@@ -110,11 +131,11 @@ end
 
 --- Adds a command to the F10 radio menu for a specific coalition
 --- @param coalitionId number Coalition ID (coalition.side.RED or coalition.side.BLUE)
---- @param path table Array of menu path elements
+--- @param path table? Native parent Path, or nil for root
 --- @param menuItem table Menu item definition with name, enabled, and removable fields
 --- @param handler function Function to call when menu item is selected
 --- @param params any? Optional parameters to pass to the handler
---- @return number|nil commandId The command ID if successful, nil otherwise
+--- @return table|nil commandPath Native Path if successful, nil otherwise
 --- @usage AddCommandForCoalition(coalition.side.BLUE, {}, {name="Intel"}, function() end)
 function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
     if not coalitionId or type(coalitionId) ~= "number" then
@@ -125,7 +146,7 @@ function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
         return nil
     end
 
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "AddCommandForCoalition requires valid path table",
             "MissionCommands.AddCommandForCoalition"
@@ -133,7 +154,7 @@ function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
         return nil
     end
 
-    if not menuItem or type(menuItem) ~= "table" then
+    if type(menuItem) ~= "table" or type(menuItem.name) ~= "string" or menuItem.name == "" then
         _HarnessInternal.log.error(
             "AddCommandForCoalition requires valid menu item table",
             "MissionCommands.AddCommandForCoalition"
@@ -149,8 +170,24 @@ function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
         return nil
     end
 
-    local success, result =
-        pcall(missionCommands.addCommandForCoalition, coalitionId, path, menuItem, handler, params)
+    if
+        type(missionCommands) ~= "table"
+        or type(missionCommands.addCommandForCoalition) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "missionCommands.addCommandForCoalition is unavailable",
+            "MissionCommands.AddCommandForCoalition"
+        )
+        return nil
+    end
+    local success, result = pcall(
+        missionCommands.addCommandForCoalition,
+        coalitionId,
+        menuItem.name,
+        path,
+        handler,
+        params
+    )
     if not success then
         _HarnessInternal.log.error(
             "Failed to add coalition command: " .. tostring(result),
@@ -164,7 +201,7 @@ end
 
 --- Adds a submenu to the F10 radio menu for a specific coalition
 --- @param coalitionId number Coalition ID (coalition.side.RED or coalition.side.BLUE)
---- @param path table Array of menu path elements
+--- @param path table? Native parent Path, or nil for root
 --- @param name string The name of the submenu to create
 --- @return table|nil submenuPath The path to the new submenu if successful, nil otherwise
 --- @usage AddSubMenuForCoalition(coalition.side.RED, {}, "Enemy Options")
@@ -177,7 +214,7 @@ function AddSubMenuForCoalition(coalitionId, path, name)
         return nil
     end
 
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "AddSubMenuForCoalition requires valid path table",
             "MissionCommands.AddSubMenuForCoalition"
@@ -185,7 +222,7 @@ function AddSubMenuForCoalition(coalitionId, path, name)
         return nil
     end
 
-    if not name or type(name) ~= "string" then
+    if type(name) ~= "string" or name == "" then
         _HarnessInternal.log.error(
             "AddSubMenuForCoalition requires valid name string",
             "MissionCommands.AddSubMenuForCoalition"
@@ -193,6 +230,16 @@ function AddSubMenuForCoalition(coalitionId, path, name)
         return nil
     end
 
+    if
+        type(missionCommands) ~= "table"
+        or type(missionCommands.addSubMenuForCoalition) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "missionCommands.addSubMenuForCoalition is unavailable",
+            "MissionCommands.AddSubMenuForCoalition"
+        )
+        return nil
+    end
     local success, result = pcall(missionCommands.addSubMenuForCoalition, coalitionId, name, path)
     if not success then
         _HarnessInternal.log.error(
@@ -207,7 +254,7 @@ end
 
 --- Removes a menu item or submenu for a specific coalition
 --- @param coalitionId number Coalition ID (coalition.side.RED or coalition.side.BLUE)
---- @param path table Array of menu path elements to remove
+--- @param path table? Native Path, or nil for root removal
 --- @return boolean|nil success True if removed successfully, nil otherwise
 --- @usage RemoveItemForCoalition(coalition.side.BLUE, {"Intel", "Report"})
 function RemoveItemForCoalition(coalitionId, path)
@@ -219,7 +266,7 @@ function RemoveItemForCoalition(coalitionId, path)
         return nil
     end
 
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "RemoveItemForCoalition requires valid path table",
             "MissionCommands.RemoveItemForCoalition"
@@ -227,6 +274,16 @@ function RemoveItemForCoalition(coalitionId, path)
         return nil
     end
 
+    if
+        type(missionCommands) ~= "table"
+        or type(missionCommands.removeItemForCoalition) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "missionCommands.removeItemForCoalition is unavailable",
+            "MissionCommands.RemoveItemForCoalition"
+        )
+        return nil
+    end
     local success, result = pcall(missionCommands.removeItemForCoalition, coalitionId, path)
     if not success then
         _HarnessInternal.log.error(
@@ -241,11 +298,11 @@ end
 
 --- Adds a command to the F10 radio menu for a specific group
 --- @param groupId number Group ID from DCS
---- @param path table Array of menu path elements
+--- @param path table? Native parent Path, or nil for root
 --- @param menuItem table Menu item definition with name, enabled, and removable fields
 --- @param handler function Function to call when menu item is selected
 --- @param params any? Optional parameters to pass to the handler
---- @return number|nil commandId The command ID if successful, nil otherwise
+--- @return table|nil commandPath Native Path if successful, nil otherwise
 --- @usage AddCommandForGroup(groupId, {}, {name="Request Support"}, function() end)
 function AddCommandForGroup(groupId, path, menuItem, handler, params)
     if not groupId or type(groupId) ~= "number" then
@@ -256,7 +313,7 @@ function AddCommandForGroup(groupId, path, menuItem, handler, params)
         return nil
     end
 
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "AddCommandForGroup requires valid path table",
             "MissionCommands.AddCommandForGroup"
@@ -264,7 +321,7 @@ function AddCommandForGroup(groupId, path, menuItem, handler, params)
         return nil
     end
 
-    if not menuItem or type(menuItem) ~= "table" then
+    if type(menuItem) ~= "table" or type(menuItem.name) ~= "string" or menuItem.name == "" then
         _HarnessInternal.log.error(
             "AddCommandForGroup requires valid menu item table",
             "MissionCommands.AddCommandForGroup"
@@ -280,8 +337,18 @@ function AddCommandForGroup(groupId, path, menuItem, handler, params)
         return nil
     end
 
+    if
+        type(missionCommands) ~= "table"
+        or type(missionCommands.addCommandForGroup) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "missionCommands.addCommandForGroup is unavailable",
+            "MissionCommands.AddCommandForGroup"
+        )
+        return nil
+    end
     local success, result =
-        pcall(missionCommands.addCommandForGroup, groupId, path, menuItem, handler, params)
+        pcall(missionCommands.addCommandForGroup, groupId, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
             "Failed to add group command: " .. tostring(result),
@@ -295,7 +362,7 @@ end
 
 --- Adds a submenu to the F10 radio menu for a specific group
 --- @param groupId number Group ID from DCS
---- @param path table Array of menu path elements
+--- @param path table? Native parent Path, or nil for root
 --- @param name string The name of the submenu to create
 --- @return table|nil submenuPath The path to the new submenu if successful, nil otherwise
 --- @usage AddSubMenuForGroup(groupId, {}, "Flight Options")
@@ -308,7 +375,7 @@ function AddSubMenuForGroup(groupId, path, name)
         return nil
     end
 
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "AddSubMenuForGroup requires valid path table",
             "MissionCommands.AddSubMenuForGroup"
@@ -316,7 +383,7 @@ function AddSubMenuForGroup(groupId, path, name)
         return nil
     end
 
-    if not name or type(name) ~= "string" then
+    if type(name) ~= "string" or name == "" then
         _HarnessInternal.log.error(
             "AddSubMenuForGroup requires valid name string",
             "MissionCommands.AddSubMenuForGroup"
@@ -324,7 +391,17 @@ function AddSubMenuForGroup(groupId, path, name)
         return nil
     end
 
-    local success, result = pcall(missionCommands.addSubMenuForGroup, groupId, path, name)
+    if
+        type(missionCommands) ~= "table"
+        or type(missionCommands.addSubMenuForGroup) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "missionCommands.addSubMenuForGroup is unavailable",
+            "MissionCommands.AddSubMenuForGroup"
+        )
+        return nil
+    end
+    local success, result = pcall(missionCommands.addSubMenuForGroup, groupId, name, path)
     if not success then
         _HarnessInternal.log.error(
             "Failed to add group submenu: " .. tostring(result),
@@ -338,7 +415,7 @@ end
 
 --- Removes a menu item or submenu for a specific group
 --- @param groupId number Group ID from DCS
---- @param path table Array of menu path elements to remove
+--- @param path table? Native Path, or nil for root removal
 --- @return boolean|nil success True if removed successfully, nil otherwise
 --- @usage RemoveItemForGroup(groupId, {"Flight Options", "RTB"})
 function RemoveItemForGroup(groupId, path)
@@ -350,7 +427,7 @@ function RemoveItemForGroup(groupId, path)
         return nil
     end
 
-    if not path or type(path) ~= "table" then
+    if path ~= nil and type(path) ~= "table" then
         _HarnessInternal.log.error(
             "RemoveItemForGroup requires valid path table",
             "MissionCommands.RemoveItemForGroup"
@@ -358,6 +435,16 @@ function RemoveItemForGroup(groupId, path)
         return nil
     end
 
+    if
+        type(missionCommands) ~= "table"
+        or type(missionCommands.removeItemForGroup) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "missionCommands.removeItemForGroup is unavailable",
+            "MissionCommands.RemoveItemForGroup"
+        )
+        return nil
+    end
     local success, result = pcall(missionCommands.removeItemForGroup, groupId, path)
     if not success then
         _HarnessInternal.log.error(

@@ -194,7 +194,7 @@ function TestZone:testIsUnitInZone_UnitInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 1100, y = 50, z = 2050 } }
+            return MockPosition3({ x = 1100, y = 50, z = 2050 })
         end,
         getName = function(self)
             return "TestUnit"
@@ -221,7 +221,7 @@ function TestZone:testIsUnitInZone_UnitOutside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 2000, y = 50, z = 3000 } }
+            return MockPosition3({ x = 2000, y = 50, z = 3000 })
         end, -- Outside zone (LZ Alpha center is 1000,0,2000 with radius 500)
         getName = function(self)
             return "OutsideUnit"
@@ -252,7 +252,7 @@ function TestZone:testIsUnitInZone_NonExistentZone()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 1100, y = 50, z = 2050 } }
+            return MockPosition3({ x = 1100, y = 50, z = 2050 })
         end,
         getName = function(self)
             return "TestUnit"
@@ -277,7 +277,7 @@ function TestZone:testIsGroupInZone_SomeUnitsInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 1100, y = 50, z = 2050 } }
+            return MockPosition3({ x = 1100, y = 50, z = 2050 })
         end,
         getName = function(self)
             return "Unit1"
@@ -288,7 +288,7 @@ function TestZone:testIsGroupInZone_SomeUnitsInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 5000, y = 50, z = 6000 } }
+            return MockPosition3({ x = 5000, y = 50, z = 6000 })
         end,
         getName = function(self)
             return "Unit2"
@@ -338,7 +338,7 @@ function TestZone:testIsGroupInZone_NoUnitsInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 2000, y = 50, z = 3000 } }
+            return MockPosition3({ x = 2000, y = 50, z = 3000 })
         end, -- Outside zone (LZ Alpha center is 1000,0,2000 with radius 500)
         getName = function(self)
             return "NoInsideUnit1"
@@ -349,7 +349,7 @@ function TestZone:testIsGroupInZone_NoUnitsInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 3000, y = 50, z = 4000 } }
+            return MockPosition3({ x = 3000, y = 50, z = 4000 })
         end, -- Way outside zone
         getName = function(self)
             return "NoInsideUnit2"
@@ -404,7 +404,7 @@ function TestZone:testIsGroupCompletelyInZone_AllUnitsInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 1100, y = 50, z = 2050 } }
+            return MockPosition3({ x = 1100, y = 50, z = 2050 })
         end,
         getName = function(self)
             return "Unit1"
@@ -415,7 +415,7 @@ function TestZone:testIsGroupCompletelyInZone_AllUnitsInside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 1200, y = 50, z = 2100 } }
+            return MockPosition3({ x = 1200, y = 50, z = 2100 })
         end,
         getName = function(self)
             return "Unit2"
@@ -465,7 +465,7 @@ function TestZone:testIsGroupCompletelyInZone_SomeUnitsOutside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 1200, y = 50, z = 2200 } }
+            return MockPosition3({ x = 1200, y = 50, z = 2200 })
         end, -- Inside zone (within 500 radius of 1000,0,2000)
         getName = function(self)
             return "MixedUnit1"
@@ -476,7 +476,7 @@ function TestZone:testIsGroupCompletelyInZone_SomeUnitsOutside()
             return true
         end,
         getPosition = function(self)
-            return { p = { x = 2000, y = 50, z = 3000 } }
+            return MockPosition3({ x = 2000, y = 50, z = 3000 })
         end, -- Outside zone
         getName = function(self)
             return "MixedUnit2"

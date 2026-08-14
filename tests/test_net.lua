@@ -106,11 +106,11 @@ function TestNet:testSendChatTo()
     ---@diagnostic enable:param-type-mismatch
 end
 
-function TestNet:testGetPlayers()
-    local players = GetPlayers()
-    lu.assertNotNil(players)
-    lu.assertEquals(#players, 3)
-    lu.assertEquals(players[1], 1)
+function TestNet:testGetPlayerIds()
+    local playerIds = GetPlayerIds()
+    lu.assertNotNil(playerIds)
+    lu.assertEquals(#playerIds, 3)
+    lu.assertEquals(playerIds[1], 1)
 end
 
 function TestNet:testGetPlayerInfo()

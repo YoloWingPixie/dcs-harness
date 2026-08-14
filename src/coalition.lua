@@ -1,6 +1,6 @@
 --[[
     Coalition Module - DCS World Coalition API Wrappers
-    
+
     This module provides validated wrapper functions for DCS coalition operations,
     including country queries, group management, and unit spawning.
 ]]
@@ -198,6 +198,86 @@ function GetCoalitionPlayers(coalitionId)
     end
 
     return result
+end
+
+--- Enumerate all player-controlled units without scanning groups
+---@return table? units Name-sorted player unit handles, or nil when any coalition query fails
+function GetAllPlayerUnits()
+    if
+        type(coalition) ~= "table"
+        or type(coalition.side) ~= "table"
+        or type(coalition.getPlayers) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "coalition.getPlayers is unavailable",
+            "Coalition.GetAllPlayerUnits"
+        )
+        return nil
+    end
+
+    local byName = {}
+    local sides = { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
+    if sides[1] == nil or sides[2] == nil or sides[3] == nil then
+        _HarnessInternal.log.error(
+            "coalition side constants are unavailable",
+            "Coalition.GetAllPlayerUnits"
+        )
+        return nil
+    end
+
+    for _, side in ipairs(sides) do
+        local success, players = pcall(coalition.getPlayers, side)
+        if not success or type(players) ~= "table" then
+            _HarnessInternal.log.error(
+                "coalition.getPlayers failed for side "
+                    .. tostring(side)
+                    .. ": "
+                    .. tostring(players),
+                "Coalition.GetAllPlayerUnits"
+            )
+            return nil
+        end
+        for _, unit in pairs(players) do
+            local methodOk, getName = pcall(function()
+                return unit and unit.getName
+            end)
+            local nameOk, name = false, nil
+            if methodOk and type(getName) == "function" then
+                nameOk, name = pcall(getName, unit)
+            end
+
+            local exists = true
+            local existMethodOk, isExist = pcall(function()
+                return unit and unit.isExist
+            end)
+            if existMethodOk and type(isExist) == "function" then
+                local existsOk, existsResult = pcall(isExist, unit)
+                exists = existsOk and existsResult == true
+            end
+
+            if nameOk and type(name) == "string" and name ~= "" and exists then
+                if byName[name] == nil then
+                    byName[name] = unit
+                end
+            else
+                _HarnessInternal.log.error(
+                    "Skipped invalid player unit handle",
+                    "Coalition.GetAllPlayerUnits"
+                )
+            end
+        end
+    end
+
+    local names = {}
+    for name in pairs(byName) do
+        names[#names + 1] = name
+    end
+    table.sort(names)
+    local units = {}
+    for _, name in ipairs(names) do
+        units[#units + 1] = byName[name]
+    end
+    return units
 end
 
 --- Get all groups in a coalition, optionally filtered by category

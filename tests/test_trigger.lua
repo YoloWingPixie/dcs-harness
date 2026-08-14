@@ -49,6 +49,15 @@ function TestTrigger:testOutTextForCoalition()
     lu.assertNil(result3)
 end
 
+function TestTrigger:testOutTextForUnitNormalizesIdentifier()
+    local result = OutTextForUnit("2001", "Unit message", 10, false)
+    lu.assertTrue(result)
+    lu.assertEquals(trigger.action._called[1].func, "outTextForUnit")
+    lu.assertEquals(trigger.action._called[1].args[1], 2001)
+    lu.assertNil(OutTextForUnit("invalid", "Unit message"))
+    lu.assertNil(OutTextForUnit(1.5, "Unit message"))
+end
+
 function TestTrigger:testExplosion()
     local pos = { x = 1000, y = 100, z = 2000 }
     local result = Explosion(pos, 500)

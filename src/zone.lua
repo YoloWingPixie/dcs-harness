@@ -2,7 +2,7 @@
 ==================================================================================================
     ZONE MODULE
     Trigger zone utilities with caching support
-    
+
     This module provides:
     - Runtime DCS API access to trigger zones (with cache-first lookups)
     - Mission trigger zone caching for fast queries
@@ -102,7 +102,7 @@ function IsInZone(position, zoneName)
     if _HarnessInternal.cache and _HarnessInternal.cache.triggerZones then
         local cachedZone = _HarnessInternal.cache.triggerZones.byName[zoneName]
         if cachedZone then
-            return IsPointInZoneGeometry(cachedZone, { x = position.x, z = position.z })
+            return IsPointInZoneGeometry(cachedZone, Vec2(position.x, position.z))
         end
     end
 
@@ -185,7 +185,7 @@ function IsGroupCompletelyInZone(groupName, zoneName)
 end
 
 --- Calculate bounding sphere for a set of points
----@param points table Array of points with x, z coordinates
+---@param points table Array of Vec3 points
 ---@return table center Center point of bounding sphere
 ---@return number radius Radius of bounding sphere
 local function CalculateZoneBoundingSphere(points)
@@ -285,7 +285,7 @@ function GetUnitsInZone(zoneName, coalitionId)
         -- Get unit position for precise zone check
         local pos = GetUnitPosition(unit)
         if pos then
-            local point = { x = pos.x, z = pos.z }
+            local point = Vec2(pos.x, pos.z)
 
             -- Check if unit is actually in the zone (not just the bounding sphere)
             if IsPointInZoneGeometry(zone, point) then
@@ -649,20 +649,28 @@ end
 
 --- Check if a point is inside a cached trigger zone
 ---@param zone table Trigger zone geometry
----@param point table Point with x, z coordinates
+---@param point table DCS Vec2 or Vec3 point
 ---@return boolean isInside True if point is inside the zone
 function IsPointInZoneGeometry(zone, point)
     if not zone or not point then
         return false
     end
 
+    local point2 = ToVec2(point)
+    if not point2 then
+        return false
+    end
+
     if zone.type == "circle" and zone.center and zone.radius then
-        local dx = point.x - zone.center.x
-        local dz = point.z - zone.center.z
-        return (dx * dx + dz * dz) <= (zone.radius * zone.radius)
+        local center2 = ToVec2(zone.center)
+        if not center2 then
+            return false
+        end
+        local dx = point2.x - center2.x
+        local dy = point2.y - center2.y
+        return (dx * dx + dy * dy) <= (zone.radius * zone.radius)
     elseif zone.type == "polygon" and zone.points and #zone.points >= 3 then
-        -- Convert 2D point to 3D for IsInPolygonZone
-        local point3d = { x = point.x, y = 0, z = point.z }
+        local point3d = Vec3(point2.x, 0, point2.y)
         return IsInPolygonZone(point3d, zone.points)
     end
 

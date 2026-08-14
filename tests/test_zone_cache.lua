@@ -153,22 +153,22 @@ function TestZoneCache:testPointInZone()
     local zone = GetCachedZoneByName("TEST_ZONE_1")
 
     -- Point at center
-    lu.assertTrue(IsPointInZoneGeometry(zone, { x = 1000, z = 2000 }))
+    lu.assertTrue(IsPointInZoneGeometry(zone, Vec2(1000, 2000)))
 
     -- Point inside
-    lu.assertTrue(IsPointInZoneGeometry(zone, { x = 1200, z = 2000 }))
+    lu.assertTrue(IsPointInZoneGeometry(zone, Vec2(1200, 2000)))
 
     -- Point outside
-    lu.assertFalse(IsPointInZoneGeometry(zone, { x = 2000, z = 2000 }))
+    lu.assertFalse(IsPointInZoneGeometry(zone, Vec2(2000, 2000)))
 
     -- Test polygon zone
     local polyZone = GetCachedZoneByName("TEST_ZONE_2")
 
     -- Point inside square
-    lu.assertTrue(IsPointInZoneGeometry(polyZone, { x = 50, z = 50 }))
+    lu.assertTrue(IsPointInZoneGeometry(polyZone, Vec2(50, 50)))
 
     -- Point outside square
-    lu.assertFalse(IsPointInZoneGeometry(polyZone, { x = 150, z = 50 }))
+    lu.assertFalse(IsPointInZoneGeometry(polyZone, Vec2(150, 50)))
 end
 
 -- Test that runtime API still works

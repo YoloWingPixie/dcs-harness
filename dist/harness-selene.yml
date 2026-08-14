@@ -541,6 +541,34 @@ globals:
       required: false
   CreateRefuelingTask:
     args: []
+  CreateFACAttackGroupTask:
+    args:
+    - type: number
+    - type: number
+      required: false
+    - type: any
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: number
+      required: false
+  CreateFireAtPointTask:
+    args:
+    - type: table
+    - type: number
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
   CreateHoldTask:
     args:
     - type: any
@@ -1732,6 +1760,96 @@ globals:
       required: false
     - type: table
     - type: number
+    - type: bool
+      required: false
+    - type: string
+      required: false
+  LineToAll:
+    args:
+    - type: number
+    - type: table
+    - type: table
+    - type: table
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: string
+      required: false
+  CircleToAll:
+    args:
+    - type: number
+    - type: table
+    - type: number
+    - type: table
+      required: false
+    - type: table
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: string
+      required: false
+  RectToAll:
+    args:
+    - type: number
+    - type: table
+    - type: table
+    - type: table
+      required: false
+    - type: table
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: string
+      required: false
+  QuadToAll:
+    args:
+    - type: number
+    - type: table
+    - type: table
+    - type: table
+    - type: table
+    - type: table
+      required: false
+    - type: table
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: string
+      required: false
+  TextToAll:
+    args:
+    - type: number
+    - type: string
+    - type: table
+    - type: table
+      required: false
+    - type: table
+      required: false
+    - type: number
+      required: false
+    - type: bool
+      required: false
+    - type: string
+      required: false
+  ArrowToAll:
+    args:
+    - type: number
+    - type: table
+    - type: table
+    - type: table
+      required: false
+    - type: table
+      required: false
+    - type: number
+      required: false
     - type: bool
       required: false
     - type: string

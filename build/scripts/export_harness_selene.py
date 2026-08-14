@@ -62,6 +62,9 @@ EXTRA_GLOBALS: Dict[str, Dict[str, Any]] = {
 
 PARAM_RE = re.compile(r"^\s*---@param\s+(\w+)\s+([^\s]+)")
 FUNC_DEF_RE = re.compile(r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+FUNC_SIGNATURE_RE = re.compile(
+    r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)"
+)
 
 
 @dataclass
@@ -135,15 +138,23 @@ def parse_lua_public_functions(lua_path: Path) -> List[ParsedFunction]:
     pending_param_types: List[str] = []
     results: List[ParsedFunction] = []
 
-    for line in lines:
+    line_index = 0
+    while line_index < len(lines):
+        line = lines[line_index]
         m_param = PARAM_RE.match(line)
         if m_param:
             # We only need the type order, name is not required for Selene
             type_str = m_param.group(2)
             pending_param_types.append(type_str)
+            line_index += 1
             continue
 
-        m_func = re.match(r"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)", line)
+        if FUNC_DEF_RE.match(line):
+            while ")" not in line and line_index + 1 < len(lines):
+                line_index += 1
+                line += " " + lines[line_index]
+
+        m_func = FUNC_SIGNATURE_RE.match(line)
         if m_func:
             fname = m_func.group(1)
             arglist = m_func.group(2).strip()
@@ -159,12 +170,14 @@ def parse_lua_public_functions(lua_path: Path) -> List[ParsedFunction]:
                 types_for_args.append("any")
             results.append(ParsedFunction(name=fname, arg_types=types_for_args))
             pending_param_types = []
+            line_index += 1
             continue
 
         # Reset pending when non-annotation non-blank encountered between blocks
         if pending_param_types and not line.strip().startswith("---") and not line.strip().startswith("--"):
             # a new chunk of code started; clear stale params to avoid mismatches
             pending_param_types = []
+        line_index += 1
 
     return results
 
@@ -221,6 +234,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
 
 

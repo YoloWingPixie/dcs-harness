@@ -50,11 +50,7 @@ Thumbs.db
 *.tmp
 *.bak
 *~
-
-
-CLAUDE.md
-.claude/
+__pycache__/
+*.py[cod]
 
 .task/
-
-.cursor/

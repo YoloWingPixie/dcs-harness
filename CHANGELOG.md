@@ -72,6 +72,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GeoGrid` now exports its optional cell size and allowed-type table accurately to Selene.
 - `EventBus` now exports its key selector as an optional function.
 - `GetCoalitionGroups` now has one authoritative definition and returns an empty array on invalid input or API failure.
+- `BuildAirOptions` now uses ordered option definitions and preserves explicit false RTB overrides.
+- `_HarnessInternal.cache.addController` now stores recognized controller metadata when provided.
+- `GetUnitController` now delegates controller metadata storage to the cache owner.
+- `GetGroupController` now delegates controller metadata storage to the cache owner.
+- `EstimateTwoBodyCPA` now shares horizontal position calculations without changing its result contract.
+- `EstimateInterceptForSpeed` now isolates nonnegative root selection without changing its result contract.
+- `ProcessDrawingGeometry` now delegates drawing types and polygon modes to private handlers.
+- `NormalizeDirectionalRunways` now separates raw-record validation from directional runway creation.
 - `Vec2` now stores DCS `{x,y}` fields instead of `{x,z}`.
 - `IsVec2` now accepts only DCS `{x,y}` values without a Z component.
 - `ToVec2` now returns DCS `{x,y}` and maps Vec3 Z to Vec2 Y.

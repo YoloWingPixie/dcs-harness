@@ -118,7 +118,7 @@ jobs:
         run: task build:cd
 
       - name: Syntax check
-        run: luac -p '${{ env.BUILD_DIR }}/${{ env.ARTIFACT_NAME }}'
+        run: task syntax:check
 
       - name: Verify version stamped
         run: |

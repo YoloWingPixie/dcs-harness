@@ -30,6 +30,54 @@ function TestIntercept:testInterceptForSpeed_movingTarget()
     lu.assertAlmostEquals(mag, 2, 1e-6)
 end
 
+function TestIntercept:testInterceptForSpeed_linearSolution()
+    local t, p, v = EstimateInterceptForSpeed(
+        { x = 0, y = 100, z = 0 },
+        1,
+        { x = 10, y = 200, z = 0 },
+        { x = -1, y = 0, z = 0 }
+    )
+
+    lu.assertAlmostEquals(t, 5, 1e-6)
+    lu.assertAlmostEquals(p.x, 5, 1e-6)
+    lu.assertAlmostEquals(v.x, 1, 1e-6)
+end
+
+function TestIntercept:testInterceptForSpeed_colocatedInterceptsImmediately()
+    local t, p, v = EstimateInterceptForSpeed(
+        { x = 4, y = 100, z = 8 },
+        1,
+        { x = 4, y = 200, z = 8 },
+        { x = 1, y = 0, z = 0 }
+    )
+
+    lu.assertEquals(t, 0)
+    lu.assertEquals(p, { x = 4, y = 100, z = 8 })
+    lu.assertEquals(v, { x = 0, y = 100, z = 0 })
+end
+
+function TestIntercept:testInterceptForSpeed_rejectsUnavailableSolutions()
+    local perpendicular = {
+        EstimateInterceptForSpeed(
+            { x = 0, y = 0, z = 0 },
+            1,
+            { x = 10, y = 0, z = 0 },
+            { x = 0, y = 0, z = 2 }
+        ),
+    }
+    local movingAway = {
+        EstimateInterceptForSpeed(
+            { x = 0, y = 0, z = 0 },
+            1,
+            { x = 10, y = 0, z = 0 },
+            { x = 2, y = 0, z = 0 }
+        ),
+    }
+
+    lu.assertEquals(perpendicular, {})
+    lu.assertEquals(movingAway, {})
+end
+
 function TestIntercept:testDeltaV_withSpeed()
     local dV, t, p, v = EstimateInterceptDeltaV(
         { x = 0, y = 0, z = 0 },

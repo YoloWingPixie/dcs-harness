@@ -853,19 +853,6 @@ function GetUnitController(unit)
         end
 
         _HarnessInternal.cache.addController("unit:" .. unitName, controller, info)
-        -- Fallback: ensure metadata is stored even if addController ignores info
-        local entry = _HarnessInternal.cache.controllers["unit:" .. unitName]
-        if entry then
-            if info.groupName and entry.groupName == nil then
-                entry.groupName = info.groupName
-            end
-            if info.unitNames and entry.unitNames == nil then
-                entry.unitNames = info.unitNames
-            end
-            if info.domain and entry.domain == nil then
-                entry.domain = info.domain
-            end
-        end
     end
 
     return controller

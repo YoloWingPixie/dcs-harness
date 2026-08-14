@@ -54,6 +54,22 @@ function TestRunway:testCourseCorrection()
     lu.assertTrue(runways[2].courseAdjusted)
 end
 
+function TestRunway:testNormalizationGeneratesMissingNames()
+    local runways = NormalizeDirectionalRunways("Unnamed", {
+        rawRunway(nil, -math.pi / 2),
+    })
+
+    lu.assertEquals(runways[1].name, "09")
+    lu.assertEquals(runways[2].name, "27")
+end
+
+function TestRunway:testNormalizationRejectsInvalidArguments()
+    lu.assertNil(NormalizeDirectionalRunways(nil, {}))
+    lu.assertNil(NormalizeDirectionalRunways("Field", nil))
+    lu.assertNil(NormalizeDirectionalRunways("Field", {}, -1))
+    lu.assertNil(NormalizeDirectionalRunways("Field", {}, 181))
+end
+
 function TestRunway:testGetDirectionalRunwaysProtectsBoundary()
     local airbase = {
         getName = function()

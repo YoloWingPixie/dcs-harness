@@ -94,6 +94,27 @@ tasks:
       - cmd: ./tools/selene/selene.exe --allow-warnings --config selene.toml {{.BUILD_DIR}}/harness.lua
         platforms: [windows]
 
+  syntax:check:
+    desc: Parse the build artifact with Lua 5.1
+    cmds:
+      - luac -p "{{.BUILD_DIR}}/harness.lua"
+
+  complexity:check:
+    desc: Report Lua complexity warnings
+    preconditions:
+      - sh: command -v uv
+        msg: uv 0.10.12 is required to run complexity checks
+    cmds:
+      - uv run --locked --only-group quality python scripts/ci/lua_complexity.py {{.SRC_DIR}} {{.CLI_ARGS}}
+
+  deps:lock:
+    desc: Update the locked Python dependencies
+    preconditions:
+      - sh: command -v uv
+        msg: uv 0.10.12 is required to update Python dependencies
+    cmds:
+      - uv lock
+
   format:
     desc: Format Lua sources with Stylua (vendored)
     cmds:
@@ -121,12 +142,14 @@ tasks:
       - '{{.TEST_DIR}}/**/*.lua'
 
   ci:
-    desc: Run CI pipeline (format check, lint, test, build without format)
+    desc: Run CI pipeline
     cmds:
       - task: format:check
       - task: lint
       - task: test
+      - task: complexity:check
       - task: build:cd
+      - task: syntax:check
 
   bump:patch:
     desc: Bump patch version (pyproject.toml + CHANGELOG.md)

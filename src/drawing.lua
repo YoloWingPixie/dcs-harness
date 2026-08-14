@@ -11,6 +11,82 @@ require("unit")
 require("group")
 require("coalition")
 
+local DrawingInternal = {}
+
+function DrawingInternal.absolutePoints(drawing)
+    local points = {}
+    if drawing.points then
+        for _, point in ipairs(drawing.points) do
+            points[#points + 1] = {
+                x = (drawing.mapX or 0) + (point.x or 0),
+                y = 0,
+                z = (drawing.mapY or 0) + (point.y or 0),
+            }
+        end
+    end
+    return points
+end
+
+function DrawingInternal.center(geometry)
+    return { x = geometry.x, y = 0, z = geometry.z }
+end
+
+function DrawingInternal.processLine(drawing, geometry)
+    geometry.lineMode = drawing.lineMode
+    geometry.closed = drawing.closed
+    geometry.points = DrawingInternal.absolutePoints(drawing)
+end
+
+DrawingInternal.polygonHandlers = {
+    circle = function(drawing, geometry)
+        geometry.radius = drawing.radius
+        geometry.center = DrawingInternal.center(geometry)
+    end,
+    rect = function(drawing, geometry)
+        geometry.width = drawing.width
+        geometry.height = drawing.height
+        geometry.angle = drawing.angle or 0
+        geometry.center = DrawingInternal.center(geometry)
+    end,
+    oval = function(drawing, geometry)
+        geometry.r1 = drawing.r1
+        geometry.r2 = drawing.r2
+        geometry.angle = drawing.angle or 0
+        geometry.center = DrawingInternal.center(geometry)
+    end,
+    arrow = function(drawing, geometry)
+        geometry.length = drawing.length
+        geometry.angle = drawing.angle or 0
+        geometry.points = DrawingInternal.absolutePoints(drawing)
+    end,
+    free = function(drawing, geometry)
+        if drawing.points then
+            geometry.points = DrawingInternal.absolutePoints(drawing)
+        end
+    end,
+}
+
+function DrawingInternal.processPolygon(drawing, geometry)
+    geometry.polygonMode = drawing.polygonMode
+    local handler = DrawingInternal.polygonHandlers[drawing.polygonMode]
+    if handler then
+        handler(drawing, geometry)
+    end
+end
+
+function DrawingInternal.processIcon(drawing, geometry)
+    geometry.file = drawing.file
+    geometry.scale = drawing.scale or 1
+    geometry.angle = drawing.angle or 0
+    geometry.position = DrawingInternal.center(geometry)
+end
+
+DrawingInternal.primitiveHandlers = {
+    Line = DrawingInternal.processLine,
+    Polygon = DrawingInternal.processPolygon,
+    Icon = DrawingInternal.processIcon,
+}
+
 --- Get all drawings from the mission
 ---@return table? drawings Table of all drawing layers and objects or nil on error
 ---@usage local drawings = GetDrawings()
@@ -37,7 +113,7 @@ end
 ---@param drawing table Drawing object to process
 ---@return table? geometry Processed geometry data or nil on error
 function ProcessDrawingGeometry(drawing)
-    if not drawing or type(drawing) ~= "table" then
+    if type(drawing) ~= "table" then
         return nil
     end
 
@@ -50,76 +126,17 @@ function ProcessDrawingGeometry(drawing)
         mapY = drawing.mapY,
     }
 
-    -- Convert mapX, mapY to DCS coordinate system (x, z)
     if geometry.mapX and geometry.mapY then
         geometry.x = geometry.mapX
         geometry.z = geometry.mapY
-        geometry.y = 0 -- Default ground level
+        geometry.y = 0
     end
 
-    -- Process based on primitive type
-    if drawing.primitiveType == "Line" then
-        geometry.lineMode = drawing.lineMode
-        geometry.closed = drawing.closed
-        geometry.points = {}
-
-        if drawing.points then
-            for i, point in ipairs(drawing.points) do
-                table.insert(geometry.points, {
-                    x = (drawing.mapX or 0) + (point.x or 0),
-                    y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0),
-                })
-            end
-        end
-    elseif drawing.primitiveType == "Polygon" then
-        geometry.polygonMode = drawing.polygonMode
-
-        if drawing.polygonMode == "circle" then
-            geometry.radius = drawing.radius
-            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
-        elseif drawing.polygonMode == "rect" then
-            geometry.width = drawing.width
-            geometry.height = drawing.height
-            geometry.angle = drawing.angle or 0
-            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
-        elseif drawing.polygonMode == "oval" then
-            geometry.r1 = drawing.r1
-            geometry.r2 = drawing.r2
-            geometry.angle = drawing.angle or 0
-            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
-        elseif drawing.polygonMode == "arrow" then
-            geometry.length = drawing.length
-            geometry.angle = drawing.angle or 0
-            geometry.points = {}
-
-            if drawing.points then
-                for i, point in ipairs(drawing.points) do
-                    table.insert(geometry.points, {
-                        x = (drawing.mapX or 0) + (point.x or 0),
-                        y = 0,
-                        z = (drawing.mapY or 0) + (point.y or 0),
-                    })
-                end
-            end
-        elseif drawing.polygonMode == "free" and drawing.points then
-            geometry.points = {}
-            for i, point in ipairs(drawing.points) do
-                table.insert(geometry.points, {
-                    x = (drawing.mapX or 0) + (point.x or 0),
-                    y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0),
-                })
-            end
-        end
-    elseif drawing.primitiveType == "Icon" then
-        geometry.file = drawing.file
-        geometry.scale = drawing.scale or 1
-        geometry.angle = drawing.angle or 0
-        geometry.position = { x = geometry.x, y = 0, z = geometry.z }
+    local handler = DrawingInternal.primitiveHandlers[drawing.primitiveType]
+    if handler then
+        handler(drawing, geometry)
     end
 
-    -- Store color information if available
     if drawing.colorString then
         geometry.color = drawing.colorString
     end

@@ -2410,7 +2410,8 @@ end
 --- Add controller to cache
 ---@param key string Cache key (unit/group name + type)
 ---@param controller table Controller object
-function _HarnessInternal.cache.addController(key, controller)
+---@param info table? Controller metadata
+function _HarnessInternal.cache.addController(key, controller, info)
     if not key or not controller then
         return
     end
@@ -2436,9 +2437,13 @@ function _HarnessInternal.cache.addController(key, controller)
         end
     end
 
+    local metadata = type(info) == "table" and info or {}
     _HarnessInternal.cache.controllers[key] = {
         object = controller,
         time = timer and timer.getTime and timer.getTime() or os.time(),
+        groupName = metadata.groupName,
+        unitNames = metadata.unitNames,
+        domain = metadata.domain,
     }
 end
 
@@ -2584,6 +2589,8 @@ end
     This module provides validated wrapper functions for DCS controller operations,
     including AI tasking, commands, and behavior management.
 ]]
+local ControllerInternal = {}
+
 -- Resolve a domain string for a controller.
 -- Prefers explicitDomain, then cached domain (if available), else falls back.
 local function _resolveControllerDomain(controller, explicitDomain, defaultDomain)
@@ -3499,111 +3506,75 @@ function BuildNavalOptionTask(optionId, value)
     }
 end
 
+ControllerInternal.airOptionDefinitions = {
+    { name = "ROE", enum = true, enumDefault = "RETURN_FIRE", fallback = 3 },
+    {
+        name = "REACTION_ON_THREAT",
+        enum = true,
+        enumDefault = "EVADE_FIRE",
+        fallback = 2,
+    },
+    { name = "RADAR_USING", fallback = 1 },
+    { name = "FLARE_USING", fallback = 1 },
+    { name = "FORMATION", optional = true },
+    { name = "RTB_ON_BINGO", fallback = true, allowFalse = true },
+    { name = "RTB_ON_OUT_OF_AMMO", fallback = true, allowFalse = true },
+    { name = "SILENCE", fallback = false },
+    { name = "ECM_USING", fallback = 0 },
+    { name = "ALARM_STATE", enum = true, optional = true },
+    { name = "PROHIBIT_AA", fallback = false },
+    { name = "PROHIBIT_AB", fallback = false },
+    { name = "PROHIBIT_JETT", fallback = false },
+    { name = "PROHIBIT_AG", fallback = false },
+    { name = "MISSILE_ATTACK", enum = true, enumDefault = "NEZ_RANGE", fallback = 1 },
+}
+
+function ControllerInternal.resolveAirOptionValue(definition, overrides, values)
+    local value = overrides[definition.name]
+    if definition.enum and type(value) == "string" then
+        local enumValues = values[definition.name]
+        if enumValues then
+            value = enumValues[string.upper(value)]
+        end
+    end
+    if value == false and not definition.allowFalse then
+        value = nil
+    end
+    if value ~= nil then
+        return value
+    end
+    if definition.optional then
+        return nil
+    end
+    if definition.enumDefault then
+        local enumValues = values[definition.name]
+        local enumDefault = enumValues and enumValues[definition.enumDefault]
+        if enumDefault ~= nil then
+            return enumDefault
+        end
+    end
+    return definition.fallback
+end
+
 --- Build a standard set of Air AI options as an array of Option tasks
 --- @param overrides table|nil Optional overrides by key (e.g., { ROE = "WEAPON_FREE", RADAR_USING = 1 })
 --- @return table tasks Array of Option task tables
 function BuildAirOptions(overrides)
-    local opt = AI and AI.Option and AI.Option.Air
-    local val = opt and opt.val or {}
-    local id = opt and opt.id or {}
-    local o = overrides or {}
-
-    local function mapVal(tbl, key, v)
-        if tbl and tbl[key] and type(v) == "string" then
-            local upper = string.upper(v)
-            return tbl[key][upper]
-        end
-        return v
-    end
-
+    local options = AI and AI.Option and AI.Option.Air
+    local values = options and options.val or {}
+    local ids = options and options.id or {}
+    local optionOverrides = overrides or {}
     local tasks = {}
-    -- ROE
-    local roe = mapVal(val, "ROE", o.ROE) or (val.ROE and val.ROE.RETURN_FIRE) or 3
-    if id and id.ROE then
-        table.insert(tasks, BuildAirOptionTask(id.ROE, roe))
-    end
-    -- Reaction on threat
-    local rot = mapVal(val, "REACTION_ON_THREAT", o.REACTION_ON_THREAT)
-        or (val.REACTION_ON_THREAT and val.REACTION_ON_THREAT.EVADE_FIRE)
-        or 2
-    if id and id.REACTION_ON_THREAT then
-        table.insert(tasks, BuildAirOptionTask(id.REACTION_ON_THREAT, rot))
-    end
-    -- Radar using
-    local radar = o.RADAR_USING or 1
-    if id and id.RADAR_USING then
-        table.insert(tasks, BuildAirOptionTask(id.RADAR_USING, radar))
-    end
-    -- Flare using
-    local flare = o.FLARE_USING or 1
-    if id and id.FLARE_USING then
-        table.insert(tasks, BuildAirOptionTask(id.FLARE_USING, flare))
-    end
-    -- Formation (leave nil unless provided)
-    if o.FORMATION and id and id.FORMATION then
-        table.insert(tasks, BuildAirOptionTask(id.FORMATION, o.FORMATION))
-    end
-    -- RTB policies
-    local rtbBingo = (o.RTB_ON_BINGO ~= nil) and o.RTB_ON_BINGO or true
-    if id and id.RTB_ON_BINGO then
-        table.insert(tasks, BuildAirOptionTask(id.RTB_ON_BINGO, rtbBingo))
-    end
-    local rtbAmmo = (o.RTB_ON_OUT_OF_AMMO ~= nil) and o.RTB_ON_OUT_OF_AMMO or true
-    if id and id.RTB_ON_OUT_OF_AMMO then
-        table.insert(tasks, BuildAirOptionTask(id.RTB_ON_OUT_OF_AMMO, rtbAmmo))
-    end
-    -- Silence/ECM
-    local silence = (o.SILENCE ~= nil) and o.SILENCE or false
-    if id and id.SILENCE then
-        table.insert(tasks, BuildAirOptionTask(id.SILENCE, silence))
-    end
-    local ecm = o.ECM_USING or 0
-    if id and id.ECM_USING then
-        table.insert(tasks, BuildAirOptionTask(id.ECM_USING, ecm))
-    end
-    -- Alarm state (optional for Air)
-    if o.ALARM_STATE and id and id.ALARM_STATE then
-        local alarm = mapVal(val, "ALARM_STATE", o.ALARM_STATE)
-        if alarm ~= nil then
-            table.insert(tasks, BuildAirOptionTask(id.ALARM_STATE, alarm))
+    for _, definition in ipairs(ControllerInternal.airOptionDefinitions) do
+        local optionId = ids[definition.name]
+        if optionId ~= nil then
+            local value =
+                ControllerInternal.resolveAirOptionValue(definition, optionOverrides, values)
+            if value ~= nil then
+                tasks[#tasks + 1] = BuildAirOptionTask(optionId, value)
+            end
         end
     end
-    -- Prohibits
-    if id and id.PROHIBIT_AA then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(id.PROHIBIT_AA, (o.PROHIBIT_AA ~= nil) and o.PROHIBIT_AA or false)
-        )
-    end
-    if id and id.PROHIBIT_AB then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(id.PROHIBIT_AB, (o.PROHIBIT_AB ~= nil) and o.PROHIBIT_AB or false)
-        )
-    end
-    if id and id.PROHIBIT_JETT then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(
-                id.PROHIBIT_JETT,
-                (o.PROHIBIT_JETT ~= nil) and o.PROHIBIT_JETT or false
-            )
-        )
-    end
-    if id and id.PROHIBIT_AG then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(id.PROHIBIT_AG, (o.PROHIBIT_AG ~= nil) and o.PROHIBIT_AG or false)
-        )
-    end
-    -- Missile attack policy
-    local ma = mapVal(val, "MISSILE_ATTACK", o.MISSILE_ATTACK)
-        or (val.MISSILE_ATTACK and val.MISSILE_ATTACK.NEZ_RANGE)
-        or 1
-    if id and id.MISSILE_ATTACK then
-        table.insert(tasks, BuildAirOptionTask(id.MISSILE_ATTACK, ma))
-    end
-
     return tasks
 end
 
@@ -9721,6 +9692,55 @@ function GeoMathInternal.groundResult(reference, x, east, altitude)
     return Vec2(x, east)
 end
 
+function GeoMathInternal.componentOrZero(vector, component)
+    return (vector and vector[component]) or 0
+end
+
+function GeoMathInternal.horizontalPositionAtTime(position, velocity, time)
+    return {
+        x = GeoMathInternal.componentOrZero(position, "x")
+            + GeoMathInternal.componentOrZero(velocity, "x") * time,
+        y = GeoMathInternal.componentOrZero(position, "y"),
+        z = GeoMathInternal.componentOrZero(position, "z")
+            + GeoMathInternal.componentOrZero(velocity, "z") * time,
+    }
+end
+
+function GeoMathInternal.smallestNonnegativeRoot(a, b, c, epsilon)
+    if math.abs(a) < epsilon then
+        if math.abs(b) < epsilon then
+            if c < epsilon then
+                return 0
+            end
+            return nil
+        end
+        local root = -c / b
+        if root >= 0 then
+            return root
+        end
+        return nil
+    end
+
+    local discriminant = b * b - 4 * a * c
+    if discriminant < 0 then
+        return nil
+    end
+    local rootOffset = math.sqrt(discriminant)
+    local first = (-b - rootOffset) / (2 * a)
+    local second = (-b + rootOffset) / (2 * a)
+    local result = math.huge
+    if first >= 0 then
+        result = first
+    end
+    if second >= 0 then
+        result = math.min(result, second)
+    end
+    if result == math.huge then
+        return nil
+    end
+    return result
+end
+
 ---Converts degrees to radians
 ---@param degrees number The angle in degrees
 ---@return number? radians The angle in radians, or nil if input is invalid
@@ -10605,29 +10625,22 @@ function EstimateTwoBodyCPA(posA, velA, posB, velB)
         )
         return 0, math.huge, posA, posB
     end
-    local rx = (((posA and posA.x) or 0) - ((posB and posB.x) or 0))
-    local rz = (((posA and posA.z) or 0) - ((posB and posB.z) or 0))
-    local vx = (((velA and velA.x) or 0) - ((velB and velB.x) or 0))
-    local vz = (((velA and velA.z) or 0) - ((velB and velB.z) or 0))
+    local rx = GeoMathInternal.componentOrZero(posA, "x")
+        - GeoMathInternal.componentOrZero(posB, "x")
+    local rz = GeoMathInternal.componentOrZero(posA, "z")
+        - GeoMathInternal.componentOrZero(posB, "z")
+    local vx = GeoMathInternal.componentOrZero(velA, "x")
+        - GeoMathInternal.componentOrZero(velB, "x")
+    local vz = GeoMathInternal.componentOrZero(velA, "z")
+        - GeoMathInternal.componentOrZero(velB, "z")
     local v2 = vx * vx + vz * vz
     local tStar = 0
     if v2 > 1e-9 then
         tStar = math.max(0, -((rx * vx + rz * vz) / v2))
     end
-    local aAtT = {
-        x = (((posA and posA.x) or 0) + (((velA and velA.x) or 0) * tStar)),
-        y = (posA and posA.y) or 0,
-        z = (((posA and posA.z) or 0) + (((velA and velA.z) or 0) * tStar)),
-    }
-    local bAtT = {
-        x = (((posB and posB.x) or 0) + (((velB and velB.x) or 0) * tStar)),
-        y = (posB and posB.y) or 0,
-        z = (((posB and posB.z) or 0) + (((velB and velB.z) or 0) * tStar)),
-    }
-    local dx = aAtT.x - bAtT.x
-    local dz = aAtT.z - bAtT.z
-    local d = math.sqrt(dx * dx + dz * dz)
-    return tStar, d, aAtT, bAtT
+    local aAtT = GeoMathInternal.horizontalPositionAtTime(posA, velA, tStar)
+    local bAtT = GeoMathInternal.horizontalPositionAtTime(posB, velB, tStar)
+    return tStar, Distance2D(aAtT, bAtT), aAtT, bAtT
 end
 
 -- ==================== Intercept Solvers ====================
@@ -10649,78 +10662,46 @@ function EstimateInterceptForSpeed(posA, speedA, posB, velB)
         return nil, nil, nil
     end
 
-    local rX = ((posB and posB.x) or 0) - ((posA and posA.x) or 0)
-    local rZ = ((posB and posB.z) or 0) - ((posA and posA.z) or 0)
-    local vX = (velB and velB.x) or 0
-    local vZ = (velB and velB.z) or 0
-    local s = speedA or 0
+    local posAX = GeoMathInternal.componentOrZero(posA, "x")
+    local posAY = GeoMathInternal.componentOrZero(posA, "y")
+    local posAZ = GeoMathInternal.componentOrZero(posA, "z")
+    local posBX = GeoMathInternal.componentOrZero(posB, "x")
+    local posBZ = GeoMathInternal.componentOrZero(posB, "z")
+    local vX = GeoMathInternal.componentOrZero(velB, "x")
+    local vZ = GeoMathInternal.componentOrZero(velB, "z")
+    local rX = posBX - posAX
+    local rZ = posBZ - posAZ
+    local s = speedA
 
     local a = vX * vX + vZ * vZ - s * s
     local b = 2 * (rX * vX + rZ * vZ)
     local c = rX * rX + rZ * rZ
 
-    local t = nil
     local eps = 1e-9
-    if math.abs(a) < eps then
-        -- Linear case: speeds nearly equal => 2*(r·v)t + r^2 = 0
-        if math.abs(b) < eps then
-            -- No relative motion; if already colocated, intercept now
-            if c < eps then
-                t = 0
-            else
-                return nil, nil, nil
-            end
-        else
-            t = -c / b
-            if t and t < 0 then
-                return nil, nil, nil
-            end
-        end
-    else
-        local disc = b * b - 4 * a * c
-        if disc < 0 then
-            return nil, nil, nil
-        end
-        local sqrtDisc = math.sqrt(disc)
-        local t1 = (-b - sqrtDisc) / (2 * a)
-        local t2 = (-b + sqrtDisc) / (2 * a)
-        -- choose smallest non-negative
-        local best = math.huge
-        if t1 and t1 >= 0 then
-            best = math.min(best, t1)
-        end
-        if t2 and t2 >= 0 then
-            best = math.min(best, t2)
-        end
-        if best == math.huge then
-            return nil, nil, nil
-        end
-        t = best
+    local t = GeoMathInternal.smallestNonnegativeRoot(a, b, c, eps)
+    if t == nil then
+        return nil, nil, nil
     end
 
-    -- Intercept point and required velocity
-    local interceptX = (((posB and posB.x) or 0) + vX * (t or 0))
-    local interceptZ = (((posB and posB.z) or 0) + vZ * (t or 0))
-    local dx = interceptX - ((posA and posA.x) or 0)
-    local dz = interceptZ - ((posA and posA.z) or 0)
+    local interceptX = posBX + vX * t
+    local interceptZ = posBZ + vZ * t
+    local dx = interceptX - posAX
+    local dz = interceptZ - posAZ
     local reqVX, reqVZ
-    if (t or 0) > eps then
+    if t > eps then
         reqVX = dx / t
         reqVZ = dz / t
     else
         reqVX = 0
         reqVZ = 0
     end
-    -- Normalize to exact speed to reduce numerical drift
     local mag = math.sqrt(reqVX * reqVX + reqVZ * reqVZ)
     if mag > eps and s > 0 then
         reqVX = reqVX * (s / mag)
         reqVZ = reqVZ * (s / mag)
     end
 
-    return t,
-        { x = interceptX, y = (posA and posA.y) or 0, z = interceptZ },
-        { x = reqVX, y = (posA and posA.y) or 0, z = reqVZ }
+    return t, { x = interceptX, y = posAY, z = interceptZ }, { x = reqVX, y = posAY, z = reqVZ }
 end
 
 --- Compute delta-velocity required for A to intercept B at given speed
@@ -11593,6 +11574,101 @@ function AirbaseInternal.buildDirectionalRunway(
     return runway
 end
 
+function AirbaseInternal.parseRawRunway(rawRunway, sourceIndex)
+    if type(rawRunway) ~= "table" then
+        _HarnessInternal.log.error(
+            "Skipped malformed runway record at source index " .. tostring(sourceIndex),
+            "Airbase.NormalizeDirectionalRunways"
+        )
+        return nil
+    end
+
+    local parsed = {
+        lengthM = tonumber(rawRunway.length),
+        widthM = tonumber(rawRunway.width),
+        course = tonumber(rawRunway.course),
+        center = rawRunway.position,
+        name = rawRunway.Name or rawRunway.name,
+    }
+    if
+        not AirbaseInternal.finiteNumber(parsed.lengthM)
+        or parsed.lengthM <= 0
+        or not AirbaseInternal.finiteNumber(parsed.widthM)
+        or parsed.widthM <= 0
+        or not AirbaseInternal.finiteNumber(parsed.course)
+        or type(parsed.center) ~= "table"
+        or not AirbaseInternal.finiteNumber(parsed.center.x)
+        or not AirbaseInternal.finiteNumber(parsed.center.y)
+        or not AirbaseInternal.finiteNumber(parsed.center.z)
+    then
+        _HarnessInternal.log.error(
+            "Skipped malformed runway record at source index " .. tostring(sourceIndex),
+            "Airbase.NormalizeDirectionalRunways"
+        )
+        return nil
+    end
+    return parsed
+end
+
+function AirbaseInternal.directionalRunwayNameAndHeading(parsed, reciprocalSanityDeg)
+    local headingDeg = (math.deg(-parsed.course) + 360) % 360
+    local designator
+    if parsed.name ~= nil then
+        designator = tonumber(string.match(tostring(parsed.name), "^%s*(%d+)"))
+    end
+    local courseAdjusted = false
+    if
+        designator
+        and AirbaseInternal.shortestHeadingDifference(headingDeg, (designator * 10) % 360)
+            > reciprocalSanityDeg
+    then
+        headingDeg = (headingDeg + 180) % 360
+        courseAdjusted = true
+    end
+
+    local name = parsed.name
+    if name == nil then
+        local roundedDesignator = math.floor((headingDeg + 5) / 10) % 36
+        name = string.format("%02d", roundedDesignator == 0 and 36 or roundedDesignator)
+    end
+    return name, headingDeg, courseAdjusted
+end
+
+function AirbaseInternal.appendDirectionalRunwayPair(
+    runways,
+    airbaseName,
+    rawRunway,
+    sourceIndex,
+    reciprocalSanityDeg
+)
+    local parsed = AirbaseInternal.parseRawRunway(rawRunway, sourceIndex)
+    if not parsed then
+        return
+    end
+    local name, headingDeg, courseAdjusted =
+        AirbaseInternal.directionalRunwayNameAndHeading(parsed, reciprocalSanityDeg)
+    runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
+        airbaseName,
+        name,
+        headingDeg,
+        parsed.center,
+        parsed.lengthM,
+        parsed.widthM,
+        sourceIndex,
+        courseAdjusted
+    )
+    runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
+        airbaseName,
+        GetReciprocalRunwayName(name),
+        headingDeg + 180,
+        parsed.center,
+        parsed.lengthM,
+        parsed.widthM,
+        sourceIndex,
+        courseAdjusted
+    )
+end
+
 --- Normalize physical runway records into directional runway records
 ---@param airbaseName string Airbase name
 ---@param rawRunways table Raw Airbase:getRunways() records
@@ -11617,68 +11693,13 @@ function NormalizeDirectionalRunways(airbaseName, rawRunways, reciprocalSanityDe
 
     local runways = {}
     for sourceIndex = 1, #rawRunways do
-        local rawRunway = rawRunways[sourceIndex]
-        local lengthM = type(rawRunway) == "table" and tonumber(rawRunway.length) or nil
-        local widthM = type(rawRunway) == "table" and tonumber(rawRunway.width) or nil
-        local course = type(rawRunway) == "table" and tonumber(rawRunway.course) or nil
-        local center = type(rawRunway) == "table" and rawRunway.position or nil
-        if
-            not AirbaseInternal.finiteNumber(lengthM)
-            or lengthM <= 0
-            or not AirbaseInternal.finiteNumber(widthM)
-            or widthM <= 0
-            or not AirbaseInternal.finiteNumber(course)
-            or type(center) ~= "table"
-            or not AirbaseInternal.finiteNumber(center.x)
-            or not AirbaseInternal.finiteNumber(center.y)
-            or not AirbaseInternal.finiteNumber(center.z)
-        then
-            _HarnessInternal.log.error(
-                "Skipped malformed runway record at source index " .. tostring(sourceIndex),
-                "Airbase.NormalizeDirectionalRunways"
-            )
-        else
-            local headingDeg = (math.deg(-course) + 360) % 360
-            local rawName = rawRunway.Name or rawRunway.name
-            local designator = rawName and tonumber(string.match(tostring(rawName), "^%s*(%d+)"))
-                or nil
-            local courseAdjusted = false
-            if
-                designator
-                and AirbaseInternal.shortestHeadingDifference(
-                        headingDeg,
-                        (designator * 10) % 360
-                    )
-                    > reciprocalSanityDeg
-            then
-                headingDeg = (headingDeg + 180) % 360
-                courseAdjusted = true
-            end
-            if rawName == nil then
-                local roundedDesignator = math.floor((headingDeg + 5) / 10) % 36
-                rawName = string.format("%02d", roundedDesignator == 0 and 36 or roundedDesignator)
-            end
-            runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
-                airbaseName,
-                rawName,
-                headingDeg,
-                center,
-                lengthM,
-                widthM,
-                sourceIndex,
-                courseAdjusted
-            )
-            runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
-                airbaseName,
-                GetReciprocalRunwayName(rawName),
-                headingDeg + 180,
-                center,
-                lengthM,
-                widthM,
-                sourceIndex,
-                courseAdjusted
-            )
-        end
+        AirbaseInternal.appendDirectionalRunwayPair(
+            runways,
+            airbaseName,
+            rawRunways[sourceIndex],
+            sourceIndex,
+            reciprocalSanityDeg
+        )
     end
     return runways
 end
@@ -12266,19 +12287,6 @@ function GetGroupController(groupName)
         info.domain = domain
 
         _HarnessInternal.cache.addController(cacheKey, controller, info)
-        -- Fallback: ensure metadata is stored even if addController ignores info
-        local entry = _HarnessInternal.cache.controllers[cacheKey]
-        if entry then
-            if info.groupName and entry.groupName == nil then
-                entry.groupName = info.groupName
-            end
-            if info.unitNames and entry.unitNames == nil then
-                entry.unitNames = info.unitNames
-            end
-            if info.domain and entry.domain == nil then
-                entry.domain = info.domain
-            end
-        end
     end
 
     return controller
@@ -17674,19 +17682,6 @@ function GetUnitController(unit)
         end
 
         _HarnessInternal.cache.addController("unit:" .. unitName, controller, info)
-        -- Fallback: ensure metadata is stored even if addController ignores info
-        local entry = _HarnessInternal.cache.controllers["unit:" .. unitName]
-        if entry then
-            if info.groupName and entry.groupName == nil then
-                entry.groupName = info.groupName
-            end
-            if info.unitNames and entry.unitNames == nil then
-                entry.unitNames = info.unitNames
-            end
-            if info.domain and entry.domain == nil then
-                entry.domain = info.domain
-            end
-        end
     end
 
     return controller
@@ -20009,6 +20004,82 @@ end
     including getting drawing objects from the mission.
 ]]
 
+local DrawingInternal = {}
+
+function DrawingInternal.absolutePoints(drawing)
+    local points = {}
+    if drawing.points then
+        for _, point in ipairs(drawing.points) do
+            points[#points + 1] = {
+                x = (drawing.mapX or 0) + (point.x or 0),
+                y = 0,
+                z = (drawing.mapY or 0) + (point.y or 0),
+            }
+        end
+    end
+    return points
+end
+
+function DrawingInternal.center(geometry)
+    return { x = geometry.x, y = 0, z = geometry.z }
+end
+
+function DrawingInternal.processLine(drawing, geometry)
+    geometry.lineMode = drawing.lineMode
+    geometry.closed = drawing.closed
+    geometry.points = DrawingInternal.absolutePoints(drawing)
+end
+
+DrawingInternal.polygonHandlers = {
+    circle = function(drawing, geometry)
+        geometry.radius = drawing.radius
+        geometry.center = DrawingInternal.center(geometry)
+    end,
+    rect = function(drawing, geometry)
+        geometry.width = drawing.width
+        geometry.height = drawing.height
+        geometry.angle = drawing.angle or 0
+        geometry.center = DrawingInternal.center(geometry)
+    end,
+    oval = function(drawing, geometry)
+        geometry.r1 = drawing.r1
+        geometry.r2 = drawing.r2
+        geometry.angle = drawing.angle or 0
+        geometry.center = DrawingInternal.center(geometry)
+    end,
+    arrow = function(drawing, geometry)
+        geometry.length = drawing.length
+        geometry.angle = drawing.angle or 0
+        geometry.points = DrawingInternal.absolutePoints(drawing)
+    end,
+    free = function(drawing, geometry)
+        if drawing.points then
+            geometry.points = DrawingInternal.absolutePoints(drawing)
+        end
+    end,
+}
+
+function DrawingInternal.processPolygon(drawing, geometry)
+    geometry.polygonMode = drawing.polygonMode
+    local handler = DrawingInternal.polygonHandlers[drawing.polygonMode]
+    if handler then
+        handler(drawing, geometry)
+    end
+end
+
+function DrawingInternal.processIcon(drawing, geometry)
+    geometry.file = drawing.file
+    geometry.scale = drawing.scale or 1
+    geometry.angle = drawing.angle or 0
+    geometry.position = DrawingInternal.center(geometry)
+end
+
+DrawingInternal.primitiveHandlers = {
+    Line = DrawingInternal.processLine,
+    Polygon = DrawingInternal.processPolygon,
+    Icon = DrawingInternal.processIcon,
+}
+
 --- Get all drawings from the mission
 ---@return table? drawings Table of all drawing layers and objects or nil on error
 ---@usage local drawings = GetDrawings()
@@ -20035,7 +20106,7 @@ end
 ---@param drawing table Drawing object to process
 ---@return table? geometry Processed geometry data or nil on error
 function ProcessDrawingGeometry(drawing)
-    if not drawing or type(drawing) ~= "table" then
+    if type(drawing) ~= "table" then
         return nil
     end
 
@@ -20048,76 +20119,17 @@ function ProcessDrawingGeometry(drawing)
         mapY = drawing.mapY,
     }
 
-    -- Convert mapX, mapY to DCS coordinate system (x, z)
     if geometry.mapX and geometry.mapY then
         geometry.x = geometry.mapX
         geometry.z = geometry.mapY
-        geometry.y = 0 -- Default ground level
+        geometry.y = 0
     end
 
-    -- Process based on primitive type
-    if drawing.primitiveType == "Line" then
-        geometry.lineMode = drawing.lineMode
-        geometry.closed = drawing.closed
-        geometry.points = {}
-
-        if drawing.points then
-            for i, point in ipairs(drawing.points) do
-                table.insert(geometry.points, {
-                    x = (drawing.mapX or 0) + (point.x or 0),
-                    y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0),
-                })
-            end
-        end
-    elseif drawing.primitiveType == "Polygon" then
-        geometry.polygonMode = drawing.polygonMode
-
-        if drawing.polygonMode == "circle" then
-            geometry.radius = drawing.radius
-            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
-        elseif drawing.polygonMode == "rect" then
-            geometry.width = drawing.width
-            geometry.height = drawing.height
-            geometry.angle = drawing.angle or 0
-            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
-        elseif drawing.polygonMode == "oval" then
-            geometry.r1 = drawing.r1
-            geometry.r2 = drawing.r2
-            geometry.angle = drawing.angle or 0
-            geometry.center = { x = geometry.x, y = 0, z = geometry.z }
-        elseif drawing.polygonMode == "arrow" then
-            geometry.length = drawing.length
-            geometry.angle = drawing.angle or 0
-            geometry.points = {}
-
-            if drawing.points then
-                for i, point in ipairs(drawing.points) do
-                    table.insert(geometry.points, {
-                        x = (drawing.mapX or 0) + (point.x or 0),
-                        y = 0,
-                        z = (drawing.mapY or 0) + (point.y or 0),
-                    })
-                end
-            end
-        elseif drawing.polygonMode == "free" and drawing.points then
-            geometry.points = {}
-            for i, point in ipairs(drawing.points) do
-                table.insert(geometry.points, {
-                    x = (drawing.mapX or 0) + (point.x or 0),
-                    y = 0,
-                    z = (drawing.mapY or 0) + (point.y or 0),
-                })
-            end
-        end
-    elseif drawing.primitiveType == "Icon" then
-        geometry.file = drawing.file
-        geometry.scale = drawing.scale or 1
-        geometry.angle = drawing.angle or 0
-        geometry.position = { x = geometry.x, y = 0, z = geometry.z }
+    local handler = DrawingInternal.primitiveHandlers[drawing.primitiveType]
+    if handler then
+        handler(drawing, geometry)
     end
 
-    -- Store color information if available
     if drawing.colorString then
         geometry.color = drawing.colorString
     end

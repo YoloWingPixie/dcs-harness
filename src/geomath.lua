@@ -41,6 +41,55 @@ function GeoMathInternal.groundResult(reference, x, east, altitude)
     return Vec2(x, east)
 end
 
+function GeoMathInternal.componentOrZero(vector, component)
+    return (vector and vector[component]) or 0
+end
+
+function GeoMathInternal.horizontalPositionAtTime(position, velocity, time)
+    return {
+        x = GeoMathInternal.componentOrZero(position, "x")
+            + GeoMathInternal.componentOrZero(velocity, "x") * time,
+        y = GeoMathInternal.componentOrZero(position, "y"),
+        z = GeoMathInternal.componentOrZero(position, "z")
+            + GeoMathInternal.componentOrZero(velocity, "z") * time,
+    }
+end
+
+function GeoMathInternal.smallestNonnegativeRoot(a, b, c, epsilon)
+    if math.abs(a) < epsilon then
+        if math.abs(b) < epsilon then
+            if c < epsilon then
+                return 0
+            end
+            return nil
+        end
+        local root = -c / b
+        if root >= 0 then
+            return root
+        end
+        return nil
+    end
+
+    local discriminant = b * b - 4 * a * c
+    if discriminant < 0 then
+        return nil
+    end
+    local rootOffset = math.sqrt(discriminant)
+    local first = (-b - rootOffset) / (2 * a)
+    local second = (-b + rootOffset) / (2 * a)
+    local result = math.huge
+    if first >= 0 then
+        result = first
+    end
+    if second >= 0 then
+        result = math.min(result, second)
+    end
+    if result == math.huge then
+        return nil
+    end
+    return result
+end
+
 ---Converts degrees to radians
 ---@param degrees number The angle in degrees
 ---@return number? radians The angle in radians, or nil if input is invalid
@@ -925,29 +974,22 @@ function EstimateTwoBodyCPA(posA, velA, posB, velB)
         )
         return 0, math.huge, posA, posB
     end
-    local rx = (((posA and posA.x) or 0) - ((posB and posB.x) or 0))
-    local rz = (((posA and posA.z) or 0) - ((posB and posB.z) or 0))
-    local vx = (((velA and velA.x) or 0) - ((velB and velB.x) or 0))
-    local vz = (((velA and velA.z) or 0) - ((velB and velB.z) or 0))
+    local rx = GeoMathInternal.componentOrZero(posA, "x")
+        - GeoMathInternal.componentOrZero(posB, "x")
+    local rz = GeoMathInternal.componentOrZero(posA, "z")
+        - GeoMathInternal.componentOrZero(posB, "z")
+    local vx = GeoMathInternal.componentOrZero(velA, "x")
+        - GeoMathInternal.componentOrZero(velB, "x")
+    local vz = GeoMathInternal.componentOrZero(velA, "z")
+        - GeoMathInternal.componentOrZero(velB, "z")
     local v2 = vx * vx + vz * vz
     local tStar = 0
     if v2 > 1e-9 then
         tStar = math.max(0, -((rx * vx + rz * vz) / v2))
     end
-    local aAtT = {
-        x = (((posA and posA.x) or 0) + (((velA and velA.x) or 0) * tStar)),
-        y = (posA and posA.y) or 0,
-        z = (((posA and posA.z) or 0) + (((velA and velA.z) or 0) * tStar)),
-    }
-    local bAtT = {
-        x = (((posB and posB.x) or 0) + (((velB and velB.x) or 0) * tStar)),
-        y = (posB and posB.y) or 0,
-        z = (((posB and posB.z) or 0) + (((velB and velB.z) or 0) * tStar)),
-    }
-    local dx = aAtT.x - bAtT.x
-    local dz = aAtT.z - bAtT.z
-    local d = math.sqrt(dx * dx + dz * dz)
-    return tStar, d, aAtT, bAtT
+    local aAtT = GeoMathInternal.horizontalPositionAtTime(posA, velA, tStar)
+    local bAtT = GeoMathInternal.horizontalPositionAtTime(posB, velB, tStar)
+    return tStar, Distance2D(aAtT, bAtT), aAtT, bAtT
 end
 
 -- ==================== Intercept Solvers ====================
@@ -969,78 +1011,46 @@ function EstimateInterceptForSpeed(posA, speedA, posB, velB)
         return nil, nil, nil
     end
 
-    local rX = ((posB and posB.x) or 0) - ((posA and posA.x) or 0)
-    local rZ = ((posB and posB.z) or 0) - ((posA and posA.z) or 0)
-    local vX = (velB and velB.x) or 0
-    local vZ = (velB and velB.z) or 0
-    local s = speedA or 0
+    local posAX = GeoMathInternal.componentOrZero(posA, "x")
+    local posAY = GeoMathInternal.componentOrZero(posA, "y")
+    local posAZ = GeoMathInternal.componentOrZero(posA, "z")
+    local posBX = GeoMathInternal.componentOrZero(posB, "x")
+    local posBZ = GeoMathInternal.componentOrZero(posB, "z")
+    local vX = GeoMathInternal.componentOrZero(velB, "x")
+    local vZ = GeoMathInternal.componentOrZero(velB, "z")
+    local rX = posBX - posAX
+    local rZ = posBZ - posAZ
+    local s = speedA
 
     local a = vX * vX + vZ * vZ - s * s
     local b = 2 * (rX * vX + rZ * vZ)
     local c = rX * rX + rZ * rZ
 
-    local t = nil
     local eps = 1e-9
-    if math.abs(a) < eps then
-        -- Linear case: speeds nearly equal => 2*(r·v)t + r^2 = 0
-        if math.abs(b) < eps then
-            -- No relative motion; if already colocated, intercept now
-            if c < eps then
-                t = 0
-            else
-                return nil, nil, nil
-            end
-        else
-            t = -c / b
-            if t and t < 0 then
-                return nil, nil, nil
-            end
-        end
-    else
-        local disc = b * b - 4 * a * c
-        if disc < 0 then
-            return nil, nil, nil
-        end
-        local sqrtDisc = math.sqrt(disc)
-        local t1 = (-b - sqrtDisc) / (2 * a)
-        local t2 = (-b + sqrtDisc) / (2 * a)
-        -- choose smallest non-negative
-        local best = math.huge
-        if t1 and t1 >= 0 then
-            best = math.min(best, t1)
-        end
-        if t2 and t2 >= 0 then
-            best = math.min(best, t2)
-        end
-        if best == math.huge then
-            return nil, nil, nil
-        end
-        t = best
+    local t = GeoMathInternal.smallestNonnegativeRoot(a, b, c, eps)
+    if t == nil then
+        return nil, nil, nil
     end
 
-    -- Intercept point and required velocity
-    local interceptX = (((posB and posB.x) or 0) + vX * (t or 0))
-    local interceptZ = (((posB and posB.z) or 0) + vZ * (t or 0))
-    local dx = interceptX - ((posA and posA.x) or 0)
-    local dz = interceptZ - ((posA and posA.z) or 0)
+    local interceptX = posBX + vX * t
+    local interceptZ = posBZ + vZ * t
+    local dx = interceptX - posAX
+    local dz = interceptZ - posAZ
     local reqVX, reqVZ
-    if (t or 0) > eps then
+    if t > eps then
         reqVX = dx / t
         reqVZ = dz / t
     else
         reqVX = 0
         reqVZ = 0
     end
-    -- Normalize to exact speed to reduce numerical drift
     local mag = math.sqrt(reqVX * reqVX + reqVZ * reqVZ)
     if mag > eps and s > 0 then
         reqVX = reqVX * (s / mag)
         reqVZ = reqVZ * (s / mag)
     end
 
-    return t,
-        { x = interceptX, y = (posA and posA.y) or 0, z = interceptZ },
-        { x = reqVX, y = (posA and posA.y) or 0, z = reqVZ }
+    return t, { x = interceptX, y = posAY, z = interceptZ }, { x = reqVX, y = posAY, z = reqVZ }
 end
 
 --- Compute delta-velocity required for A to intercept B at given speed

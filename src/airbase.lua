@@ -825,6 +825,101 @@ function AirbaseInternal.buildDirectionalRunway(
     return runway
 end
 
+function AirbaseInternal.parseRawRunway(rawRunway, sourceIndex)
+    if type(rawRunway) ~= "table" then
+        _HarnessInternal.log.error(
+            "Skipped malformed runway record at source index " .. tostring(sourceIndex),
+            "Airbase.NormalizeDirectionalRunways"
+        )
+        return nil
+    end
+
+    local parsed = {
+        lengthM = tonumber(rawRunway.length),
+        widthM = tonumber(rawRunway.width),
+        course = tonumber(rawRunway.course),
+        center = rawRunway.position,
+        name = rawRunway.Name or rawRunway.name,
+    }
+    if
+        not AirbaseInternal.finiteNumber(parsed.lengthM)
+        or parsed.lengthM <= 0
+        or not AirbaseInternal.finiteNumber(parsed.widthM)
+        or parsed.widthM <= 0
+        or not AirbaseInternal.finiteNumber(parsed.course)
+        or type(parsed.center) ~= "table"
+        or not AirbaseInternal.finiteNumber(parsed.center.x)
+        or not AirbaseInternal.finiteNumber(parsed.center.y)
+        or not AirbaseInternal.finiteNumber(parsed.center.z)
+    then
+        _HarnessInternal.log.error(
+            "Skipped malformed runway record at source index " .. tostring(sourceIndex),
+            "Airbase.NormalizeDirectionalRunways"
+        )
+        return nil
+    end
+    return parsed
+end
+
+function AirbaseInternal.directionalRunwayNameAndHeading(parsed, reciprocalSanityDeg)
+    local headingDeg = (math.deg(-parsed.course) + 360) % 360
+    local designator
+    if parsed.name ~= nil then
+        designator = tonumber(string.match(tostring(parsed.name), "^%s*(%d+)"))
+    end
+    local courseAdjusted = false
+    if
+        designator
+        and AirbaseInternal.shortestHeadingDifference(headingDeg, (designator * 10) % 360)
+            > reciprocalSanityDeg
+    then
+        headingDeg = (headingDeg + 180) % 360
+        courseAdjusted = true
+    end
+
+    local name = parsed.name
+    if name == nil then
+        local roundedDesignator = math.floor((headingDeg + 5) / 10) % 36
+        name = string.format("%02d", roundedDesignator == 0 and 36 or roundedDesignator)
+    end
+    return name, headingDeg, courseAdjusted
+end
+
+function AirbaseInternal.appendDirectionalRunwayPair(
+    runways,
+    airbaseName,
+    rawRunway,
+    sourceIndex,
+    reciprocalSanityDeg
+)
+    local parsed = AirbaseInternal.parseRawRunway(rawRunway, sourceIndex)
+    if not parsed then
+        return
+    end
+    local name, headingDeg, courseAdjusted =
+        AirbaseInternal.directionalRunwayNameAndHeading(parsed, reciprocalSanityDeg)
+    runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
+        airbaseName,
+        name,
+        headingDeg,
+        parsed.center,
+        parsed.lengthM,
+        parsed.widthM,
+        sourceIndex,
+        courseAdjusted
+    )
+    runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
+        airbaseName,
+        GetReciprocalRunwayName(name),
+        headingDeg + 180,
+        parsed.center,
+        parsed.lengthM,
+        parsed.widthM,
+        sourceIndex,
+        courseAdjusted
+    )
+end
+
 --- Normalize physical runway records into directional runway records
 ---@param airbaseName string Airbase name
 ---@param rawRunways table Raw Airbase:getRunways() records
@@ -849,68 +944,13 @@ function NormalizeDirectionalRunways(airbaseName, rawRunways, reciprocalSanityDe
 
     local runways = {}
     for sourceIndex = 1, #rawRunways do
-        local rawRunway = rawRunways[sourceIndex]
-        local lengthM = type(rawRunway) == "table" and tonumber(rawRunway.length) or nil
-        local widthM = type(rawRunway) == "table" and tonumber(rawRunway.width) or nil
-        local course = type(rawRunway) == "table" and tonumber(rawRunway.course) or nil
-        local center = type(rawRunway) == "table" and rawRunway.position or nil
-        if
-            not AirbaseInternal.finiteNumber(lengthM)
-            or lengthM <= 0
-            or not AirbaseInternal.finiteNumber(widthM)
-            or widthM <= 0
-            or not AirbaseInternal.finiteNumber(course)
-            or type(center) ~= "table"
-            or not AirbaseInternal.finiteNumber(center.x)
-            or not AirbaseInternal.finiteNumber(center.y)
-            or not AirbaseInternal.finiteNumber(center.z)
-        then
-            _HarnessInternal.log.error(
-                "Skipped malformed runway record at source index " .. tostring(sourceIndex),
-                "Airbase.NormalizeDirectionalRunways"
-            )
-        else
-            local headingDeg = (math.deg(-course) + 360) % 360
-            local rawName = rawRunway.Name or rawRunway.name
-            local designator = rawName and tonumber(string.match(tostring(rawName), "^%s*(%d+)"))
-                or nil
-            local courseAdjusted = false
-            if
-                designator
-                and AirbaseInternal.shortestHeadingDifference(
-                        headingDeg,
-                        (designator * 10) % 360
-                    )
-                    > reciprocalSanityDeg
-            then
-                headingDeg = (headingDeg + 180) % 360
-                courseAdjusted = true
-            end
-            if rawName == nil then
-                local roundedDesignator = math.floor((headingDeg + 5) / 10) % 36
-                rawName = string.format("%02d", roundedDesignator == 0 and 36 or roundedDesignator)
-            end
-            runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
-                airbaseName,
-                rawName,
-                headingDeg,
-                center,
-                lengthM,
-                widthM,
-                sourceIndex,
-                courseAdjusted
-            )
-            runways[#runways + 1] = AirbaseInternal.buildDirectionalRunway(
-                airbaseName,
-                GetReciprocalRunwayName(rawName),
-                headingDeg + 180,
-                center,
-                lengthM,
-                widthM,
-                sourceIndex,
-                courseAdjusted
-            )
-        end
+        AirbaseInternal.appendDirectionalRunwayPair(
+            runways,
+            airbaseName,
+            rawRunways[sourceIndex],
+            sourceIndex,
+            reciprocalSanityDeg
+        )
     end
     return runways
 end

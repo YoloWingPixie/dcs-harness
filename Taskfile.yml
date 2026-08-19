@@ -63,6 +63,7 @@ tasks:
       - 'build/scripts/export_harness_selene.py'
       - 'build/scripts/export_harness_luals.py'
       - '.buildrc'
+      - 'pyproject.toml'
     generates:
       - 'dist/harness.lua'
       - 'dist/harness-selene.yml'
@@ -82,6 +83,7 @@ tasks:
       - 'build/scripts/export_harness_selene.py'
       - 'build/scripts/export_harness_luals.py'
       - '.buildrc'
+      - 'pyproject.toml'
     generates:
       - 'dist/harness.lua'
       - 'dist/harness-selene.yml'
@@ -159,19 +161,25 @@ tasks:
       - task: syntax:check
 
   bump:patch:
-    desc: Bump patch version (pyproject.toml + CHANGELOG.md)
+    desc: Bump patch version and regenerate versioned files
     cmds:
       - python build/scripts/bump_version.py patch
+      - task: deps:lock
+      - task: build:cd
 
   bump:minor:
-    desc: Bump minor version (pyproject.toml + CHANGELOG.md)
+    desc: Bump minor version and regenerate versioned files
     cmds:
       - python build/scripts/bump_version.py minor
+      - task: deps:lock
+      - task: build:cd
 
   bump:major:
-    desc: Bump major version (pyproject.toml + CHANGELOG.md)
+    desc: Bump major version and regenerate versioned files
     cmds:
       - python build/scripts/bump_version.py major
+      - task: deps:lock
+      - task: build:cd
 
   tag:
     desc: Create and push git tag from pyproject version
@@ -185,8 +193,11 @@ tasks:
     cmds:
       - task: ci
       - python build/scripts/bump_version.py {{.PART}}
-      - cmd: git add pyproject.toml CHANGELOG.md
+      - task: deps:lock
+      - task: build:cd
+      - cmd: git add pyproject.toml CHANGELOG.md uv.lock dist/harness.lua dist/harness-selene.yml dist/harness.d.lua
       - cmd: 'git commit -m "Release v$(python -c "import re; from pathlib import Path; m=re.search(r''version\s*=\s*\"([\d.]+)\"'', Path(''pyproject.toml'').read_text()); print(m.group(1))")"'
+      - cmd: git push origin HEAD
       - task: tag
 
   release:dry-run:
@@ -207,6 +218,7 @@ tasks:
           ")
           echo "Would bump {{.PART}}: $CURRENT -> $NEXT"
           echo "Would commit: Release v$NEXT"
+          echo "Would push the release commit to origin"
           echo "Would tag: v$NEXT"
           echo "Would push tag to origin"
         platforms: [linux, darwin]

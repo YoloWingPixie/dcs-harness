@@ -56,10 +56,7 @@ def main() -> None:
     message = build_tag_message(version, Path("CHANGELOG.md"))
 
     run(["git", "tag", "-a", tag, "-m", message])
-    try:
-        subprocess.run(["git", "push", "origin", tag], check=True)
-    except subprocess.CalledProcessError:
-        pass
+    run(["git", "push", "origin", tag])
 
     print(f"Tagged HEAD with {tag}")
 

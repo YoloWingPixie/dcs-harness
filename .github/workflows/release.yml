@@ -22,7 +22,7 @@ jobs:
       on_main: ${{ steps.check.outputs.on_main }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
       - name: Determine if tag commit is on main
@@ -45,23 +45,23 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
 
       - name: Install Python dependencies
         run: pip install pyyaml
 
       - name: Setup Task
-        uses: arduino/setup-task@v1
+        uses: arduino/setup-task@e26d8975574116b0097a1161e0fe16ba75d84c1c # v1.0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Lua 5.1
-        uses: leafo/gh-actions-lua@v10
+        uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
         with:
           luaVersion: "5.1"
 
@@ -128,7 +128,7 @@ jobs:
           fi
 
       - name: Lint
-        uses: YoloWingPixie/selene-lua-linter-action@v1
+        uses: YoloWingPixie/selene-lua-linter-action@24ecf180fd5bb4d3b40b4296de61b32179cb79d1 # v1
         with:
           config-path: 'selene.toml'
           lint-path: '${{ env.BUILD_DIR }}/${{ env.ARTIFACT_NAME }}'
@@ -143,23 +143,23 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
 
       - name: Install Python dependencies
         run: pip install pyyaml
 
       - name: Setup Task
-        uses: arduino/setup-task@v1
+        uses: arduino/setup-task@e26d8975574116b0097a1161e0fe16ba75d84c1c # v1.0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Lua 5.1
-        uses: leafo/gh-actions-lua@v10
+        uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
         with:
           luaVersion: "5.1"
 
@@ -184,7 +184,7 @@ jobs:
           python ./build/scripts/extract_changelog_section.py "$REF_NAME" CHANGELOG.md RELEASE_NOTES.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           name: 'Release ${{ github.ref_name }}'
           make_latest: true

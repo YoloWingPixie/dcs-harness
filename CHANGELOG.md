@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+
+## [1.0.0] - 2026-08-18
+### Added
+
 - `dist/harness.d.lua` provides the generated LuaLS public API definition.
 - `HeadingVector2D` returns the DCS Vec2 unit vector for a heading.
 - `GroundTrackFromVelocity` returns track from horizontal Vec3 velocity above a configurable minimum speed.
@@ -190,7 +202,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Harness-specific `{x,z}` Vec2 representation.
 - `GetPlayers` was removed. Use `GetPlayerIds` for IDs or `GetPlayerInfos` for network information records.
 
-
 ## [0.8.0] - 2026-05-01
 ### Added
 
@@ -208,5 +219,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v0.8.0...v1.0.0
 [0.8.0]: https://github.com/YoloWingPixie/dcs-harness/releases/tag/v0.8.0

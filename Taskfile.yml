@@ -11,7 +11,14 @@ tasks:
     cmds:
       - task: test
 
+  tools:prepare:
+    internal: true
+    cmds:
+      - cmd: chmod +x tools/selene/selene
+        platforms: [linux, darwin]
+
   test:
+    deps: [tools:prepare]
     desc: Run all unit tests
     dir: '{{.TEST_DIR}}'
     cmds:
@@ -86,7 +93,7 @@ tasks:
       - rm -f {{.BUILD_DIR}}/*.lua
 
   lint:
-    deps: [build:cd]
+    deps: [build:cd, tools:prepare]
     desc: Run Selene on build artifact
     cmds:
       - cmd: ./tools/selene/selene --allow-warnings --config selene.toml {{.BUILD_DIR}}/harness.lua

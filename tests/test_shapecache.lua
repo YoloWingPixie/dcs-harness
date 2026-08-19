@@ -231,8 +231,8 @@ function TestShapeCache:testPointInShape()
     InitializeShapeCache()
 
     -- Test point in circular drawing
-    local pointInDisk = { x = -359172.51, z = 298863.28 } -- Center of disk
-    local pointOutsideDisk = { x = -300000, z = 298863.28 } -- Far outside
+    local pointInDisk = Vec2(-359172.51, 298863.28) -- Center of disk
+    local pointOutsideDisk = Vec2(-300000, 298863.28) -- Far outside
 
     local shapesAtPoint = GetShapesAtPoint(pointInDisk)
     lu.assertEquals(#shapesAtPoint, 1)
@@ -248,7 +248,7 @@ function TestShapeCache:testPointInShape()
     lu.assertFalse(foundDisk)
 
     -- Test point in circular trigger zone
-    local pointInZone = { x = -360569.42, z = 185434.09 } -- Center of zone
+    local pointInZone = Vec2(-360569.42, 185434.09) -- Center of zone
     shapesAtPoint = GetShapesAtPoint(pointInZone)
     local foundZone = false
     for _, shape in ipairs(shapesAtPoint) do
@@ -313,9 +313,11 @@ function TestShapeCache:testUnitsInShape()
                 return "Unit1"
             end,
             getPosition = function()
-                return {
-                    p = { x = -360569.42, y = 100, z = 185434.09 }, -- In trigger zone
-                }
+                return MockPosition3({
+                    x = -360569.42,
+                    y = 100,
+                    z = 185434.09,
+                })
             end,
             getCoalition = function()
                 return 1
@@ -326,9 +328,11 @@ function TestShapeCache:testUnitsInShape()
                 return "Unit2"
             end,
             getPosition = function()
-                return {
-                    p = { x = -359172.51, y = 100, z = 298863.28 }, -- In drawing
-                }
+                return MockPosition3({
+                    x = -359172.51,
+                    y = 100,
+                    z = 298863.28,
+                })
             end,
             getCoalition = function()
                 return 2

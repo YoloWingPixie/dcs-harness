@@ -341,7 +341,8 @@ end
 --- Add controller to cache
 ---@param key string Cache key (unit/group name + type)
 ---@param controller table Controller object
-function _HarnessInternal.cache.addController(key, controller)
+---@param info table? Controller metadata
+function _HarnessInternal.cache.addController(key, controller, info)
     if not key or not controller then
         return
     end
@@ -367,9 +368,13 @@ function _HarnessInternal.cache.addController(key, controller)
         end
     end
 
+    local metadata = type(info) == "table" and info or {}
     _HarnessInternal.cache.controllers[key] = {
         object = controller,
         time = timer and timer.getTime and timer.getTime() or os.time(),
+        groupName = metadata.groupName,
+        unitNames = metadata.unitNames,
+        domain = metadata.domain,
     }
 end
 

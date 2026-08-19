@@ -262,19 +262,6 @@ function GetGroupController(groupName)
         info.domain = domain
 
         _HarnessInternal.cache.addController(cacheKey, controller, info)
-        -- Fallback: ensure metadata is stored even if addController ignores info
-        local entry = _HarnessInternal.cache.controllers[cacheKey]
-        if entry then
-            if info.groupName and entry.groupName == nil then
-                entry.groupName = info.groupName
-            end
-            if info.unitNames and entry.unitNames == nil then
-                entry.unitNames = info.unitNames
-            end
-            if info.domain and entry.domain == nil then
-                entry.domain = info.domain
-            end
-        end
     end
 
     return controller
@@ -398,32 +385,6 @@ function ActivateGroup(groupName)
     end
 
     return true
-end
-
---- Get all groups of coalition and category
----@param coalitionId number The coalition ID to query
----@param categoryId number? Optional category ID to filter by
----@return table groups Array of group objects (empty if error)
----@usage local blueAirGroups = GetCoalitionGroups(coalition.side.BLUE, Group.Category.AIRPLANE)
-function GetCoalitionGroups(coalitionId, categoryId)
-    if not coalitionId or type(coalitionId) ~= "number" then
-        _HarnessInternal.log.error(
-            "GetCoalitionGroups requires numeric coalition ID",
-            "GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    local success, groups = pcall(coalition.getGroups, coalitionId, categoryId)
-    if not success then
-        _HarnessInternal.log.error(
-            "Failed to get coalition groups: " .. tostring(groups),
-            "GetCoalitionGroups"
-        )
-        return {}
-    end
-
-    return groups or {}
 end
 
 -- Advanced Group Functions

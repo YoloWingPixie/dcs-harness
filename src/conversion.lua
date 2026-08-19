@@ -361,7 +361,7 @@ end
 local ISA_SEA_LEVEL_TEMP_K = HarnessConstants.ISA_SEA_LEVEL_TEMP_K
 local ISA_TEMP_LAPSE_RATE = HarnessConstants.ISA_TEMP_LAPSE_RATE
 local ISA_DENSITY_EXPONENT = HarnessConstants.ISA_DENSITY_EXPONENT
-local FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
+local CONVERSION_FEET_TO_METERS = HarnessConstants.FEET_TO_METERS
 local MPS_TO_KNOTS = HarnessConstants.MPS_TO_KNOTS
 local KNOTS_TO_MPS = HarnessConstants.KNOTS_TO_MPS
 
@@ -389,7 +389,7 @@ function ConvertKiasToGroundSpeed(iasKnots, altitudeFeet, position, trackBearing
         return 0
     end
 
-    local altMeters = altitudeFeet * FEET_TO_METERS
+    local altMeters = altitudeFeet * CONVERSION_FEET_TO_METERS
 
     local tempRatio = 1 - (ISA_TEMP_LAPSE_RATE * altMeters / ISA_SEA_LEVEL_TEMP_K)
     if tempRatio < 0 then

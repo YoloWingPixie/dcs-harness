@@ -17,6 +17,19 @@ function TestAtmosphereConvenience:test_wind_knots()
     lu.assertEquals(type(wt.speedKts), "number")
 end
 
+function TestAtmosphereConvenience:test_wind_heading_uses_dcs_world_axes()
+    local original = atmosphere.getWind
+    atmosphere.getWind = function()
+        return { x = 10, y = 0, z = 0 }
+    end
+    lu.assertAlmostEquals(GetWindHeading({ x = 0, y = 0, z = 0 }), 0, 1e-9)
+    atmosphere.getWind = function()
+        return { x = 0, y = 0, z = 10 }
+    end
+    lu.assertAlmostEquals(GetWindHeading({ x = 0, y = 0, z = 0 }), 90, 1e-9)
+    atmosphere.getWind = original
+end
+
 function TestAtmosphereConvenience:test_temp_pressure_converted()
     local p = { x = 0, y = 0, z = 0 }
     local c = GetTemperatureC(p)

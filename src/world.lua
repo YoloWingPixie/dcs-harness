@@ -1,6 +1,6 @@
 --[[
     World Module - DCS World API Wrappers
-    
+
     This module provides validated wrapper functions for DCS world operations,
     including event management, marking panels, and world information queries.
 ]]
@@ -93,6 +93,41 @@ function GetWorldAirbases()
     end
 
     return result
+end
+
+--- Resolve a named unit handle from a DCS world event
+---@param event table Event record
+---@return table? unit First named unit candidate
+---@return string? unitName Protected unit name
+function GetWorldEventUnit(event)
+    if type(event) ~= "table" then
+        _HarnessInternal.log.error(
+            "GetWorldEventUnit requires an event table",
+            "World.GetWorldEventUnit"
+        )
+        return nil, nil
+    end
+    local candidates = { event.initiator, event.unit }
+    for index = 1, 2 do
+        local candidate = candidates[index]
+        local methodOk, getName = pcall(function()
+            return candidate and candidate.getName
+        end)
+        if methodOk and type(getName) == "function" then
+            local nameOk, name = pcall(getName, candidate)
+            if nameOk and type(name) == "string" and name ~= "" then
+                return candidate, name
+            end
+            _HarnessInternal.log.error(
+                "Failed to resolve event unit candidate "
+                    .. tostring(index)
+                    .. ": "
+                    .. tostring(name),
+                "World.GetWorldEventUnit"
+            )
+        end
+    end
+    return nil, nil
 end
 
 --- Searches for objects in the world within a volume

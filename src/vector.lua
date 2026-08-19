@@ -6,24 +6,52 @@
 ]]
 
 -- Vec2 Type Definition with metatables for operator overloading
+---@class Vec2
+---@field x number DCS world X coordinate
+---@field y number DCS world Z coordinate at the Vec2 boundary
+---@field toVec3 fun(self: Vec2, y?: number): Vec3
+---@field length fun(self: Vec2): number
+---@field normalized fun(self: Vec2): Vec2
+---@field dot fun(self: Vec2, other: Vec2): number
+---@field distanceTo fun(self: Vec2, other: Vec2): number
+---@field bearingTo fun(self: Vec2, other: Vec2): number?
+---@field displace fun(self: Vec2, bearingDeg: number, distance: number): Vec2?
+---@field midpointTo fun(self: Vec2, other: Vec2): Vec2
+---@field angleTo fun(self: Vec2, other: Vec2): number
+---@field rotate fun(self: Vec2, angleDeg: number): Vec2
 local Vec2_mt = {}
 Vec2_mt.__index = Vec2_mt
 
---- Creates a 2D vector (x, z coordinates)
----@param x number|table? X coordinate or table {x, z} or {[1], [2]}
----@param z number? Z coordinate (if x is not a table)
----@return table vec2 New Vec2 instance with metatables
----@usage local v = Vec2(100, 200) or Vec2({x=100, z=200})
-function Vec2(x, z)
+local VectorInternal = {}
+
+function VectorInternal.isFiniteNumber(value)
+    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
+function VectorInternal.groundEast(value)
+    if IsVec3(value) and VectorInternal.isFiniteNumber(value.z) then
+        return value.z
+    end
+    if IsVec2(value) and VectorInternal.isFiniteNumber(value.y) then
+        return value.y
+    end
+    return nil
+end
+
+--- Creates a DCS Vec2 (x, y coordinates)
+---@param x number|table? X coordinate or table {x, y} or {[1], [2]}
+---@param y number? Y coordinate (if x is not a table)
+---@return Vec2 vec2 New DCS Vec2 instance with metatables
+---@usage local v = Vec2(100, 200) or Vec2({x=100, y=200})
+function Vec2(x, y)
     if type(x) == "table" then
-        -- Handle table input {x=1, z=2} or {1, 2} or {x=1, y=2} for DCS compat
-        z = x.z or x.y or x[2] or 0
+        y = x.y or x[2] or 0
         x = x.x or x[1] or 0
     end
 
     local self = {
         x = x or 0,
-        z = z or 0,
+        y = y or 0,
     }
 
     setmetatable(self, Vec2_mt)
@@ -31,6 +59,23 @@ function Vec2(x, z)
 end
 
 -- Vec3 Type Definition with metatables for operator overloading
+---@class Vec3
+---@field x number DCS world X coordinate
+---@field y number DCS altitude coordinate
+---@field z number DCS world Z coordinate
+---@field toVec2 fun(self: Vec3): Vec2
+---@field length fun(self: Vec3): number
+---@field length2D fun(self: Vec3): number
+---@field normalized fun(self: Vec3): Vec3
+---@field normalized2D fun(self: Vec3): Vec3
+---@field dot fun(self: Vec3, other: Vec3): number
+---@field cross fun(self: Vec3, other: Vec3): Vec3
+---@field distanceTo fun(self: Vec3, other: Vec3): number
+---@field distance2DTo fun(self: Vec3, other: Vec2|Vec3): number
+---@field bearingTo fun(self: Vec3, other: Vec2|Vec3): number?
+---@field displace2D fun(self: Vec3, bearingDeg: number, distance: number): Vec3?
+---@field midpointTo fun(self: Vec3, other: Vec3): Vec3
+---@field angleTo fun(self: Vec3, other: Vec3): number
 local Vec3_mt = {}
 Vec3_mt.__index = Vec3_mt
 
@@ -38,7 +83,7 @@ Vec3_mt.__index = Vec3_mt
 ---@param x number|table? X coordinate or table {x, y, z} or {[1], [2], [3]}
 ---@param y number? Y coordinate (if x is not a table)
 ---@param z number? Z coordinate (if x is not a table)
----@return table vec3 New Vec3 instance with metatables
+---@return Vec3 vec3 New DCS Vec3 instance with metatables
 ---@usage local v = Vec3(100, 50, 200) or Vec3({x=100, y=50, z=200})
 function Vec3(x, y, z)
     if type(x) == "table" then
@@ -80,44 +125,59 @@ end
 
 --- Check if valid 2D vector (works with plain tables or Vec2 instances)
 ---@param vec any Value to check
----@return boolean isValid True if vec has numeric x, z components (or x, y for DCS compat)
+---@return boolean isValid True if vec has numeric x and y components and no z component
 ---@usage if IsVec2(pos) then ... end
 function IsVec2(vec)
     if not vec or type(vec) ~= "table" then
         return false
     end
-    -- Support both x,z and x,y formats
-    return type(vec.x) == "number" and (type(vec.z) == "number" or type(vec.y) == "number")
+    return type(vec.x) == "number" and type(vec.y) == "number" and vec.z == nil
 end
 
 -- Conversion functions
 --- Convert to Vec2 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert
----@return table? vec2 Converted Vec2 or nil on error
----@usage local v2 = ToVec2({x=100, z=200})
+---@return Vec2? vec2 Converted DCS Vec2 or nil on error
+---@usage local v2 = ToVec2({x=100, y=200})
 function ToVec2(t)
     if not t then
         return nil
     end
 
-    if getmetatable(t) == Vec2_mt then
+    if
+        getmetatable(t) == Vec2_mt
+        and VectorInternal.isFiniteNumber(t.x)
+        and VectorInternal.isFiniteNumber(t.y)
+    then
         return t
-    elseif getmetatable(t) == Vec3_mt then
+    elseif
+        IsVec3(t)
+        and VectorInternal.isFiniteNumber(t.x)
+        and VectorInternal.isFiniteNumber(t.z)
+    then
         return Vec2(t.x, t.z)
-    elseif type(t) == "table" then
-        -- Support both {x,z} and {x,y} formats
-        local z = t.z or t.y or t[2]
-        return Vec2(t.x or t[1], z)
-    else
-        _HarnessInternal.log.error("ToVec2 requires table or vector type", "Vector.ToVec2")
-        return nil
+    elseif
+        IsVec2(t)
+        and VectorInternal.isFiniteNumber(t.x)
+        and VectorInternal.isFiniteNumber(t.y)
+    then
+        return Vec2(t.x, t.y)
+    elseif
+        type(t) == "table"
+        and VectorInternal.isFiniteNumber(t[1])
+        and VectorInternal.isFiniteNumber(t[2])
+    then
+        return Vec2(t[1], t[2])
     end
+
+    _HarnessInternal.log.error("ToVec2 requires a DCS Vec2 or Vec3", "Vector.ToVec2")
+    return nil
 end
 
 --- Convert to Vec3 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert
 ---@param altitude number? Y coordinate for Vec2 to Vec3 conversion (default 0)
----@return table? vec3 Converted Vec3 or nil on error
+---@return Vec3? vec3 Converted DCS Vec3 or nil on error
 ---@usage local v3 = ToVec3({x=100, y=50, z=200})
 function ToVec3(t, altitude)
     if not t then
@@ -126,20 +186,21 @@ function ToVec3(t, altitude)
 
     if getmetatable(t) == Vec3_mt then
         return t
-    elseif getmetatable(t) == Vec2_mt then
-        return Vec3(t.x, altitude or 0, t.z)
-    elseif type(t) == "table" then
-        if t.y then
-            -- Already has y component
-            return Vec3(t.x or t[1], t.y or t[2], t.z or t[3])
-        else
-            -- Vec2-like table, use altitude parameter
-            return Vec3(t.x or t[1], altitude or 0, t.z or t[2])
-        end
-    else
-        _HarnessInternal.log.error("ToVec3 requires table or vector type", "Vector.ToVec3")
-        return nil
+    elseif IsVec3(t) then
+        return Vec3(t.x, t.y, t.z)
+    elseif IsVec2(t) then
+        return Vec3(t.x, altitude or 0, t.y)
+    elseif
+        type(t) == "table"
+        and type(t[1]) == "number"
+        and type(t[2]) == "number"
+        and type(t[3]) == "number"
+    then
+        return Vec3(t[1], t[2], t[3])
     end
+
+    _HarnessInternal.log.error("ToVec3 requires a DCS Vec2 or Vec3", "Vector.ToVec3")
+    return nil
 end
 
 -- Basic vector operations (work with both plain tables and vector types)
@@ -152,7 +213,7 @@ function VecAdd(a, b)
     if IsVec3(a) and IsVec3(b) then
         return Vec3(a.x + b.x, a.y + b.y, a.z + b.z)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(a.x + b.x, (a.z or a.y) + (b.z or b.y))
+        return Vec2(a.x + b.x, a.y + b.y)
     else
         _HarnessInternal.log.error(
             "VecAdd requires two valid vectors of same type",
@@ -171,7 +232,7 @@ function VecSub(a, b)
     if IsVec3(a) and IsVec3(b) then
         return Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(a.x - b.x, (a.z or a.y) - (b.z or b.y))
+        return Vec2(a.x - b.x, a.y - b.y)
     else
         _HarnessInternal.log.error(
             "VecSub requires two valid vectors of same type",
@@ -195,7 +256,7 @@ function VecScale(vec, scalar)
     if IsVec3(vec) then
         return Vec3(vec.x * scalar, vec.y * scalar, vec.z * scalar)
     elseif IsVec2(vec) then
-        return Vec2(vec.x * scalar, (vec.z or vec.y) * scalar)
+        return Vec2(vec.x * scalar, vec.y * scalar)
     else
         _HarnessInternal.log.error("VecScale requires valid vector", "Vector.VecScale")
         return Vec3()
@@ -227,8 +288,7 @@ function VecLength(vec)
     if IsVec3(vec) then
         return math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
     elseif IsVec2(vec) then
-        local z = vec.z or vec.y
-        return math.sqrt(vec.x * vec.x + z * z)
+        return math.sqrt(vec.x * vec.x + vec.y * vec.y)
     else
         _HarnessInternal.log.error("VecLength requires valid vector", "Vector.VecLength")
         return 0
@@ -245,8 +305,12 @@ function VecLength2D(vec)
         return 0
     end
 
-    local z = vec.z or vec.y or 0
-    return math.sqrt(vec.x * vec.x + z * z)
+    local east = VectorInternal.groundEast(vec)
+    if not VectorInternal.isFiniteNumber(vec.x) or east == nil then
+        _HarnessInternal.log.error("VecLength2D requires valid vector", "Vector.VecLength2D")
+        return 0
+    end
+    return math.sqrt(vec.x * vec.x + east * east)
 end
 
 --- Normalize vector
@@ -289,7 +353,7 @@ function VecDot(a, b)
     if IsVec3(a) and IsVec3(b) then
         return a.x * b.x + a.y * b.y + a.z * b.z
     elseif IsVec2(a) and IsVec2(b) then
-        return a.x * b.x + (a.z or a.y) * (b.z or b.y)
+        return a.x * b.x + a.y * b.y
     else
         _HarnessInternal.log.error(
             "VecDot requires two valid vectors of same type",
@@ -340,11 +404,21 @@ function Distance2D(a, b)
         return 0
     end
 
+    local aEast = VectorInternal.groundEast(a)
+    local bEast = VectorInternal.groundEast(b)
+    if
+        not VectorInternal.isFiniteNumber(a.x)
+        or not VectorInternal.isFiniteNumber(b.x)
+        or aEast == nil
+        or bEast == nil
+    then
+        _HarnessInternal.log.error("Distance2D requires two valid positions", "Vector.Distance2D")
+        return 0
+    end
+
     local dx = b.x - a.x
-    local az = a.z or a.y or 0
-    local bz = b.z or b.y or 0
-    local dz = bz - az
-    return math.sqrt(dx * dx + dz * dz)
+    local de = bEast - aEast
+    return math.sqrt(dx * dx + de * de)
 end
 
 --- Get squared distance (avoids sqrt)
@@ -381,67 +455,81 @@ function Distance2DSquared(a, b)
         return 0
     end
 
-    local dx = b.x - a.x
-    local az = a.z or a.y or 0
-    local bz = b.z or b.y or 0
-    local dz = bz - az
-    return dx * dx + dz * dz
-end
-
---- Get bearing from one point to another (degrees)
----@param from table Source position
----@param to table Target position
----@return number bearing Bearing in degrees (0-360)
----@usage local bearing = Bearing(myPos, targetPos)
-function Bearing(from, to)
-    if not from or not to or type(from) ~= "table" or type(to) ~= "table" then
-        _HarnessInternal.log.error("Bearing requires two valid positions", "Vector.Bearing")
+    local aEast = VectorInternal.groundEast(a)
+    local bEast = VectorInternal.groundEast(b)
+    if
+        not VectorInternal.isFiniteNumber(a.x)
+        or not VectorInternal.isFiniteNumber(b.x)
+        or aEast == nil
+        or bEast == nil
+    then
+        _HarnessInternal.log.error(
+            "Distance2DSquared requires two valid positions",
+            "Vector.Distance2DSquared"
+        )
         return 0
     end
 
-    local dx = to.x - from.x
-    local fz = from.z or from.y or 0
-    local tz = to.z or to.y or 0
-    local dz = tz - fz
-    local bearing = math.atan2(dx, dz) * 180 / math.pi
-
-    if bearing < 0 then
-        bearing = bearing + 360
-    end
-
-    return bearing
+    local dx = b.x - a.x
+    local de = bEast - aEast
+    return dx * dx + de * de
 end
 
---- Get position from bearing and distance
+--- Get DCS world heading from one point to another
+---@param from table Source position
+---@param to table Target position
+---@return number? bearing Heading in degrees, where positive X is 0 and east is 90
+---@usage local bearing = Bearing(myPos, targetPos)
+function Bearing(from, to)
+    local fromEast = VectorInternal.groundEast(from)
+    local toEast = VectorInternal.groundEast(to)
+    if
+        type(from) ~= "table"
+        or type(to) ~= "table"
+        or not VectorInternal.isFiniteNumber(from.x)
+        or not VectorInternal.isFiniteNumber(to.x)
+        or fromEast == nil
+        or toEast == nil
+    then
+        _HarnessInternal.log.error("Bearing requires two valid positions", "Vector.Bearing")
+        return nil
+    end
+
+    local dx = to.x - from.x
+    local de = toEast - fromEast
+    return (math.deg(math.atan2(de, dx)) + 360) % 360
+end
+
+--- Get a position displaced along a DCS world heading
 ---@param origin table Origin position
----@param bearing number Bearing in degrees
+---@param bearing number Heading in degrees
 ---@param distance number Distance in meters
----@return table position New position
+---@return table? position New position or nil on invalid input
 ---@usage local newPos = FromBearingDistance(pos, 45, 1000)
 function FromBearingDistance(origin, bearing, distance)
+    local originEast = VectorInternal.groundEast(origin)
     if
-        not origin
-        or type(origin) ~= "table"
-        or type(bearing) ~= "number"
-        or type(distance) ~= "number"
+        type(origin) ~= "table"
+        or not VectorInternal.isFiniteNumber(origin.x)
+        or originEast == nil
+        or not VectorInternal.isFiniteNumber(bearing)
+        or not VectorInternal.isFiniteNumber(distance)
     then
         _HarnessInternal.log.error(
             "FromBearingDistance requires origin, bearing, and distance",
             "Vector.FromBearingDistance"
         )
-        return Vec3()
+        return nil
     end
 
-    local angle = bearing * math.pi / 180
-    local dx = distance * math.sin(angle)
-    local dz = distance * math.cos(angle)
+    local angle = math.rad(bearing)
+    local dx = math.cos(angle) * distance
+    local de = math.sin(angle) * distance
 
     if IsVec3(origin) then
-        return Vec3(origin.x + dx, origin.y, origin.z + dz)
-    else
-        local oz = origin.z or origin.y or 0
-        return Vec2(origin.x + dx, oz + dz)
+        return Vec3(origin.x + dx, origin.y, origin.z + de)
     end
+    return Vec2(origin.x + dx, originEast + de)
 end
 
 --- Get angle between vectors (degrees)
@@ -469,7 +557,7 @@ function Midpoint(a, b)
     if IsVec3(a) and IsVec3(b) then
         return Vec3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2((a.x + b.x) / 2, ((a.z or a.y) + (b.z or b.y)) / 2)
+        return Vec2((a.x + b.x) / 2, (a.y + b.y) / 2)
     else
         _HarnessInternal.log.error(
             "Midpoint requires two valid vectors of same type",
@@ -494,7 +582,7 @@ function VecLerp(a, b, t)
     if IsVec3(a) and IsVec3(b) then
         return Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
     elseif IsVec2(a) and IsVec2(b) then
-        return Vec2(a.x + (b.x - a.x) * t, (a.z or a.y) + ((b.z or b.y) - (a.z or a.y)) * t)
+        return Vec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
     else
         _HarnessInternal.log.error(
             "VecLerp requires two valid vectors of same type",
@@ -528,7 +616,7 @@ end
 --- Convert Vec2 to string for debugging
 ---@param vec table Vec2 to convert
 ---@param precision number? Decimal places (default 2)
----@return string formatted String representation "(x, z)"
+---@return string formatted String representation "(x, y)"
 ---@usage print(Vec2ToString(pos, 1))
 function Vec2ToString(vec, precision)
     if not IsVec2(vec) then
@@ -537,9 +625,7 @@ function Vec2ToString(vec, precision)
 
     precision = precision or 2
     local format = "%." .. precision .. "f"
-    local z = vec.z or vec.y
-
-    return string.format("(" .. format .. ", " .. format .. ")", vec.x, z)
+    return string.format("(" .. format .. ", " .. format .. ")", vec.x, vec.y)
 end
 
 -- Vec2 Methods (for metatabled instances)
@@ -547,7 +633,7 @@ end
 ---@param y number? Y coordinate/altitude (default: 0)
 ---@return table vec3 New Vec3 instance
 function Vec2_mt:toVec3(y)
-    return Vec3(self.x, y or 0, self.z)
+    return Vec3(self.x, y or 0, self.y)
 end
 
 --- Get the length/magnitude of this Vec2
@@ -578,7 +664,7 @@ end
 
 --- Calculate bearing to another Vec2
 ---@param other table Another Vec2 position
----@return number bearing Bearing in degrees (0-360)
+---@return number? bearing Heading in degrees (0-360)
 function Vec2_mt:bearingTo(other)
     return Bearing(self, other)
 end
@@ -586,7 +672,7 @@ end
 --- Get position displaced by bearing and distance
 ---@param bearingDeg number Bearing in degrees
 ---@param distance number Distance in meters
----@return table vec2 New displaced position
+---@return table? vec2 New displaced position
 function Vec2_mt:displace(bearingDeg, distance)
     return FromBearingDistance(self, bearingDeg, distance)
 end
@@ -612,51 +698,51 @@ function Vec2_mt:rotate(angleDeg)
     local angleRad = angleDeg * math.pi / 180
     local cos_a = math.cos(angleRad)
     local sin_a = math.sin(angleRad)
-    return Vec2(self.x * cos_a - self.z * sin_a, self.x * sin_a + self.z * cos_a)
+    return Vec2(self.x * cos_a - self.y * sin_a, self.x * sin_a + self.y * cos_a)
 end
 
 -- Vec2 Operators
 function Vec2_mt.__add(a, b)
-    return Vec2(a.x + b.x, a.z + b.z)
+    return Vec2(a.x + b.x, a.y + b.y)
 end
 
 function Vec2_mt.__sub(a, b)
-    return Vec2(a.x - b.x, a.z - b.z)
+    return Vec2(a.x - b.x, a.y - b.y)
 end
 
 function Vec2_mt.__mul(a, b)
     if type(a) == "number" then
-        return Vec2(a * b.x, a * b.z)
+        return Vec2(a * b.x, a * b.y)
     elseif type(b) == "number" then
-        return Vec2(a.x * b, a.z * b)
+        return Vec2(a.x * b, a.y * b)
     else
-        return Vec2(a.x * b.x, a.z * b.z)
+        return Vec2(a.x * b.x, a.y * b.y)
     end
 end
 
 function Vec2_mt.__div(a, b)
     if type(b) == "number" then
-        return Vec2(a.x / b, a.z / b)
+        return Vec2(a.x / b, a.y / b)
     else
-        return Vec2(a.x / b.x, a.z / b.z)
+        return Vec2(a.x / b.x, a.y / b.y)
     end
 end
 
 function Vec2_mt.__unm(a)
-    return Vec2(-a.x, -a.z)
+    return Vec2(-a.x, -a.y)
 end
 
 function Vec2_mt.__eq(a, b)
-    return math.abs(a.x - b.x) < 1e-6 and math.abs(a.z - b.z) < 1e-6
+    return math.abs(a.x - b.x) < 1e-6 and math.abs(a.y - b.y) < 1e-6
 end
 
 function Vec2_mt.__tostring(a)
-    return string.format("Vec2(%.3f, %.3f)", a.x, a.z)
+    return string.format("Vec2(%.3f, %.3f)", a.x, a.y)
 end
 
 -- Vec3 Methods (for metatabled instances)
 --- Convert Vec3 to Vec2 (drops Y coordinate)
----@return table vec2 New Vec2 with x and z from this Vec3
+---@return table vec2 New Vec2 with Vec3 x mapped to x and Vec3 z mapped to y
 function Vec3_mt:toVec2()
     return Vec2(self.x, self.z)
 end
@@ -715,7 +801,7 @@ end
 
 --- Calculate bearing to another position
 ---@param other table Another position
----@return number bearing Bearing in degrees (0-360)
+---@return number? bearing Heading in degrees (0-360)
 function Vec3_mt:bearingTo(other)
     return Bearing(self, other)
 end
@@ -723,7 +809,7 @@ end
 --- Get position displaced by bearing and distance (preserving Y)
 ---@param bearingDeg number Bearing in degrees
 ---@param distance number Distance in meters
----@return table vec3 New displaced position
+---@return table? vec3 New displaced position
 function Vec3_mt:displace2D(bearingDeg, distance)
     return FromBearingDistance(self, bearingDeg, distance)
 end

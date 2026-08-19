@@ -41,7 +41,6 @@ function TestGroup:setUp()
 
     -- Save original mock functions
     self.original_getByName = Group.getByName
-    self.original_getGroups = coalition.getGroups
     self.original_outText = trigger.action.outText
     self.original_outTextForGroup = trigger.action.outTextForGroup
     self.original_outTextForCoalition = trigger.action.outTextForCoalition
@@ -224,7 +223,6 @@ end
 function TestGroup:tearDown()
     -- Restore original mock functions
     Group.getByName = self.original_getByName
-    coalition.getGroups = self.original_getGroups
     trigger.action.outText = self.original_outText
     trigger.action.outTextForGroup = self.original_outTextForGroup
     trigger.action.outTextForCoalition = self.original_outTextForCoalition
@@ -688,80 +686,6 @@ function TestGroup:testActivateGroup_APIError()
     }
     local success = ActivateGroup("ActivateError")
     lu.assertFalse(success)
-end
-
--- GetCoalitionGroups tests
-function TestGroup:testGetCoalitionGroups_ValidCoalition()
-    -- Mock coalition.getGroups
-    coalition.getGroups = function(coalitionId, categoryId)
-        if coalitionId == 2 and categoryId == 0 then
-            return { self.mockGroups["Aerial-1"] }
-        elseif coalitionId == 1 and categoryId == 2 then
-            return { self.mockGroups["Ground-1"] }
-        else
-            return {}
-        end
-    end
-
-    local blueAir = GetCoalitionGroups(2, 0)
-    lu.assertEquals(#blueAir, 1)
-    lu.assertEquals(blueAir[1]:getName(), "Aerial-1")
-
-    local redGround = GetCoalitionGroups(1, 2)
-    lu.assertEquals(#redGround, 1)
-    lu.assertEquals(redGround[1]:getName(), "Ground-1")
-end
-
-function TestGroup:testGetCoalitionGroups_AllCategories()
-    coalition.getGroups = function(coalitionId, categoryId)
-        if coalitionId == 2 and not categoryId then
-            return { self.mockGroups["Aerial-1"], self.mockGroups["Empty-1"] }
-        else
-            return {}
-        end
-    end
-
-    local blueAll = GetCoalitionGroups(2)
-    lu.assertEquals(#blueAll, 2)
-end
-
-function TestGroup:testGetCoalitionGroups_EmptyResult()
-    coalition.getGroups = function(coalitionId, categoryId)
-        return nil
-    end
-
-    local groups = GetCoalitionGroups(2, 0)
-    lu.assertNotNil(groups)
-    lu.assertEquals(#groups, 0)
-end
-
-function TestGroup:testGetCoalitionGroups_InvalidCoalition()
-    -- Ensure GetCoalitionGroups is loaded
-    lu.assertNotNil(GetCoalitionGroups, "GetCoalitionGroups function should exist")
-
-    -- Direct call without pcall to see what happens
-    local groups = GetCoalitionGroups(nil, 0)
-
-    -- Test with nil coalition ID
-    lu.assertNotNil(groups, "GetCoalitionGroups should return a table, not nil")
-    lu.assertEquals(type(groups), "table", "GetCoalitionGroups should return a table")
-    lu.assertEquals(#groups, 0)
-end
-
-function TestGroup:testGetCoalitionGroups_InvalidType()
-    local groups = GetCoalitionGroups("not a number", 0)
-    lu.assertNotNil(groups, "GetCoalitionGroups should return a table, not nil")
-    lu.assertEquals(type(groups), "table", "GetCoalitionGroups should return a table")
-    lu.assertEquals(#groups, 0)
-end
-
-function TestGroup:testGetCoalitionGroups_APIError()
-    coalition.getGroups = function(coalitionId, categoryId)
-        error("API error")
-    end
-
-    local groups = GetCoalitionGroups(2, 0)
-    lu.assertEquals(#groups, 0)
 end
 
 -- Edge cases

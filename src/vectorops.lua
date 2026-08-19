@@ -1,6 +1,6 @@
 --[[
     VectorOps Module - Vector Operations and Shape Merging
-    
+
     This module provides vector operations similar to Adobe Illustrator,
     including union, intersection, difference, and shape merging operations.
     All shapes are represented as arrays of Vec2/Vec3 points.
@@ -10,12 +10,12 @@ require("logger")
 require("geomath")
 
 --- Finds intersection point of two 2D line segments
---- @param p1 table First point of first line segment {x, z}
---- @param p2 table Second point of first line segment {x, z}
---- @param p3 table First point of second line segment {x, z}
---- @param p4 table Second point of second line segment {x, z}
---- @return table|nil intersection Point of intersection {x, y, z} or nil if no intersection
---- @usage local pt = LineSegmentIntersection2D({x=0,z=0}, {x=10,z=10}, {x=0,z=10}, {x=10,z=0})
+--- @param p1 table First DCS Vec2
+--- @param p2 table Second DCS Vec2
+--- @param p3 table Third DCS Vec2
+--- @param p4 table Fourth DCS Vec2
+--- @return table|nil intersection DCS Vec2 intersection or nil
+--- @usage local pt = LineSegmentIntersection2D({x=0,y=0}, {x=10,y=10}, {x=0,y=10}, {x=10,y=0})
 function LineSegmentIntersection2D(p1, p2, p3, p4)
     if not p1 or not p2 or not p3 or not p4 then
         _HarnessInternal.log.error(
@@ -25,10 +25,18 @@ function LineSegmentIntersection2D(p1, p2, p3, p4)
         return nil
     end
 
-    local x1, y1 = p1.x, p1.z
-    local x2, y2 = p2.x, p2.z
-    local x3, y3 = p3.x, p3.z
-    local x4, y4 = p4.x, p4.z
+    if not IsVec2(p1) or not IsVec2(p2) or not IsVec2(p3) or not IsVec2(p4) then
+        _HarnessInternal.log.error(
+            "LineSegmentIntersection2D requires four DCS Vec2 points",
+            "VectorOps.LineSegmentIntersection2D"
+        )
+        return nil
+    end
+
+    local x1, y1 = p1.x, p1.y
+    local x2, y2 = p2.x, p2.y
+    local x3, y3 = p3.x, p3.y
+    local x4, y4 = p4.x, p4.y
 
     local denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
 
@@ -40,11 +48,7 @@ function LineSegmentIntersection2D(p1, p2, p3, p4)
     local u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
 
     if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
-        return {
-            x = x1 + t * (x2 - x1),
-            y = p1.y or 0,
-            z = y1 + t * (y2 - y1),
-        }
+        return Vec2(x1 + t * (x2 - x1), y1 + t * (y2 - y1))
     end
 
     return nil
@@ -137,8 +141,8 @@ function MergePolygons(poly1, poly2, keepInterior)
     if #merged > 2 then
         local centroid = PolygonCentroid2D(merged)
         table.sort(merged, function(a, b)
-            local angle_a = math.atan2(a.z - centroid.z, a.x - centroid.x)
-            local angle_b = math.atan2(b.z - centroid.z, b.x - centroid.x)
+            local angle_a = math.atan2(a.y - centroid.y, a.x - centroid.x)
+            local angle_b = math.atan2(b.y - centroid.y, b.x - centroid.x)
             return angle_a < angle_b
         end)
     end
@@ -203,8 +207,8 @@ function IntersectPolygons(poly1, poly2)
     if #intersection > 2 then
         local centroid = PolygonCentroid2D(intersection)
         table.sort(intersection, function(a, b)
-            local angle_a = math.atan2(a.z - centroid.z, a.x - centroid.x)
-            local angle_b = math.atan2(b.z - centroid.z, b.x - centroid.x)
+            local angle_a = math.atan2(a.y - centroid.y, a.x - centroid.x)
+            local angle_b = math.atan2(b.y - centroid.y, b.x - centroid.x)
             return angle_a < angle_b
         end)
     end
@@ -245,8 +249,8 @@ function DifferencePolygons(poly1, poly2)
     if #difference > 2 then
         local centroid = PolygonCentroid2D(difference)
         table.sort(difference, function(a, b)
-            local angle_a = math.atan2(a.z - centroid.z, a.x - centroid.x)
-            local angle_b = math.atan2(b.z - centroid.z, b.x - centroid.x)
+            local angle_a = math.atan2(a.y - centroid.y, a.x - centroid.x)
+            local angle_b = math.atan2(b.y - centroid.y, b.x - centroid.x)
             return angle_a < angle_b
         end)
     end
@@ -319,11 +323,11 @@ function SimplifyPolygon(polygon, tolerance)
 end
 
 --- Calculates perpendicular distance from point to line
---- @param point table Point to measure from {x, z}
---- @param lineStart table Start point of line {x, z}
---- @param lineEnd table End point of line {x, z}
+--- @param point table DCS Vec2 point
+--- @param lineStart table DCS Vec2 line start
+--- @param lineEnd table DCS Vec2 line end
 --- @return number distance Distance in meters
---- @usage local dist = PerpendicularDistance2D({x=5,z=5}, {x=0,z=0}, {x=10,z=0})
+--- @usage local dist = PerpendicularDistance2D({x=5,y=5}, {x=0,y=0}, {x=10,y=0})
 function PerpendicularDistance2D(point, lineStart, lineEnd)
     if not point or not lineStart or not lineEnd then
         _HarnessInternal.log.error(
@@ -334,25 +338,21 @@ function PerpendicularDistance2D(point, lineStart, lineEnd)
     end
 
     local dx = lineEnd.x - lineStart.x
-    local dz = lineEnd.z - lineStart.z
+    local dy = lineEnd.y - lineStart.y
 
-    if math.abs(dx) < 1e-6 and math.abs(dz) < 1e-6 then
+    if math.abs(dx) < 1e-6 and math.abs(dy) < 1e-6 then
         -- Line start and end are the same
         return Distance2D(point, lineStart)
     end
 
-    local t = ((point.x - lineStart.x) * dx + (point.z - lineStart.z) * dz) / (dx * dx + dz * dz)
+    local t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy)
 
     if t < 0 then
         return Distance2D(point, lineStart)
     elseif t > 1 then
         return Distance2D(point, lineEnd)
     else
-        local projection = {
-            x = lineStart.x + t * dx,
-            y = point.y or 0,
-            z = lineStart.z + t * dz,
-        }
+        local projection = Vec2(lineStart.x + t * dx, lineStart.y + t * dy)
         return Distance2D(point, projection)
     end
 end
@@ -380,43 +380,41 @@ function OffsetPolygon(polygon, distance)
         local next = polygon[(i % n) + 1]
 
         -- Calculate edge vectors
-        local v1 = { x = curr.x - prev.x, z = curr.z - prev.z }
-        local v2 = { x = next.x - curr.x, z = next.z - curr.z }
+        local v1 = Vec2(curr.x - prev.x, curr.y - prev.y)
+        local v2 = Vec2(next.x - curr.x, next.y - curr.y)
 
         -- Normalize
-        local len1 = math.sqrt(v1.x * v1.x + v1.z * v1.z)
-        local len2 = math.sqrt(v2.x * v2.x + v2.z * v2.z)
+        local len1 = math.sqrt(v1.x * v1.x + v1.y * v1.y)
+        local len2 = math.sqrt(v2.x * v2.x + v2.y * v2.y)
 
         if len1 > 1e-6 and len2 > 1e-6 then
-            v1.x, v1.z = v1.x / len1, v1.z / len1
-            v2.x, v2.z = v2.x / len2, v2.z / len2
+            v1.x, v1.y = v1.x / len1, v1.y / len1
+            v2.x, v2.y = v2.x / len2, v2.y / len2
 
             -- Calculate normals (perpendicular)
-            local n1 = { x = -v1.z, z = v1.x }
-            local n2 = { x = -v2.z, z = v2.x }
+            local n1 = Vec2(-v1.y, v1.x)
+            local n2 = Vec2(-v2.y, v2.x)
 
             -- Calculate miter
-            local miter = { x = n1.x + n2.x, z = n1.z + n2.z }
-            local miterLen = math.sqrt(miter.x * miter.x + miter.z * miter.z)
+            local miter = Vec2(n1.x + n2.x, n1.y + n2.y)
+            local miterLen = math.sqrt(miter.x * miter.x + miter.y * miter.y)
 
             if miterLen > 1e-6 then
                 -- Calculate miter length
-                local dot = v1.x * v2.x + v1.z * v2.z
+                local dot = v1.x * v2.x + v1.y * v2.y
                 local miterScale = 1 / (1 + dot)
 
                 -- Apply offset
-                table.insert(offset, {
-                    x = curr.x + miter.x * distance * miterScale / miterLen,
-                    y = curr.y or 0,
-                    z = curr.z + miter.z * distance * miterScale / miterLen,
-                })
+                table.insert(
+                    offset,
+                    Vec2(
+                        curr.x + miter.x * distance * miterScale / miterLen,
+                        curr.y + miter.y * distance * miterScale / miterLen
+                    )
+                )
             else
                 -- Fallback for sharp angles
-                table.insert(offset, {
-                    x = curr.x + n1.x * distance,
-                    y = curr.y or 0,
-                    z = curr.z + n1.z * distance,
-                })
+                table.insert(offset, Vec2(curr.x + n1.x * distance, curr.y + n1.y * distance))
             end
         else
             -- Degenerate case
@@ -443,8 +441,8 @@ function ClipPolygonToPolygon(subject, clip)
     end
 
     local function inside(p, edge_start, edge_end)
-        return (edge_end.x - edge_start.x) * (p.z - edge_start.z)
-                - (edge_end.z - edge_start.z) * (p.x - edge_start.x)
+        return (edge_end.x - edge_start.x) * (p.y - edge_start.y)
+                - (edge_end.y - edge_start.y) * (p.x - edge_start.x)
             >= 0
     end
 
@@ -508,7 +506,7 @@ function TriangulatePolygon(polygon)
 
     -- Copy vertices
     for i, v in ipairs(polygon) do
-        table.insert(vertices, { x = v.x, y = v.y or 0, z = v.z, index = i })
+        table.insert(vertices, { x = v.x, y = v.y, index = i })
     end
 
     local function isEar(vertexList, i)
@@ -521,7 +519,7 @@ function TriangulatePolygon(polygon)
         local p3 = vertexList[next]
 
         -- Check if angle is convex
-        local cross = (p2.x - p1.x) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.x - p1.x)
+        local cross = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x)
         if cross <= 0 then
             return false
         end
@@ -581,15 +579,15 @@ function TriangulatePolygon(polygon)
 end
 
 --- Checks if a point is inside a 2D triangle
---- @param p table Point to test {x, z}
---- @param a table First vertex of triangle {x, z}
---- @param b table Second vertex of triangle {x, z}
---- @param c table Third vertex of triangle {x, z}
+--- @param p table DCS Vec2 point to test
+--- @param a table First DCS Vec2 vertex
+--- @param b table Second DCS Vec2 vertex
+--- @param c table Third DCS Vec2 vertex
 --- @return boolean inside True if point is inside triangle
---- @usage local inside = PointInTriangle2D({x=5,z=5}, {x=0,z=0}, {x=10,z=0}, {x=5,z=10})
+--- @usage local inside = PointInTriangle2D({x=5,y=5}, {x=0,y=0}, {x=10,y=0}, {x=5,y=10})
 function PointInTriangle2D(p, a, b, c)
     local function sign(p1, p2, p3)
-        return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z)
+        return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
     end
 
     local d1 = sign(p, a, b)

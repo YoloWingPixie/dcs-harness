@@ -104,7 +104,7 @@ function TestDrawingSearch:setUp()
                 return "Unit1"
             end,
             getPosition = function()
-                return { p = { x = 1050, y = 100, z = 2050 } }
+                return MockPosition3({ x = 1050, y = 100, z = 2050 })
             end,
             getCoalition = function()
                 return 1
@@ -115,7 +115,7 @@ function TestDrawingSearch:setUp()
                 return "Unit2"
             end,
             getPosition = function()
-                return { p = { x = -1000, y = 100, z = -1000 } }
+                return MockPosition3({ x = -1000, y = 100, z = -1000 })
             end,
             getCoalition = function()
                 return 2
@@ -126,7 +126,7 @@ function TestDrawingSearch:setUp()
                 return "Unit3"
             end,
             getPosition = function()
-                return { p = { x = 50, y = 100, z = 50 } }
+                return MockPosition3({ x = 50, y = 100, z = 50 })
             end,
             getCoalition = function()
                 return 1
@@ -137,7 +137,7 @@ function TestDrawingSearch:setUp()
                 return "Unit4"
             end,
             getPosition = function()
-                return { p = { x = 2050, y = 100, z = 2050 } }
+                return MockPosition3({ x = 2050, y = 100, z = 2050 })
             end,
             getCoalition = function()
                 return 2
@@ -242,22 +242,22 @@ end
 
 function TestDrawingSearch:testGetDrawingsAtPoint()
     -- Test point inside circle
-    local drawings = GetDrawingsAtPoint({ x = 1050, z = 2050 })
+    local drawings = GetDrawingsAtPoint(Vec2(1050, 2050))
     lu.assertEquals(#drawings, 1)
     lu.assertEquals(drawings[1].name, "TestCircle")
 
     -- Test point inside rectangle
-    drawings = GetDrawingsAtPoint({ x = -1000, z = -1000 })
+    drawings = GetDrawingsAtPoint(Vec2(-1000, -1000))
     lu.assertEquals(#drawings, 1)
     lu.assertEquals(drawings[1].name, "TestRect")
 
     -- Test point inside polygon
-    drawings = GetDrawingsAtPoint({ x = 50, z = 50 })
+    drawings = GetDrawingsAtPoint(Vec2(50, 50))
     lu.assertEquals(#drawings, 1)
     lu.assertEquals(drawings[1].name, "TestPolygon")
 
     -- Test point outside all drawings
-    drawings = GetDrawingsAtPoint({ x = 10000, z = 10000 })
+    drawings = GetDrawingsAtPoint(Vec2(10000, 10000))
     lu.assertEquals(#drawings, 0)
 end
 
@@ -279,12 +279,12 @@ function TestDrawingSearch:testGetDrawingsAtPointWithTypeFilter()
     }
 
     -- Test filtering by type
-    local polygons = GetDrawingsAtPoint({ x = 50, z = 50 }, "Polygon")
+    local polygons = GetDrawingsAtPoint(Vec2(50, 50), "Polygon")
     lu.assertEquals(#polygons, 1)
     lu.assertEquals(polygons[1].name, "TestPolygon")
 
     -- Test with type that doesn't contain the point
-    local lines = GetDrawingsAtPoint({ x = 50, z = 50 }, "Line")
+    local lines = GetDrawingsAtPoint(Vec2(50, 50), "Line")
     lu.assertEquals(#lines, 0)
 end
 

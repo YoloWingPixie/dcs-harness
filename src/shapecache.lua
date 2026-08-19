@@ -1,6 +1,6 @@
 --[[
     ShapeCache Module - Combined cache for drawings and trigger zones
-    
+
     This module provides a unified interface for searching and querying
     both drawings and trigger zones.
 ]]
@@ -71,13 +71,13 @@ function GetShapeByName(name)
 end
 
 --- Check if a point is inside any named shape
----@param point table Point with x, z coordinates
+---@param point table DCS Vec2 or Vec3 point
 ---@param shapeName string? Optional shape name to check specifically
 ---@return table results Array of shapes containing the point
 function GetShapesAtPoint(point, shapeName)
-    if not point or type(point) ~= "table" or not point.x or not point.z then
+    if not (IsVec2(point) or IsVec3(point)) then
         _HarnessInternal.log.error(
-            "GetShapesAtPoint requires valid point with x, z",
+            "GetShapesAtPoint requires a DCS Vec2 or Vec3 point",
             "ShapeCache.GetShapesAtPoint"
         )
         return {}

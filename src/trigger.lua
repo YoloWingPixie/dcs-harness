@@ -1,6 +1,6 @@
 --[[
     Trigger Module - DCS World Trigger API Wrappers
-    
+
     This module provides validated wrapper functions for DCS trigger.action operations,
     including messages, explosions, smoke, illumination, and other effects.
 ]]
@@ -9,7 +9,9 @@ require("logger")
 require("vector")
 
 -- Internal helpers for colors/fills
-local function _normalizeColor(c)
+local TriggerInternal = {}
+
+function TriggerInternal.normalizeColor(c)
     if type(c) ~= "table" then
         return { r = 1, g = 1, b = 1, a = 1 }
     end
@@ -21,7 +23,7 @@ local function _normalizeColor(c)
     }
 end
 
-local function _defaultFill(color, fill)
+function TriggerInternal.defaultFill(color, fill)
     if type(fill) == "table" then
         return {
             r = fill.r or fill[1] or 1,
@@ -30,13 +32,27 @@ local function _defaultFill(color, fill)
             a = fill.a or fill[4] or 0.25,
         }
     end
-    local c = _normalizeColor(color)
+    local c = TriggerInternal.normalizeColor(color)
     local a = c.a or 1
     return { r = c.r, g = c.g, b = c.b, a = math.max(0.0, math.min(1.0, a * 0.25)) }
 end
 
+function TriggerInternal.normalizeUnitId(value)
+    local numeric = tonumber(value)
+    if
+        type(numeric) ~= "number"
+        or numeric ~= numeric
+        or numeric <= 0
+        or numeric >= math.huge
+        or numeric % 1 ~= 0
+    then
+        return nil
+    end
+    return numeric
+end
+
 -- Convert color table to array form {r,g,b,a} for DCS APIs
-local function _toArrayColor(color)
+function TriggerInternal.toArrayColor(color)
     if type(color) ~= "table" then
         return { 1, 1, 1, 1 }
     end
@@ -164,16 +180,17 @@ function OutTextForGroup(groupId, text, displayTime, clearView)
 end
 
 --- Displays text message to a specific unit
----@param unitId number The unit ID to display message to
+---@param unitId number|string The unit ID to display message to
 ---@param text string The text message to display
 ---@param displayTime number? The time in seconds to display (default: 10)
 ---@param clearView boolean? Whether to clear the previous message (default: false)
 ---@return boolean? success Returns true if successful, nil on error
 ---@usage OutTextForUnit(2001, "Unit message", 10)
 function OutTextForUnit(unitId, text, displayTime, clearView)
-    if not unitId or type(unitId) ~= "number" then
+    local normalizedUnitId = TriggerInternal.normalizeUnitId(unitId)
+    if not normalizedUnitId then
         _HarnessInternal.log.error(
-            "OutTextForUnit requires valid unit ID",
+            "OutTextForUnit requires a positive integral unit ID: " .. tostring(unitId),
             "Trigger.OutTextForUnit"
         )
         return nil
@@ -193,8 +210,20 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
 
     clearView = clearView or false
 
+    if
+        type(trigger) ~= "table"
+        or type(trigger.action) ~= "table"
+        or type(trigger.action.outTextForUnit) ~= "function"
+    then
+        _HarnessInternal.log.error(
+            "trigger.action.outTextForUnit is unavailable",
+            "Trigger.OutTextForUnit"
+        )
+        return nil
+    end
+
     local success, result =
-        pcall(trigger.action.outTextForUnit, unitId, text, displayTime, clearView)
+        pcall(trigger.action.outTextForUnit, normalizedUnitId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
             "Failed to display unit text: " .. tostring(result),
@@ -935,8 +964,8 @@ function LineToAll(
         return nil
     end
 
-    color = _normalizeColor(color)
-    local colorArr = _toArrayColor(color)
+    color = TriggerInternal.normalizeColor(color)
+    local colorArr = TriggerInternal.toArrayColor(color)
     local success, result = pcall(
         trigger.action.lineToAll,
         coalitionArg,
@@ -1029,10 +1058,10 @@ function CircleToAll(
         return nil
     end
 
-    color = _normalizeColor(color)
-    fillColor = _defaultFill(color, fillColor)
-    local colorArr = _toArrayColor(color)
-    local fillArr = _toArrayColor(fillColor)
+    color = TriggerInternal.normalizeColor(color)
+    fillColor = TriggerInternal.defaultFill(color, fillColor)
+    local colorArr = TriggerInternal.toArrayColor(color)
+    local fillArr = TriggerInternal.toArrayColor(fillColor)
     local success, result = pcall(
         trigger.action.circleToAll,
         coalitionArg,
@@ -1134,8 +1163,8 @@ function RectToAll(
         return nil
     end
 
-    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
-    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
     local success, result = pcall(
         trigger.action.rectToAll,
         coalitionArg,
@@ -1247,8 +1276,8 @@ function QuadToAll(
         return nil
     end
 
-    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
-    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
     local success, result = pcall(
         trigger.action.quadToAll,
         coalitionArg,
@@ -1344,10 +1373,10 @@ function TextToAll(
         return nil
     end
 
-    color = _normalizeColor(color)
-    fillColor = _defaultFill(color, fillColor)
-    local colorArr = _toArrayColor(color)
-    local fillArr = _toArrayColor(fillColor)
+    color = TriggerInternal.normalizeColor(color)
+    fillColor = TriggerInternal.defaultFill(color, fillColor)
+    local colorArr = TriggerInternal.toArrayColor(color)
+    local fillArr = TriggerInternal.toArrayColor(fillColor)
     -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
     local success, result = pcall(
         trigger.action.textToAll,
@@ -1449,8 +1478,8 @@ function ArrowToAll(
         return nil
     end
 
-    local colorArr = _toArrayColor(color or { 1, 1, 1, 1 })
-    local fillArr = _toArrayColor(fillColor or { 1, 1, 1, 0.25 })
+    local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
+    local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
     local success, result = pcall(
         trigger.action.arrowToAll,
         coalitionArg,

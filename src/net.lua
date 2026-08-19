@@ -66,17 +66,83 @@ function SendChatTo(message, playerId, fromId)
     return true
 end
 
---- Get list of all connected players
----@return table players Array of player info tables
----@usage local players = GetPlayers()
-function GetPlayers()
-    local success, players = pcall(net.get_player_list)
-    if not success then
-        _HarnessInternal.log.error("Failed to get player list: " .. tostring(players), "GetPlayers")
-        return {}
+--- Get connected network player IDs
+---@return table? playerIds Array of player IDs, or nil when unavailable
+function GetPlayerIds()
+    if type(net) ~= "table" or type(net.get_player_list) ~= "function" then
+        _HarnessInternal.log.error("net.get_player_list is unavailable", "GetPlayerIds")
+        return nil
+    end
+    local success, playerIds = pcall(net.get_player_list)
+    if not success or type(playerIds) ~= "table" then
+        _HarnessInternal.log.error(
+            "Failed to get player ID list: " .. tostring(playerIds),
+            "GetPlayerIds"
+        )
+        return nil
+    end
+    return playerIds
+end
+
+--- Get available network information for all player IDs
+---@return table? playerInfos Player information records
+function GetPlayerInfos()
+    local playerIds = GetPlayerIds()
+    if not playerIds then
+        return nil
+    end
+    if type(net) ~= "table" or type(net.get_player_info) ~= "function" then
+        _HarnessInternal.log.error("net.get_player_info is unavailable", "GetPlayerInfos")
+        return nil
     end
 
-    return players or {}
+    local playerInfos = {}
+    for _, playerId in ipairs(playerIds) do
+        local success, info = pcall(net.get_player_info, playerId)
+        if success and type(info) == "table" then
+            playerInfos[#playerInfos + 1] = info
+        else
+            _HarnessInternal.log.error(
+                "Failed to get player info for ID " .. tostring(playerId) .. ": " .. tostring(info),
+                "GetPlayerInfos"
+            )
+        end
+    end
+    return playerInfos
+end
+
+--- Find every network player record with an exact name match
+---@param name string Player name
+---@param playerInfos table? Caller-supplied player information records
+---@return table? matches Exact-name matches
+function FindPlayerInfosByName(name, playerInfos)
+    if type(name) ~= "string" then
+        _HarnessInternal.log.error(
+            "FindPlayerInfosByName requires a string name",
+            "FindPlayerInfosByName"
+        )
+        return nil
+    end
+    if playerInfos == nil then
+        playerInfos = GetPlayerInfos()
+        if not playerInfos then
+            return nil
+        end
+    elseif type(playerInfos) ~= "table" then
+        _HarnessInternal.log.error(
+            "FindPlayerInfosByName playerInfos must be a table",
+            "FindPlayerInfosByName"
+        )
+        return nil
+    end
+
+    local matches = {}
+    for _, info in ipairs(playerInfos) do
+        if type(info) == "table" and info.name == name then
+            matches[#matches + 1] = info
+        end
+    end
+    return matches
 end
 
 --- Get information about specific player
@@ -89,6 +155,10 @@ function GetPlayerInfo(playerId)
         return nil
     end
 
+    if type(net) ~= "table" or type(net.get_player_info) ~= "function" then
+        _HarnessInternal.log.error("net.get_player_info is unavailable", "GetPlayerInfo")
+        return nil
+    end
     local success, info = pcall(net.get_player_info, playerId)
     if not success then
         _HarnessInternal.log.error("Failed to get player info: " .. tostring(info), "GetPlayerInfo")

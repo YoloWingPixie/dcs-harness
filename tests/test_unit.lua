@@ -97,6 +97,9 @@ function TestUnit:setUp()
                     { desc = { typeName = "AIM-9X" }, count = 2 },
                 }
             end,
+            getDrawArgumentValue = function(self, argumentId)
+                return argumentId / 10
+            end,
             getName = function(self)
                 return "Player"
             end,
@@ -182,6 +185,40 @@ end
 function TestUnit:tearDown()
     -- Restore original mock function
     Unit.getByName = self.original_getByName
+end
+
+function TestUnit:testGetUnitIDNormalizesAndRejectsInvalidValues()
+    local values = { 42, "43", "invalid", 0 / 0, 0, -1, 1.5 }
+    local expected = { 42, 43, nil, nil, nil, nil, nil }
+    for index, value in ipairs(values) do
+        local unit = {
+            getID = function()
+                return value
+            end,
+        }
+        lu.assertEquals(GetUnitID(unit), expected[index])
+    end
+    local failing = {
+        getID = function()
+            error("failure")
+        end,
+    }
+    lu.assertNil(GetUnitID(failing))
+end
+
+function TestUnit:testGetUnitIDAndVelocityAcceptNamesAndObjects()
+    self.mockUnits.Player.getID = function()
+        return "77"
+    end
+    lu.assertEquals(GetUnitID("Player"), 77)
+    lu.assertEquals(GetUnitVelocity(self.mockUnits.Player), { x = 10, y = 0, z = 5 })
+end
+
+function TestUnit:testGetUnitDrawArgumentsAcceptsNameAndObject()
+    local values, complete = GetUnitDrawArguments("Player", { 0, 3, 5 })
+    lu.assertTrue(complete)
+    lu.assertEquals(values, { [0] = 0, [3] = 0.3, [5] = 0.5 })
+    lu.assertEquals(GetUnitDrawArgument(self.mockUnits.Player, 3), 0.3)
 end
 
 -- GetUnit tests
@@ -335,6 +372,8 @@ function TestUnit:testGetUnitHeading_SouthFacing()
             return {
                 p = { x = 0, y = 0, z = 0 },
                 x = { x = -1, y = 0, z = 0 }, -- Facing south
+                y = { x = 0, y = 1, z = 0 },
+                z = { x = 0, y = 0, z = -1 },
             }
         end,
         getName = function(self)
@@ -355,6 +394,8 @@ function TestUnit:testGetUnitHeading_WestFacing()
             return {
                 p = { x = 0, y = 0, z = 0 },
                 x = { x = 0, y = 0, z = -1 }, -- Facing west
+                y = { x = 0, y = 1, z = 0 },
+                z = { x = 1, y = 0, z = 0 },
             }
         end,
         getName = function(self)

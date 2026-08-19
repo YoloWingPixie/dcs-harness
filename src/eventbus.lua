@@ -16,7 +16,13 @@ local ACTIVE_HANDLER = nil
 ---@field _subscribers table<any, table> Map of topicKey -> array of subscriber records
 ---@field _nextSubId number
 ---@field _keySelector fun(event: table): any
----@return table EventBus
+---@field subscribe fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
+---@field unsubscribe fun(self: EventBus, subscriptionId: number): boolean
+---@field sub fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
+---@field unsub fun(self: EventBus, subscriptionId: number): boolean
+---@field publish fun(self: EventBus, event: table)
+---@param keySelector function?
+---@return EventBus
 function EventBus(keySelector)
     local selector = nil
     if type(keySelector) == "function" then
@@ -122,7 +128,8 @@ end
 
 ---@class HarnessWorldEventBus : EventBus
 ---@field _handler table
----@return table HarnessWorldEventBus
+---@field dispose fun(self: HarnessWorldEventBus)
+---@return HarnessWorldEventBus
 function CreateHarnessWorldEventBus()
     local bus = EventBus()
     bus._registered = false
@@ -187,11 +194,14 @@ function CreateHarnessWorldEventBus()
 end
 
 -- Provide a globally accessible singleton for harness initialization if desired
+---@type HarnessWorldEventBus?
 HarnessWorldEventBus = nil
 -- Back-compat alias
+---@type HarnessWorldEventBus?
 HarnessWorldEventBusInstance = nil
 
 --- Initialize global HarnessWorldEventBus if not already created
+---@return HarnessWorldEventBus
 function InitHarnessWorldEventBus()
     if not HarnessWorldEventBus then
         HarnessWorldEventBus = CreateHarnessWorldEventBus()

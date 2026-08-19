@@ -58,7 +58,28 @@ end
 
 function TestTerrain:testGetTerrainHeight_EmptyTable()
     local height = GetTerrainHeight({})
-    lu.assertEquals(height, 100) -- Empty table converts to Vec2(0,0) which is valid
+    lu.assertEquals(height, 0)
+end
+
+function TestTerrain:testTerrainFunctionsTranslateToNativeVec2()
+    local receivedHeight
+    local receivedSurface
+    land.getHeight = function(position)
+        receivedHeight = position
+        return 321
+    end
+    land.getSurfaceType = function(position)
+        receivedSurface = position
+        return 4
+    end
+
+    local position = Vec3(1000, 500, 2000)
+    lu.assertEquals(GetTerrainHeight(position), 321)
+    lu.assertEquals(GetSurfaceType(position), 4)
+    lu.assertEquals(receivedHeight, { x = 1000, y = 2000 })
+    lu.assertEquals(receivedSurface, { x = 1000, y = 2000 })
+    lu.assertNil(receivedHeight.z)
+    lu.assertNil(receivedSurface.z)
 end
 
 function TestTerrain:testGetTerrainHeight_APIError()
@@ -386,8 +407,8 @@ function TestTerrain:testGetClosestRoadPoint_Vec3Input()
     local point = GetClosestRoadPoint(position)
     lu.assertNotNil(point)
     lu.assertEquals(point.x, 1000)
-    lu.assertEquals(point.y, 0)
-    lu.assertEquals(point.z, 2000)
+    lu.assertEquals(point.y, 2000)
+    lu.assertNil(point.z)
 end
 
 function TestTerrain:testGetClosestRoadPoint_Vec2Input()
@@ -395,8 +416,8 @@ function TestTerrain:testGetClosestRoadPoint_Vec2Input()
     local point = GetClosestRoadPoint(position)
     lu.assertNotNil(point)
     lu.assertEquals(point.x, 1000)
-    lu.assertEquals(point.y, 0)
-    lu.assertEquals(point.z, 2000)
+    lu.assertEquals(point.y, 2000)
+    lu.assertNil(point.z)
 end
 
 function TestTerrain:testGetClosestRoadPoint_RailsType()
@@ -432,7 +453,11 @@ function TestTerrain:testFindRoadPath_ValidInputs()
     lu.assertNotNil(path)
     lu.assertEquals(#path, 2)
     lu.assertEquals(path[1].x, 1000)
+    lu.assertEquals(path[1].y, 2000)
+    lu.assertNil(path[1].z)
     lu.assertEquals(path[2].x, 3000)
+    lu.assertEquals(path[2].y, 4000)
+    lu.assertNil(path[2].z)
 end
 
 function TestTerrain:testFindRoadPath_Vec2Inputs()

@@ -8,6 +8,15 @@ env = {
     error = function(msg) end,
 }
 
+function MockPosition3(point)
+    return {
+        p = point,
+        x = { x = 1, y = 0, z = 0 },
+        y = { x = 0, y = 1, z = 0 },
+        z = { x = 0, y = 0, z = 1 },
+    }
+end
+
 timer = {
     getTime = function()
         return 1000.0
@@ -407,7 +416,12 @@ Unit = {
                 return true
             end,
             getPosition = function(self)
-                return { p = { x = 100, y = 50, z = 200 }, x = { x = 1, y = 0, z = 0 } }
+                return {
+                    p = { x = 100, y = 50, z = 200 },
+                    x = { x = 1, y = 0, z = 0 },
+                    y = { x = 0, y = 1, z = 0 },
+                    z = { x = 0, y = 0, z = 1 },
+                }
             end,
             getVelocity = function(self)
                 return { x = 10, y = 0, z = 5 }
@@ -606,6 +620,12 @@ coalition = {
     getGroups = function(coalitionId, categoryId)
         return {}
     end,
+    getPlayers = function(coalitionId)
+        return {}
+    end,
+    getAirbases = function(coalitionId)
+        return {}
+    end,
     side = {
         NEUTRAL = 0,
         RED = 1,
@@ -628,6 +648,12 @@ atmosphere = {
 Airbase = {
     getByName = function(name)
         return {
+            getName = function(self)
+                return name
+            end,
+            getPoint = function(self)
+                return { x = 0, y = 0, z = 0 }
+            end,
             getDescriptor = function(self)
                 return {}
             end,
@@ -657,29 +683,29 @@ Airbase = {
 }
 
 missionCommands = {
-    addCommand = function(path, menuItem, handler, params)
-        return math.random(1, 1000)
+    addCommand = function(name, path, handler, argument)
+        return { name }
     end,
-    addSubMenu = function(path, name)
-        return math.random(1, 1000)
+    addSubMenu = function(name, path)
+        return { name }
     end,
     removeItem = function(path)
         return true
     end,
-    addCommandForCoalition = function(coalition, path, menuItem, handler, params)
-        return math.random(1, 1000)
+    addCommandForCoalition = function(coalitionId, name, path, handler, argument)
+        return { name }
     end,
-    addSubMenuForCoalition = function(coalition, path, name)
-        return math.random(1, 1000)
+    addSubMenuForCoalition = function(coalitionId, name, path)
+        return { name }
     end,
     removeItemForCoalition = function(coalition, path)
         return true
     end,
-    addCommandForGroup = function(group, path, menuItem, handler, params)
-        return math.random(1, 1000)
+    addCommandForGroup = function(groupId, name, path, handler, argument)
+        return { name }
     end,
-    addSubMenuForGroup = function(group, path, name)
-        return math.random(1, 1000)
+    addSubMenuForGroup = function(groupId, name, path)
+        return { name }
     end,
     removeItemForGroup = function(group, path)
         return true
@@ -821,7 +847,7 @@ StaticObject = {
                 return { x = 100, y = 0, z = 200 }
             end,
             getPosition = function(self)
-                return { p = { x = 100, y = 0, z = 200 }, x = { x = 1, y = 0, z = 0 } }
+                return MockPosition3({ x = 100, y = 0, z = 200 })
             end,
             getVelocity = function(self)
                 return { x = 0, y = 0, z = 0 }
@@ -876,7 +902,7 @@ Weapon = {
         return { x = 100, y = 50, z = 200 }
     end,
     getPosition = function(self)
-        return { p = { x = 100, y = 50, z = 200 }, x = { x = 1, y = 0, z = 0 } }
+        return MockPosition3({ x = 100, y = 50, z = 200 })
     end,
     getVelocity = function(self)
         return { x = 200, y = -10, z = 0 }

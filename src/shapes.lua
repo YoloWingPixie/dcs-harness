@@ -1,6 +1,6 @@
 --[[
     Shapes Module - Geospatial Shape Generation
-    
+
     This module provides functions to generate various geometric shapes
     as arrays of Vec2/Vec3 points for use in DCS World scripting.
     All shapes are geospatially aware and use real-world measurements.
@@ -11,11 +11,11 @@ require("vector")
 require("geomath")
 
 --- Creates an equilateral triangle shape
---- @param center table|Vec2 Center point of the triangle {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param size number? Length of each side in meters (default: 1000)
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the triangle or nil on error
---- @usage local triangle = CreateTriangle({x=0, z=0}, 5000, 45)
+--- @usage local triangle = CreateTriangle({x=0, y=0}, 5000, 45)
 function CreateTriangle(center, size, rotation)
     if not center then
         _HarnessInternal.log.error("CreateTriangle requires center point", "Shapes.CreateTriangle")
@@ -23,6 +23,9 @@ function CreateTriangle(center, size, rotation)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     size = size or 1000 -- Default 1km sides
     rotation = rotation or 0
 
@@ -45,12 +48,12 @@ function CreateTriangle(center, size, rotation)
 end
 
 --- Creates a rectangle shape
---- @param center table|Vec2 Center point of the rectangle {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param width number? Width in meters (default: 2000)
 --- @param height number? Height in meters (default: 1000)
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the rectangle or nil on error
---- @usage local rect = CreateRectangle({x=0, z=0}, 5000, 3000, 90)
+--- @usage local rect = CreateRectangle({x=0, y=0}, 5000, 3000, 90)
 function CreateRectangle(center, width, height, rotation)
     if not center then
         _HarnessInternal.log.error(
@@ -61,6 +64,9 @@ function CreateRectangle(center, width, height, rotation)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     width = width or 2000 -- Default 2km width
     height = height or 1000 -- Default 1km height
     rotation = rotation or 0
@@ -86,31 +92,34 @@ function CreateRectangle(center, width, height, rotation)
 end
 
 --- Creates a square shape
---- @param center table|Vec2 Center point of the square {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param size number? Length of each side in meters
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the square or nil on error
---- @usage local square = CreateSquare({x=0, z=0}, 2000, 45)
+--- @usage local square = CreateSquare({x=0, y=0}, 2000, 45)
 function CreateSquare(center, size, rotation)
     return CreateRectangle(center, size, size, rotation)
 end
 
 --- Creates an oval/ellipse shape
---- @param center table|Vec2 Center point of the oval {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param radiusX number? Radius along X axis in meters (default: 1000)
---- @param radiusZ number? Radius along Z axis in meters (default: radiusX)
+--- @param radiusY number? Radius along Y axis in meters (default: radiusX)
 --- @param numPoints number? Number of points to generate (default: 36)
 --- @return table|nil points Array of Vec2 points defining the oval or nil on error
---- @usage local oval = CreateOval({x=0, z=0}, 2000, 1000, 48)
-function CreateOval(center, radiusX, radiusZ, numPoints)
+--- @usage local oval = CreateOval({x=0, y=0}, 2000, 1000, 48)
+function CreateOval(center, radiusX, radiusY, numPoints)
     if not center then
         _HarnessInternal.log.error("CreateOval requires center point", "Shapes.CreateOval")
         return nil
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     radiusX = radiusX or 1000 -- Default 1km radius X
-    radiusZ = radiusZ or radiusX -- Default to circle if not specified
+    radiusY = radiusY or radiusX -- Default to circle if not specified
     numPoints = numPoints or 36 -- Default 36 points (10-degree increments)
 
     local points = {}
@@ -119,31 +128,31 @@ function CreateOval(center, radiusX, radiusZ, numPoints)
     for i = 0, numPoints - 1 do
         local angle = i * angleStep
         local x = radiusX * math.cos(angle)
-        local z = radiusZ * math.sin(angle)
-        table.insert(points, center + Vec2(x, z))
+        local y = radiusY * math.sin(angle)
+        table.insert(points, center + Vec2(x, y))
     end
 
     return points
 end
 
 --- Creates a circle shape
---- @param center table|Vec2 Center point of the circle {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param radius number? Radius in meters
 --- @param numPoints number? Number of points to generate (default: 36)
 --- @return table|nil points Array of Vec2 points defining the circle or nil on error
---- @usage local circle = CreateCircle({x=0, z=0}, 5000, 72)
+--- @usage local circle = CreateCircle({x=0, y=0}, 5000, 72)
 function CreateCircle(center, radius, numPoints)
     return CreateOval(center, radius, radius, numPoints)
 end
 
 --- Creates a fan/sector shape from an origin point
---- @param origin table|Vec2 Origin point of the fan {x, z} or Vec2
+--- @param origin table|Vec2 Origin DCS Vec2 {x, y}
 --- @param centerBearing number? Center bearing of the arc in degrees (default: 0)
 --- @param arcDegrees number? Total arc width in degrees (default: 90)
 --- @param distance number? Distance from origin in meters (default: 50 NM)
 --- @param numPoints number? Number of arc points (default: based on arc size)
 --- @return table|nil points Array of Vec2 points defining the fan or nil on error
---- @usage local fan = CreateFan({x=0, z=0}, 45, 60, 10000) -- 60° arc centered on bearing 45°
+--- @usage local fan = CreateFan({x=0, y=0}, 45, 60, 10000) -- 60° arc centered on bearing 45°
 function CreateFan(origin, centerBearing, arcDegrees, distance, numPoints)
     if not origin then
         _HarnessInternal.log.error("CreateFan requires origin point", "Shapes.CreateFan")
@@ -151,6 +160,9 @@ function CreateFan(origin, centerBearing, arcDegrees, distance, numPoints)
     end
 
     origin = ToVec2(origin)
+    if not origin then
+        return nil
+    end
     centerBearing = centerBearing or 0
     arcDegrees = arcDegrees or 90
     distance = distance or 50 * 1852 -- Default 50 nautical miles
@@ -176,13 +188,13 @@ function CreateFan(origin, centerBearing, arcDegrees, distance, numPoints)
 end
 
 --- Creates a trapezoid shape
---- @param center table|Vec2 Center point of the trapezoid {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param topWidth number? Width of top edge in meters (default: 1000)
 --- @param bottomWidth number? Width of bottom edge in meters (default: 2000)
 --- @param height number? Height in meters (default: 1000)
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the trapezoid or nil on error
---- @usage local trap = CreateTrapezoid({x=0, z=0}, 1000, 3000, 2000)
+--- @usage local trap = CreateTrapezoid({x=0, y=0}, 1000, 3000, 2000)
 function CreateTrapezoid(center, topWidth, bottomWidth, height, rotation)
     if not center then
         _HarnessInternal.log.error(
@@ -193,6 +205,9 @@ function CreateTrapezoid(center, topWidth, bottomWidth, height, rotation)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     topWidth = topWidth or 1000 -- Default 1km top width
     bottomWidth = bottomWidth or 2000 -- Default 2km bottom width
     height = height or 1000 -- Default 1km height
@@ -220,13 +235,13 @@ function CreateTrapezoid(center, topWidth, bottomWidth, height, rotation)
 end
 
 --- Creates a pill/capsule shape (rectangle with semicircular ends)
---- @param center table|Vec2 Center point of the pill {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param legBearing number? Direction of the long axis in degrees (default: 0)
 --- @param legLength number? Length of the straight section in meters (default: 40 NM)
 --- @param radius number? Radius of the semicircular ends in meters (default: 10 NM)
 --- @param pointsPerCap number? Points per semicircle end (default: 19)
 --- @return table|nil points Array of Vec2 points defining the pill or nil on error
---- @usage local pill = CreatePill({x=0, z=0}, 90, 20000, 5000)
+--- @usage local pill = CreatePill({x=0, y=0}, 90, 20000, 5000)
 function CreatePill(center, legBearing, legLength, radius, pointsPerCap)
     if not center then
         _HarnessInternal.log.error("CreatePill requires center point", "Shapes.CreatePill")
@@ -234,6 +249,9 @@ function CreatePill(center, legBearing, legLength, radius, pointsPerCap)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     legBearing = legBearing or 0
     legLength = legLength or 40 * 1852 -- Default 40 nautical miles
     radius = radius or 10 * 1852 -- Default 10 nautical miles
@@ -267,13 +285,13 @@ function CreatePill(center, legBearing, legLength, radius, pointsPerCap)
 end
 
 --- Creates a star shape
---- @param center table|Vec2 Center point of the star {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param outerRadius number? Radius to outer points in meters (default: 1000)
 --- @param innerRadius number? Radius to inner points in meters (default: 400)
 --- @param numPoints number? Number of star points (default: 5)
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the star or nil on error
---- @usage local star = CreateStar({x=0, z=0}, 5000, 2000, 5, 0)
+--- @usage local star = CreateStar({x=0, y=0}, 5000, 2000, 5, 0)
 function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
     if not center then
         _HarnessInternal.log.error("CreateStar requires center point", "Shapes.CreateStar")
@@ -281,6 +299,9 @@ function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     outerRadius = outerRadius or 1000 -- Default 1km outer radius
     innerRadius = innerRadius or 400 -- Default 400m inner radius
     numPoints = numPoints or 5 -- Default 5-pointed star
@@ -293,20 +314,20 @@ function CreateStar(center, outerRadius, innerRadius, numPoints, rotation)
         local angle = i * angleStep - math.pi / 2 + DegToRad(rotation)
         local radius = (i % 2 == 0) and outerRadius or innerRadius
         local x = radius * math.cos(angle)
-        local z = radius * math.sin(angle)
-        table.insert(points, center + Vec2(x, z))
+        local y = radius * math.sin(angle)
+        table.insert(points, center + Vec2(x, y))
     end
 
     return points
 end
 
 --- Creates a regular polygon shape
---- @param center table|Vec2 Center point of the polygon {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param radius number Radius to vertices in meters
 --- @param numSides number Number of sides (minimum 3)
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the polygon or nil on error
---- @usage local pentagon = CreatePolygon({x=0, z=0}, 3000, 5, 0)
+--- @usage local pentagon = CreatePolygon({x=0, y=0}, 3000, 5, 0)
 function CreatePolygon(center, radius, numSides, rotation)
     if not center or not radius or not numSides then
         _HarnessInternal.log.error(
@@ -325,6 +346,9 @@ function CreatePolygon(center, radius, numSides, rotation)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     rotation = rotation or 0
 
     local points = {}
@@ -333,41 +357,41 @@ function CreatePolygon(center, radius, numSides, rotation)
     for i = 0, numSides - 1 do
         local angle = i * angleStep - math.pi / 2 + DegToRad(rotation)
         local x = radius * math.cos(angle)
-        local z = radius * math.sin(angle)
-        table.insert(points, center + Vec2(x, z))
+        local y = radius * math.sin(angle)
+        table.insert(points, center + Vec2(x, y))
     end
 
     return points
 end
 
 --- Creates a hexagon shape
---- @param center table|Vec2 Center point of the hexagon {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param radius number Radius to vertices in meters
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the hexagon or nil on error
---- @usage local hex = CreateHexagon({x=0, z=0}, 2000, 30)
+--- @usage local hex = CreateHexagon({x=0, y=0}, 2000, 30)
 function CreateHexagon(center, radius, rotation)
     return CreatePolygon(center, radius, 6, rotation)
 end
 
 --- Creates an octagon shape
---- @param center table|Vec2 Center point of the octagon {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param radius number Radius to vertices in meters
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the octagon or nil on error
---- @usage local oct = CreateOctagon({x=0, z=0}, 2000, 0)
+--- @usage local oct = CreateOctagon({x=0, y=0}, 2000, 0)
 function CreateOctagon(center, radius, rotation)
     return CreatePolygon(center, radius, 8, rotation)
 end
 
 --- Creates an arc shape
---- @param center table|Vec2 Center point of the arc {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param radius number Radius in meters
 --- @param startBearing number? Starting bearing in degrees (default: 0)
 --- @param endBearing number? Ending bearing in degrees (default: 90)
 --- @param numPoints number? Number of points (default: based on arc size)
 --- @return table|nil points Array of Vec2 points defining the arc or nil on error
---- @usage local arc = CreateArc({x=0, z=0}, 5000, 0, 180, 37)
+--- @usage local arc = CreateArc({x=0, y=0}, 5000, 0, 180, 37)
 function CreateArc(center, radius, startBearing, endBearing, numPoints)
     if not center or not radius then
         _HarnessInternal.log.error("CreateArc requires center and radius", "Shapes.CreateArc")
@@ -375,6 +399,9 @@ function CreateArc(center, radius, startBearing, endBearing, numPoints)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     startBearing = startBearing or 0
     endBearing = endBearing or 90
     numPoints = numPoints or math.ceil(math.abs(endBearing - startBearing) / 5) + 1
@@ -402,13 +429,13 @@ function CreateArc(center, radius, startBearing, endBearing, numPoints)
 end
 
 --- Creates a spiral shape
---- @param center table|Vec2 Center point of the spiral {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param startRadius number? Starting radius in meters (default: 100)
 --- @param endRadius number? Ending radius in meters (default: 1000)
 --- @param numTurns number? Number of complete turns (default: 3)
 --- @param pointsPerTurn number? Points per turn (default: 36)
 --- @return table|nil points Array of Vec2 points defining the spiral or nil on error
---- @usage local spiral = CreateSpiral({x=0, z=0}, 100, 5000, 5, 72)
+--- @usage local spiral = CreateSpiral({x=0, y=0}, 100, 5000, 5, 72)
 function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
     if not center then
         _HarnessInternal.log.error("CreateSpiral requires center point", "Shapes.CreateSpiral")
@@ -416,6 +443,9 @@ function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     startRadius = startRadius or 100
     endRadius = endRadius or 1000
     numTurns = numTurns or 3
@@ -430,20 +460,20 @@ function CreateSpiral(center, startRadius, endRadius, numTurns, pointsPerTurn)
         local radius = startRadius + i * radiusStep
         local angle = i * angleStep
         local x = radius * math.cos(angle)
-        local z = radius * math.sin(angle)
-        table.insert(points, center + Vec2(x, z))
+        local y = radius * math.sin(angle)
+        table.insert(points, center + Vec2(x, y))
     end
 
     return points
 end
 
 --- Creates a ring/donut shape
---- @param center table|Vec2 Center point of the ring {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param outerRadius number Outer radius in meters
 --- @param innerRadius number Inner radius in meters (must be less than outer)
 --- @param numPoints number? Number of points per circle (default: 36)
 --- @return table|nil points Array of Vec2 points defining the ring or nil on error
---- @usage local ring = CreateRing({x=0, z=0}, 5000, 3000, 72)
+--- @usage local ring = CreateRing({x=0, y=0}, 5000, 3000, 72)
 function CreateRing(center, outerRadius, innerRadius, numPoints)
     if not center then
         _HarnessInternal.log.error("CreateRing requires center point", "Shapes.CreateRing")
@@ -455,6 +485,11 @@ function CreateRing(center, outerRadius, innerRadius, numPoints)
             "CreateRing requires valid inner and outer radii",
             "Shapes.CreateRing"
         )
+        return nil
+    end
+
+    center = ToVec2(center)
+    if not center then
         return nil
     end
 
@@ -492,12 +527,12 @@ function CreateRing(center, outerRadius, innerRadius, numPoints)
 end
 
 --- Creates a cross/plus shape
---- @param center table|Vec2 Center point of the cross {x, z} or Vec2
+--- @param center table|Vec2 Center DCS Vec2 {x, y}
 --- @param size number? Length of the cross arms in meters (default: 1000)
 --- @param thickness number? Thickness of the arms in meters (default: 200)
 --- @param rotation number? Rotation angle in degrees (default: 0)
 --- @return table|nil points Array of Vec2 points defining the cross or nil on error
---- @usage local cross = CreateCross({x=0, z=0}, 2000, 400, 45)
+--- @usage local cross = CreateCross({x=0, y=0}, 2000, 400, 45)
 function CreateCross(center, size, thickness, rotation)
     if not center then
         _HarnessInternal.log.error("CreateCross requires center point", "Shapes.CreateCross")
@@ -505,6 +540,9 @@ function CreateCross(center, size, thickness, rotation)
     end
 
     center = ToVec2(center)
+    if not center then
+        return nil
+    end
     size = size or 1000 -- Default 1km size
     thickness = thickness or 200 -- Default 200m thickness
     rotation = rotation or 0
@@ -553,13 +591,15 @@ function ShapeToVec3(shape, altitude)
 
     local result = {}
     for _, p in ipairs(shape) do
-        if IsVec2(p) then
-            table.insert(result, p:toVec3(altitude))
-        elseif IsVec3(p) then
-            table.insert(result, p)
-        else
-            table.insert(result, Vec3(p.x, altitude, p.z))
+        local point3 = ToVec3(p, altitude)
+        if not point3 then
+            _HarnessInternal.log.error(
+                "ShapeToVec3 requires DCS Vec2 or Vec3 points",
+                "Shapes.ShapeToVec3"
+            )
+            return nil
         end
+        table.insert(result, point3)
     end
 
     return result

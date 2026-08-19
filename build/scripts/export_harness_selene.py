@@ -96,8 +96,23 @@ def normalize_arg_type(type_string: str) -> Tuple[Dict[str, Any], bool]:
         is_optional = True
         t = t[:-1]
 
-    # If complex union/array/tuple, keep as display
-    if "|" in t or "," in t or "[" in t or "]" in t:
+    union_members = [member.strip() for member in t.split("|")]
+    if len(union_members) > 1:
+        if "nil" in union_members:
+            is_optional = True
+            union_members = [member for member in union_members if member != "nil"]
+        if len(union_members) == 1:
+            t = union_members[0]
+        else:
+            return ({"type": "any"}, is_optional)
+
+    if t.endswith("[]") or t.startswith("table<") or t.startswith("{"):
+        return ({"type": "table"}, is_optional)
+
+    if t.startswith("fun("):
+        return ({"type": "function"}, is_optional)
+
+    if "," in t or "[" in t or "]" in t:
         return ({"type": {"display": t}}, is_optional)
 
     mapped = PRIMITIVE_TYPE_MAP.get(t.lower())
@@ -234,5 +249,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

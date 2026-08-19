@@ -48,7 +48,7 @@ local mockUnit = {
         return "Unit1"
     end,
     getPosition = function()
-        return { p = { x = 1050, y = 100, z = 2050 } }
+        return MockPosition3({ x = 1050, y = 100, z = 2050 })
     end,
     getCoalition = function()
         return 1

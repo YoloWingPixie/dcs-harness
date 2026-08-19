@@ -1,11 +1,13 @@
 --[[
     Controller Module - DCS World Controller API Wrappers
-    
+
     This module provides validated wrapper functions for DCS controller operations,
     including AI tasking, commands, and behavior management.
 ]]
 require("logger")
 require("cache")
+
+local ControllerInternal = {}
 
 -- Resolve a domain string for a controller.
 -- Prefers explicitDomain, then cached domain (if available), else falls back.
@@ -366,7 +368,7 @@ end
 
 --- Convenience setters for common controller options
 ---@param controller table Controller object
----@param value integer|ROEAir|ROEGround|ROENaval ROE value or name
+---@param value integer|ROEAir|ROEGround|ROENaval Numeric ROE value or named ROE value
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetROE(controller, value)
     local d = _resolveControllerDomain(controller, nil, "Air")
@@ -533,7 +535,7 @@ end
 
 --- Set alarm state
 ---@param controller table Controller object
----@param value integer|AlarmState Alarm state value or name (e.g. "RED")
+---@param value integer|AlarmState Numeric alarm state or named alarm state (e.g. "RED")
 ---@return boolean? success Returns true on success, nil on error
 function ControllerSetAlarmState(controller, value)
     local d = _resolveControllerDomain(controller, nil, "Ground")
@@ -922,111 +924,75 @@ function BuildNavalOptionTask(optionId, value)
     }
 end
 
+ControllerInternal.airOptionDefinitions = {
+    { name = "ROE", enum = true, enumDefault = "RETURN_FIRE", fallback = 3 },
+    {
+        name = "REACTION_ON_THREAT",
+        enum = true,
+        enumDefault = "EVADE_FIRE",
+        fallback = 2,
+    },
+    { name = "RADAR_USING", fallback = 1 },
+    { name = "FLARE_USING", fallback = 1 },
+    { name = "FORMATION", optional = true },
+    { name = "RTB_ON_BINGO", fallback = true, allowFalse = true },
+    { name = "RTB_ON_OUT_OF_AMMO", fallback = true, allowFalse = true },
+    { name = "SILENCE", fallback = false },
+    { name = "ECM_USING", fallback = 0 },
+    { name = "ALARM_STATE", enum = true, optional = true },
+    { name = "PROHIBIT_AA", fallback = false },
+    { name = "PROHIBIT_AB", fallback = false },
+    { name = "PROHIBIT_JETT", fallback = false },
+    { name = "PROHIBIT_AG", fallback = false },
+    { name = "MISSILE_ATTACK", enum = true, enumDefault = "NEZ_RANGE", fallback = 1 },
+}
+
+function ControllerInternal.resolveAirOptionValue(definition, overrides, values)
+    local value = overrides[definition.name]
+    if definition.enum and type(value) == "string" then
+        local enumValues = values[definition.name]
+        if enumValues then
+            value = enumValues[string.upper(value)]
+        end
+    end
+    if value == false and not definition.allowFalse then
+        value = nil
+    end
+    if value ~= nil then
+        return value
+    end
+    if definition.optional then
+        return nil
+    end
+    if definition.enumDefault then
+        local enumValues = values[definition.name]
+        local enumDefault = enumValues and enumValues[definition.enumDefault]
+        if enumDefault ~= nil then
+            return enumDefault
+        end
+    end
+    return definition.fallback
+end
+
 --- Build a standard set of Air AI options as an array of Option tasks
 --- @param overrides table|nil Optional overrides by key (e.g., { ROE = "WEAPON_FREE", RADAR_USING = 1 })
 --- @return table tasks Array of Option task tables
 function BuildAirOptions(overrides)
-    local opt = AI and AI.Option and AI.Option.Air
-    local val = opt and opt.val or {}
-    local id = opt and opt.id or {}
-    local o = overrides or {}
-
-    local function mapVal(tbl, key, v)
-        if tbl and tbl[key] and type(v) == "string" then
-            local upper = string.upper(v)
-            return tbl[key][upper]
-        end
-        return v
-    end
-
+    local options = AI and AI.Option and AI.Option.Air
+    local values = options and options.val or {}
+    local ids = options and options.id or {}
+    local optionOverrides = overrides or {}
     local tasks = {}
-    -- ROE
-    local roe = mapVal(val, "ROE", o.ROE) or (val.ROE and val.ROE.RETURN_FIRE) or 3
-    if id and id.ROE then
-        table.insert(tasks, BuildAirOptionTask(id.ROE, roe))
-    end
-    -- Reaction on threat
-    local rot = mapVal(val, "REACTION_ON_THREAT", o.REACTION_ON_THREAT)
-        or (val.REACTION_ON_THREAT and val.REACTION_ON_THREAT.EVADE_FIRE)
-        or 2
-    if id and id.REACTION_ON_THREAT then
-        table.insert(tasks, BuildAirOptionTask(id.REACTION_ON_THREAT, rot))
-    end
-    -- Radar using
-    local radar = o.RADAR_USING or 1
-    if id and id.RADAR_USING then
-        table.insert(tasks, BuildAirOptionTask(id.RADAR_USING, radar))
-    end
-    -- Flare using
-    local flare = o.FLARE_USING or 1
-    if id and id.FLARE_USING then
-        table.insert(tasks, BuildAirOptionTask(id.FLARE_USING, flare))
-    end
-    -- Formation (leave nil unless provided)
-    if o.FORMATION and id and id.FORMATION then
-        table.insert(tasks, BuildAirOptionTask(id.FORMATION, o.FORMATION))
-    end
-    -- RTB policies
-    local rtbBingo = (o.RTB_ON_BINGO ~= nil) and o.RTB_ON_BINGO or true
-    if id and id.RTB_ON_BINGO then
-        table.insert(tasks, BuildAirOptionTask(id.RTB_ON_BINGO, rtbBingo))
-    end
-    local rtbAmmo = (o.RTB_ON_OUT_OF_AMMO ~= nil) and o.RTB_ON_OUT_OF_AMMO or true
-    if id and id.RTB_ON_OUT_OF_AMMO then
-        table.insert(tasks, BuildAirOptionTask(id.RTB_ON_OUT_OF_AMMO, rtbAmmo))
-    end
-    -- Silence/ECM
-    local silence = (o.SILENCE ~= nil) and o.SILENCE or false
-    if id and id.SILENCE then
-        table.insert(tasks, BuildAirOptionTask(id.SILENCE, silence))
-    end
-    local ecm = o.ECM_USING or 0
-    if id and id.ECM_USING then
-        table.insert(tasks, BuildAirOptionTask(id.ECM_USING, ecm))
-    end
-    -- Alarm state (optional for Air)
-    if o.ALARM_STATE and id and id.ALARM_STATE then
-        local alarm = mapVal(val, "ALARM_STATE", o.ALARM_STATE)
-        if alarm ~= nil then
-            table.insert(tasks, BuildAirOptionTask(id.ALARM_STATE, alarm))
+    for _, definition in ipairs(ControllerInternal.airOptionDefinitions) do
+        local optionId = ids[definition.name]
+        if optionId ~= nil then
+            local value =
+                ControllerInternal.resolveAirOptionValue(definition, optionOverrides, values)
+            if value ~= nil then
+                tasks[#tasks + 1] = BuildAirOptionTask(optionId, value)
+            end
         end
     end
-    -- Prohibits
-    if id and id.PROHIBIT_AA then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(id.PROHIBIT_AA, (o.PROHIBIT_AA ~= nil) and o.PROHIBIT_AA or false)
-        )
-    end
-    if id and id.PROHIBIT_AB then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(id.PROHIBIT_AB, (o.PROHIBIT_AB ~= nil) and o.PROHIBIT_AB or false)
-        )
-    end
-    if id and id.PROHIBIT_JETT then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(
-                id.PROHIBIT_JETT,
-                (o.PROHIBIT_JETT ~= nil) and o.PROHIBIT_JETT or false
-            )
-        )
-    end
-    if id and id.PROHIBIT_AG then
-        table.insert(
-            tasks,
-            BuildAirOptionTask(id.PROHIBIT_AG, (o.PROHIBIT_AG ~= nil) and o.PROHIBIT_AG or false)
-        )
-    end
-    -- Missile attack policy
-    local ma = mapVal(val, "MISSILE_ATTACK", o.MISSILE_ATTACK)
-        or (val.MISSILE_ATTACK and val.MISSILE_ATTACK.NEZ_RANGE)
-        or 1
-    if id and id.MISSILE_ATTACK then
-        table.insert(tasks, BuildAirOptionTask(id.MISSILE_ATTACK, ma))
-    end
-
     return tasks
 end
 

@@ -1,6 +1,6 @@
 --[[
     Coord Module - DCS World Coordinate API Wrappers
-    
+
     This module provides validated wrapper functions for DCS coordinate conversions,
     including Lat/Long, MGRS, and XYZ coordinate transformations.
 ]]

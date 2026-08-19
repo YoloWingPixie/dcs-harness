@@ -360,7 +360,7 @@ function GeoGridProto:fromTable(t)
 end
 
 ---
----@param cellSizeMeters number|nil
+---@param cellSizeMeters number?
 ---@param allowedTypes string[]
 ---@return GeoGrid
 function GeoGrid(cellSizeMeters, allowedTypes)

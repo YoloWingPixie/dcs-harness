@@ -13,6 +13,7 @@ on:
       - "**/*.toml"
       - "**/.python-version"
       - "**/Taskfile.yml"
+      - "uv.lock"
   workflow_dispatch:
 
 permissions: {}
@@ -43,6 +44,13 @@ jobs:
       - name: Setup Python
         id: setup-python
         uses: actions/setup-python@v5
+
+      - name: Setup uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.10.12"
+          enable-cache: false
 
       - name: Install Python dependencies
         run: pip install pyyaml
@@ -76,23 +84,30 @@ jobs:
         id: test
         run: task test
 
+      - name: Lua complexity
+        id: complexity
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          task complexity:check -- \
+            --base-ref "$BASE_SHA" \
+            --github-annotations \
+            --markdown-report "$RUNNER_TEMP/lua-complexity.md" \
+            --json-report "$RUNNER_TEMP/lua-complexity.json"
+
       - name: Build
         id: build
         run: task build:cd
 
       - name: Syntax check
         id: syntax-check
-        run: luac -p '${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}'
+        run: task syntax:check
 
       - name: Lua 5.1 compatibility check
         id: lua51-compat
         run: |
           ERRORS=0
           f='${{ env.ARTIFACT_DIR }}/${{ env.ARTIFACT_NAME }}'
-          if grep -nP '(?<![/:-])//' "$f" | grep -vP '^\d+:\s*--'; then
-            echo "::error file=$f::Found // (integer division) - use math.floor(a/b) instead"
-            ERRORS=1
-          fi
           if grep -nP '\b(string\.pack|string\.unpack|string\.packsize|table\.move|table\.pack|table\.unpack|utf8\.)' "$f"; then
             echo "::error file=$f::Found Lua 5.2+ stdlib function - not available in DCS Lua 5.1"
             ERRORS=1
@@ -128,6 +143,7 @@ jobs:
         with:
           script: |
             const testResult = '${{ steps.test.outcome }}';
+            const complexityResult = '${{ steps.complexity.outcome }}';
             const buildResult = '${{ steps.build.outcome }}';
             const syntaxResult = '${{ steps.syntax-check.outcome }}';
             const compatResult = '${{ steps.lua51-compat.outcome }}';
@@ -139,6 +155,7 @@ jobs:
             let body = `## CI Results\n\n`;
             body += `| Check | Result |\n|-------|--------|\n`;
             body += `| Tests | ${icon(testResult)} ${testResult} |\n`;
+            body += `| Lua complexity | ${icon(complexityResult)} ${complexityResult} |\n`;
             body += `| Build | ${icon(buildResult)} ${buildResult} |\n`;
             body += `| Syntax | ${icon(syntaxResult)} ${syntaxResult} |\n`;
             body += `| Lua 5.1 compat | ${icon(compatResult)} ${compatResult} |\n`;

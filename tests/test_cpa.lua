@@ -37,6 +37,20 @@ function TestCPA:testTwoBodyCPA_headOn()
     lu.assertAlmostEquals(b.x, 0, 1e-6)
 end
 
+function TestCPA:testTwoBodyCPA_equalVelocitiesUsesCurrentSeparation()
+    local t, d, a, b = EstimateTwoBodyCPA(
+        { x = 0, y = 100, z = 0 },
+        { x = 4, y = 0, z = 3 },
+        { x = 6, y = 200, z = 8 },
+        { x = 4, y = 0, z = 3 }
+    )
+
+    lu.assertEquals(t, 0)
+    lu.assertEquals(d, 10)
+    lu.assertEquals(a, { x = 0, y = 100, z = 0 })
+    lu.assertEquals(b, { x = 6, y = 200, z = 8 })
+end
+
 function TestCPA:testCPAToCircle()
     local t, d = EstimateCPAToCircle(
         { x = 0, y = 0, z = 0 },

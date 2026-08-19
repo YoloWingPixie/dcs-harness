@@ -55,7 +55,28 @@ end
 
 function TestControllerOptionBuilders:testBuildAirOptions_defaults_and_overrides()
     local tasks = BuildAirOptions()
-    lu.assertTrue(#tasks >= 5)
+    local id = AI.Option.Air.id
+    local expectedDefaults = {
+        { id.ROE, AI.Option.Air.val.ROE.RETURN_FIRE },
+        { id.REACTION_ON_THREAT, AI.Option.Air.val.REACTION_ON_THREAT.EVADE_FIRE },
+        { id.RADAR_USING, 1 },
+        { id.FLARE_USING, 1 },
+        { id.RTB_ON_BINGO, true },
+        { id.RTB_ON_OUT_OF_AMMO, true },
+        { id.SILENCE, false },
+        { id.ECM_USING, 0 },
+        { id.PROHIBIT_AA, false },
+        { id.PROHIBIT_AB, false },
+        { id.PROHIBIT_JETT, false },
+        { id.PROHIBIT_AG, false },
+        { id.MISSILE_ATTACK, AI.Option.Air.val.MISSILE_ATTACK.NEZ_RANGE },
+    }
+    lu.assertEquals(#tasks, #expectedDefaults)
+    for index, expected in ipairs(expectedDefaults) do
+        lu.assertEquals(tasks[index].params.name, expected[1])
+        lu.assertEquals(tasks[index].params.value, expected[2])
+    end
+
     -- Override ROE and SILENCE
     tasks = BuildAirOptions({ ROE = "WEAPON_HOLD", SILENCE = true })
     local foundROE, foundSilence = false, false
@@ -66,8 +87,7 @@ function TestControllerOptionBuilders:testBuildAirOptions_defaults_and_overrides
         then
             foundROE = true
             lu.assertEquals(t.id, "Option")
-            -- cannot reliably assert exact numeric without mapping table; ensure it's a number
-            lu.assertEquals(type(t.params.value), "number")
+            lu.assertEquals(t.params.value, AI.Option.Air.val.ROE.WEAPON_HOLD)
         elseif
             t.params.name
             == (
@@ -84,6 +104,63 @@ function TestControllerOptionBuilders:testBuildAirOptions_defaults_and_overrides
     end
     lu.assertTrue(foundROE)
     lu.assertTrue(foundSilence)
+end
+
+function TestControllerOptionBuilders:testBuildAirOptions_includesOptionalValues()
+    local tasks = BuildAirOptions({ FORMATION = 7, ALARM_STATE = 2 })
+    local values = {}
+    for _, task in ipairs(tasks) do
+        values[task.params.name] = task.params.value
+    end
+
+    lu.assertEquals(values[AI.Option.Air.id.FORMATION], 7)
+    lu.assertEquals(values[AI.Option.Air.id.ALARM_STATE], 2)
+end
+
+function TestControllerOptionBuilders:testBuildAirOptions_preservesFalseRtbOverrides()
+    local tasks = BuildAirOptions({
+        RTB_ON_BINGO = false,
+        RTB_ON_OUT_OF_AMMO = false,
+    })
+    local values = {}
+    for _, task in ipairs(tasks) do
+        values[task.params.name] = task.params.value
+    end
+
+    lu.assertEquals(values[AI.Option.Air.id.RTB_ON_BINGO], false)
+    lu.assertEquals(values[AI.Option.Air.id.RTB_ON_OUT_OF_AMMO], false)
+end
+
+function TestControllerOptionBuilders:testBuildAirOptions_preservesOtherFalseBehavior()
+    local tasks = BuildAirOptions({
+        ROE = false,
+        REACTION_ON_THREAT = false,
+        RADAR_USING = false,
+        FLARE_USING = false,
+        FORMATION = false,
+        ALARM_STATE = false,
+        ECM_USING = false,
+        MISSILE_ATTACK = false,
+    })
+    local values = {}
+    for _, task in ipairs(tasks) do
+        values[task.params.name] = task.params.value
+    end
+
+    lu.assertEquals(values[AI.Option.Air.id.ROE], AI.Option.Air.val.ROE.RETURN_FIRE)
+    lu.assertEquals(
+        values[AI.Option.Air.id.REACTION_ON_THREAT],
+        AI.Option.Air.val.REACTION_ON_THREAT.EVADE_FIRE
+    )
+    lu.assertEquals(values[AI.Option.Air.id.RADAR_USING], 1)
+    lu.assertEquals(values[AI.Option.Air.id.FLARE_USING], 1)
+    lu.assertNil(values[AI.Option.Air.id.FORMATION])
+    lu.assertNil(values[AI.Option.Air.id.ALARM_STATE])
+    lu.assertEquals(values[AI.Option.Air.id.ECM_USING], 0)
+    lu.assertEquals(
+        values[AI.Option.Air.id.MISSILE_ATTACK],
+        AI.Option.Air.val.MISSILE_ATTACK.NEZ_RANGE
+    )
 end
 
 function TestControllerOptionBuilders:testBuildGroundOptions_defaults_and_overrides()

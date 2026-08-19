@@ -11,12 +11,20 @@ tasks:
     cmds:
       - task: test
 
+  tools:prepare:
+    internal: true
+    cmds:
+      - cmd: chmod +x tools/selene/selene
+        platforms: [linux, darwin]
+
   test:
+    deps: [tools:prepare]
     desc: Run all unit tests
     dir: '{{.TEST_DIR}}'
     cmds:
       - lua test_runner.lua
       - python -m unittest test_export_harness_selene.py
+      - python -m unittest test_export_harness_luals.py
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - '{{.TEST_DIR}}/**/*.lua'
@@ -41,37 +49,43 @@ tasks:
       - task: test
 
   build:
-    desc: Format then build dist/harness.lua (developer build)
+    desc: Format then build Harness distribution artifacts
     cmds:
       - task: format
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
       - python build/scripts/export_harness_selene.py --src src --output dist/harness-selene.yml
+      - python build/scripts/export_harness_luals.py --src src --output dist/harness.d.lua
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - 'build/scripts/build_single_lua_release.py'
       - 'build/scripts/stamp_harness_version.py'
       - 'build/scripts/export_harness_selene.py'
+      - 'build/scripts/export_harness_luals.py'
       - '.buildrc'
     generates:
       - 'dist/harness.lua'
       - 'dist/harness-selene.yml'
+      - 'dist/harness.d.lua'
 
   build:cd:
-    desc: Build dist/harness.lua without formatting (CI/CD build)
+    desc: Build Harness distribution artifacts without formatting
     cmds:
       - python build/scripts/build_single_lua_release.py
       - python build/scripts/stamp_harness_version.py
       - python build/scripts/export_harness_selene.py --src src --output dist/harness-selene.yml
+      - python build/scripts/export_harness_luals.py --src src --output dist/harness.d.lua
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - 'build/scripts/build_single_lua_release.py'
       - 'build/scripts/stamp_harness_version.py'
       - 'build/scripts/export_harness_selene.py'
+      - 'build/scripts/export_harness_luals.py'
       - '.buildrc'
     generates:
       - 'dist/harness.lua'
       - 'dist/harness-selene.yml'
+      - 'dist/harness.d.lua'
 
   clean:
     desc: Clean build artifacts
@@ -79,13 +93,34 @@ tasks:
       - rm -f {{.BUILD_DIR}}/*.lua
 
   lint:
-    deps: [build:cd]
+    deps: [build:cd, tools:prepare]
     desc: Run Selene on build artifact
     cmds:
       - cmd: ./tools/selene/selene --allow-warnings --config selene.toml {{.BUILD_DIR}}/harness.lua
         platforms: [linux, darwin]
       - cmd: ./tools/selene/selene.exe --allow-warnings --config selene.toml {{.BUILD_DIR}}/harness.lua
         platforms: [windows]
+
+  syntax:check:
+    desc: Parse the build artifact with Lua 5.1
+    cmds:
+      - luac -p "{{.BUILD_DIR}}/harness.lua"
+
+  complexity:check:
+    desc: Report Lua complexity warnings
+    preconditions:
+      - sh: command -v uv
+        msg: uv 0.10.12 is required to run complexity checks
+    cmds:
+      - uv run --locked --only-group quality python scripts/ci/lua_complexity.py {{.SRC_DIR}} {{.CLI_ARGS}}
+
+  deps:lock:
+    desc: Update the locked Python dependencies
+    preconditions:
+      - sh: command -v uv
+        msg: uv 0.10.12 is required to update Python dependencies
+    cmds:
+      - uv lock
 
   format:
     desc: Format Lua sources with Stylua (vendored)
@@ -114,12 +149,14 @@ tasks:
       - '{{.TEST_DIR}}/**/*.lua'
 
   ci:
-    desc: Run CI pipeline (format check, lint, test, build without format)
+    desc: Run CI pipeline
     cmds:
       - task: format:check
       - task: lint
       - task: test
+      - task: complexity:check
       - task: build:cd
+      - task: syntax:check
 
   bump:patch:
     desc: Bump patch version (pyproject.toml + CHANGELOG.md)

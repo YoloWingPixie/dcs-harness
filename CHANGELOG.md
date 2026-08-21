@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `GetUnitHealth` returns a validated current and initial life snapshot with derived alive and damaged states for a named unit.
+
 ### Changed
 
 ### Fixed

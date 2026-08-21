@@ -8,6 +8,25 @@ package.path = package.path .. ";../src/?.lua"
 -- Create isolated test suite
 TestUnit = CreateIsolatedTestSuite("TestUnit", {})
 
+local function addHealthUnit(testCase, name, currentLife, initialLife)
+    local calls = { exists = 0, currentLife = 0, initialLife = 0 }
+    testCase.mockUnits[name] = {
+        isExist = function()
+            calls.exists = calls.exists + 1
+            return true
+        end,
+        getLife = function()
+            calls.currentLife = calls.currentLife + 1
+            return currentLife
+        end,
+        getLife0 = function()
+            calls.initialLife = calls.initialLife + 1
+            return initialLife
+        end,
+    }
+    return calls
+end
+
 function TestUnit:setUp()
     -- Load required modules
     require("mock_dcs")
@@ -593,6 +612,134 @@ function TestUnit:testGetUnitPlayerName_EmptyPlayerName()
     }
     local playerName = GetUnitPlayerName("EmptyPlayer")
     lu.assertEquals(playerName, "")
+end
+
+function TestUnit:testGetUnitHealthRejectsInvalidNamesBeforeLookup()
+    local lookupCalls = 0
+    Unit.getByName = function()
+        lookupCalls = lookupCalls + 1
+        return nil
+    end
+
+    lu.assertNil(GetUnitHealth())
+    lu.assertNil(GetUnitHealth(""))
+    lu.assertNil(GetUnitHealth(42))
+    lu.assertNil(GetUnitHealth(false))
+    lu.assertNil(GetUnitHealth({}))
+    lu.assertEquals(lookupCalls, 0)
+end
+
+function TestUnit:testGetUnitHealthReturnsSnapshotFromOneProtectedBoundaryRead()
+    local lookupCalls = 0
+    local calls = addHealthUnit(self, "HealthUnit", 75, 100)
+    Unit.getByName = function(name)
+        lookupCalls = lookupCalls + 1
+        return self.mockUnits[name]
+    end
+
+    lu.assertEquals(GetUnitHealth("HealthUnit"), {
+        CurrentLife = 75,
+        InitialLife = 100,
+        IsAlive = true,
+        IsDamaged = true,
+    })
+    lu.assertEquals(lookupCalls, 1)
+    lu.assertEquals(calls, { exists = 0, currentLife = 1, initialLife = 1 })
+end
+
+function TestUnit:testGetUnitHealthDerivesAliveAndDamagedStates()
+    local cases = {
+        {
+            name = "FullHealth",
+            currentLife = 100,
+            initialLife = 100,
+            alive = true,
+            damaged = false,
+        },
+        { name = "DeadHealth", currentLife = 0, initialLife = 100, alive = false, damaged = false },
+        {
+            name = "OverHealth",
+            currentLife = 101,
+            initialLife = 100,
+            alive = true,
+            damaged = false,
+        },
+    }
+
+    for _, case in ipairs(cases) do
+        addHealthUnit(self, case.name, case.currentLife, case.initialLife)
+        local snapshot = GetUnitHealth(case.name)
+        lu.assertEquals(snapshot.IsAlive, case.alive)
+        lu.assertEquals(snapshot.IsDamaged, case.damaged)
+    end
+end
+
+function TestUnit:testGetUnitHealthRejectsInvalidCurrentLife()
+    local cases = {
+        { name = "StringCurrent", value = "75" },
+        { name = "NilCurrent" },
+        { name = "NaNCurrent", value = 0 / 0 },
+        { name = "PositiveInfiniteCurrent", value = math.huge },
+        { name = "NegativeInfiniteCurrent", value = -math.huge },
+        { name = "NegativeCurrent", value = -1 },
+    }
+
+    for _, case in ipairs(cases) do
+        addHealthUnit(self, case.name, case.value, 100)
+        lu.assertNil(GetUnitHealth(case.name))
+    end
+end
+
+function TestUnit:testGetUnitHealthOmitsInvalidInitialLife()
+    local cases = {
+        { name = "StringInitial", value = "100" },
+        { name = "NilInitial" },
+        { name = "NaNInitial", value = 0 / 0 },
+        { name = "PositiveInfiniteInitial", value = math.huge },
+        { name = "NegativeInfiniteInitial", value = -math.huge },
+        { name = "ZeroInitial", value = 0 },
+        { name = "NegativeInitial", value = -1 },
+    }
+
+    for _, case in ipairs(cases) do
+        addHealthUnit(self, case.name, 50, case.value)
+        local snapshot = GetUnitHealth(case.name)
+        lu.assertEquals(snapshot.CurrentLife, 50)
+        lu.assertNil(snapshot.InitialLife)
+        lu.assertTrue(snapshot.IsAlive)
+        lu.assertNil(snapshot.IsDamaged)
+    end
+end
+
+function TestUnit:testGetUnitHealthContainsDcsApiExceptions()
+    Unit.getByName = function()
+        error("lookup failed")
+    end
+    lu.assertNil(GetUnitHealth("LookupError"))
+
+    self.mockUnits.CurrentLifeError = {
+        getLife = function()
+            error("current life failed")
+        end,
+        getLife0 = function()
+            return 100
+        end,
+    }
+    self.mockUnits.InitialLifeError = {
+        getLife = function()
+            return 50
+        end,
+        getLife0 = function()
+            error("initial life failed")
+        end,
+    }
+    Unit.getByName = function(name)
+        return self.mockUnits[name]
+    end
+
+    lu.assertNil(GetUnitHealth("MissingUnit"))
+    lu.assertNil(GetUnitHealth("CurrentLifeError"))
+    lu.assertNil(GetUnitHealth("InitialLifeError"))
 end
 
 -- GetUnitLife tests

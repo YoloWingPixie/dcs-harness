@@ -157,6 +157,8 @@ tasks:
       - task: lint
       - task: test
       - task: complexity:check
+        vars:
+          CLI_ARGS: ""
       - task: build:cd
       - task: syntax:check
 

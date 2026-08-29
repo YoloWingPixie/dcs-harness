@@ -13,12 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `CreateFireAtPointTask` now projects target Vec3 X/Z coordinates to the DCS `FireAtPoint` Vec2 X/Y fields.
-
 ### Removed
 
 ### Deprecated
 
+
+## [1.0.2] - 2026-08-29
+
+### Fixed
+
+- `CreateFireAtPointTask` now projects target Vec3 X/Z coordinates to the DCS `FireAtPoint` Vec2 X/Y fields.
 
 ## [1.0.1] - 2026-08-20
 ### Added
@@ -226,7 +230,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v0.8.0...v1.0.0
 [0.8.0]: https://github.com/YoloWingPixie/dcs-harness/releases/tag/v0.8.0

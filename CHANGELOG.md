@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `CreateFireAtPointTask` now projects target Vec3 X/Z coordinates to the DCS `FireAtPoint` Vec2 X/Y fields.
+
 ### Removed
 
 ### Deprecated

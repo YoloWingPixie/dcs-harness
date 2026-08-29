@@ -3970,7 +3970,7 @@ function CreateFireAtPointTask(
     local task = {
         id = "FireAtPoint",
         params = {
-            point = point,
+            point = { x = point.x, y = point.z },
             radius = radius or 50,
             expendQty = expendQty,
             expendQtyEnabled = expendQtyEnabled or false,

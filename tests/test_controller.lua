@@ -93,6 +93,12 @@ function TestController:test_fire_at_point_uses_dcs_task_id()
     lu.assertEquals(task.id, "FireAtPoint")
 end
 
+function TestController:test_fire_at_point_converts_vec3_to_dcs_vec2()
+    local task = CreateFireAtPointTask({ x = 1200, y = 300, z = -450 }, 100)
+
+    lu.assertEquals(task.params.point, { x = 1200, y = -450 })
+end
+
 function TestController:when_setting_common_options_should_call_setOption()
     local controller = Controller
     -- smoke test for convenience setters

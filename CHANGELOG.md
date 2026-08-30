@@ -9,9 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `CircleUnionArea2D` calculates the exact analytic union area of validated horizontal circles without polygon approximation.
-
 ### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+
+## [1.1.0] - 2026-08-29
+### Added
+
+- `CircleUnionArea2D` calculates the exact analytic union area of validated horizontal circles without polygon approximation.
 
 ### Fixed
 
@@ -20,9 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Harness no longer creates the shared global `Log`; consumers create and retain a local logger with `HarnessLogger(namespace)`.
-
-### Deprecated
-
 
 ## [1.0.2] - 2026-08-29
 
@@ -236,7 +243,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v0.8.0...v1.0.0

@@ -141,9 +141,6 @@ HarnessWorldEventBus = nil
 ---@type HarnessWorldEventBus?
 HarnessWorldEventBusInstance = nil
 
----@type Logger
-Log = nil
-
 --- Get airbase by name
 ---@param airbaseName string? Name of the airbase
 ---@return table? airbase Airbase object if found, nil otherwise

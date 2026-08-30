@@ -182,6 +182,126 @@ function TestGeoMath:testPolygonAreaCentroid2D()
     lu.assertNil(c.z)
 end
 
+-- Test exact union areas across distinct circle arrangements
+function TestGeoMath:testCircleUnionArea2DArrangements()
+    lu.assertEquals(CircleUnionArea2D({}), 0)
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({ { center = Vec2(0, 0), radius = 2 } }),
+        4 * math.pi,
+        1e-9
+    )
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({
+            { center = Vec2(0, 0), radius = 1 },
+            { center = Vec2(4, 0), radius = 2 },
+        }),
+        5 * math.pi,
+        1e-9
+    )
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({
+            { center = Vec2(0, 0), radius = 1 },
+            { center = Vec2(2, 0), radius = 1 },
+        }),
+        2 * math.pi,
+        1e-9
+    )
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({
+            { center = Vec2(0, 0), radius = 2 },
+            { center = Vec2(0, 0), radius = 2 },
+        }),
+        4 * math.pi,
+        1e-9
+    )
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({
+            { center = Vec2(0, 0), radius = 3 },
+            { center = Vec2(1, 0), radius = 1 },
+        }),
+        9 * math.pi,
+        1e-9
+    )
+
+    local radius = 1000
+    local distance = 1500
+    local overlap = 2 * radius * radius * math.acos(distance / (2 * radius))
+        - 0.5 * distance * math.sqrt(4 * radius * radius - distance * distance)
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({
+            { center = Vec2(0, 0), radius = radius },
+            { center = Vec2(distance, 0), radius = radius },
+        }),
+        2 * math.pi * radius * radius - overlap,
+        1e-6
+    )
+
+    local holeDistance = 1.8
+    local pairOverlap = 2 * math.acos(holeDistance / 2)
+        - 0.5 * holeDistance * math.sqrt(4 - holeDistance * holeDistance)
+    lu.assertAlmostEquals(
+        CircleUnionArea2D({
+            { center = Vec2(0, 0), radius = 1 },
+            { center = Vec2(holeDistance, 0), radius = 1 },
+            {
+                center = Vec2(holeDistance / 2, holeDistance * math.sqrt(3) / 2),
+                radius = 1,
+            },
+        }),
+        3 * math.pi - 3 * pairOverlap,
+        1e-9
+    )
+end
+
+-- Test circle union rejects invalid collection and circle boundaries
+function TestGeoMath:testCircleUnionArea2DValidation()
+    lu.assertNil(CircleUnionArea2D())
+    lu.assertNil(CircleUnionArea2D("circles"))
+
+    local invalidCircles = {
+        {},
+        { center = Vec2(0, 0) },
+        { center = Vec3(0, 0, 0), radius = 1 },
+        { center = { x = 0 / 0, y = 0 }, radius = 1 },
+        { center = { x = math.huge, y = 0 }, radius = 1 },
+        { center = { x = 0, y = -math.huge }, radius = 1 },
+        { center = { x = "0", y = 0 }, radius = 1 },
+        { center = Vec2(0, 0), radius = 0 },
+        { center = Vec2(0, 0), radius = -1 },
+        { center = Vec2(0, 0), radius = 0 / 0 },
+        { center = Vec2(0, 0), radius = math.huge },
+        { center = Vec2(0, 0), radius = "1" },
+    }
+    for _, circle in ipairs(invalidCircles) do
+        lu.assertNil(CircleUnionArea2D({ circle }))
+    end
+
+    lu.assertNil(CircleUnionArea2D({ circle = { center = Vec2(0, 0), radius = 1 } }))
+    lu.assertNil(CircleUnionArea2D({
+        [1] = { center = Vec2(0, 0), radius = 1 },
+        [3] = { center = Vec2(4, 0), radius = 1 },
+    }))
+end
+
+-- Test circle union does not change caller-owned geometry
+function TestGeoMath:testCircleUnionArea2DDoesNotMutateInput()
+    local firstCenter = Vec2(10, 20)
+    local secondCenter = Vec2(12, 20)
+    local circles = {
+        { center = firstCenter, radius = 2 },
+        { center = secondCenter, radius = 1 },
+    }
+
+    CircleUnionArea2D(circles)
+
+    lu.assertIs(circles[1].center, firstCenter)
+    lu.assertIs(circles[2].center, secondCenter)
+    lu.assertEquals(circles, {
+        { center = Vec2(10, 20), radius = 2 },
+        { center = Vec2(12, 20), radius = 1 },
+    })
+end
+
 function TestGeoMath:testConvexHull2D()
     local pts = {
         Vec2(0, 0),

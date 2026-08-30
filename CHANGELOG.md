@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `CircleUnionArea2D` calculates the exact analytic union area of validated horizontal circles without polygon approximation.
+
 ### Changed
 
 ### Fixed

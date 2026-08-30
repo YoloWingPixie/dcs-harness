@@ -9663,6 +9663,7 @@ local METERS_TO_KM = HarnessConstants.METERS_TO_KM
 local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
 local DEG_TO_RAD = HarnessConstants.DEG_TO_RAD
 local RAD_TO_DEG = HarnessConstants.RAD_TO_DEG
+local CIRCLE_UNION_FULL_ANGLE = 2 * math.pi
 local GeoMathInternal = {}
 
 function GeoMathInternal.isFiniteNumber(value)
@@ -10342,6 +10343,202 @@ function CircleLineIntersection2D(circleCenter, radius, lineStart, lineEnd)
     end
 
     return intersections
+end
+
+---@class Circle2D
+---@field center Vec2 Horizontal circle center.
+---@field radius number Positive circle radius.
+
+--- Reports whether one value is a valid horizontal circle.
+---@param circle any Candidate circle with a finite Vec2 center and positive finite radius.
+---@return boolean valid True when the circle can participate in union-area calculations.
+function GeoMathInternal.isCircle2D(circle)
+    return type(circle) == "table"
+        and IsVec2(circle.center)
+        and GeoMathInternal.isFiniteNumber(circle.center.x)
+        and GeoMathInternal.isFiniteNumber(circle.center.y)
+        and GeoMathInternal.isFiniteNumber(circle.radius)
+        and circle.radius > 0
+end
+
+--- Reports whether one value is a dense array of valid horizontal circles.
+---@param circles any Candidate Circle2D array.
+---@return boolean valid True when every array entry is a valid circle.
+function GeoMathInternal.isCircle2DArray(circles)
+    if type(circles) ~= "table" then
+        return false
+    end
+
+    local count = 0
+    for index, circle in pairs(circles) do
+        if
+            type(index) ~= "number"
+            or index < 1
+            or index % 1 ~= 0
+            or not GeoMathInternal.isCircle2D(circle)
+        then
+            return false
+        end
+        count = count + 1
+    end
+    return count == #circles
+end
+
+--- Adds one covered angular interval and splits intervals that cross zero radians.
+---@param intervals table[] Covered intervals owned by the current calculation.
+---@param first number Starting angle in radians.
+---@param last number Ending angle in radians.
+function GeoMathInternal.addCircleCoveredInterval(intervals, first, last)
+    while first < 0 do
+        first = first + CIRCLE_UNION_FULL_ANGLE
+        last = last + CIRCLE_UNION_FULL_ANGLE
+    end
+    while first >= CIRCLE_UNION_FULL_ANGLE do
+        first = first - CIRCLE_UNION_FULL_ANGLE
+        last = last - CIRCLE_UNION_FULL_ANGLE
+    end
+
+    if last <= CIRCLE_UNION_FULL_ANGLE then
+        intervals[#intervals + 1] = { first, last }
+        return
+    end
+    intervals[#intervals + 1] = { first, CIRCLE_UNION_FULL_ANGLE }
+    intervals[#intervals + 1] = { 0, last - CIRCLE_UNION_FULL_ANGLE }
+end
+
+--- Finds the arcs of one circle that other circles cover.
+---@param circle Circle2D Circle whose boundary is inspected.
+---@param circles Circle2D[] Valid circles in the union.
+---@param circleIndex number One-based identity of circle within circles.
+---@return table[]? intervals Covered angular intervals, or nil when the circle is contained.
+---@return boolean contained True when another circle makes this boundary redundant.
+function GeoMathInternal.circleCoveredIntervals(circle, circles, circleIndex)
+    local intervals = {}
+    for otherIndex = 1, #circles do
+        if otherIndex ~= circleIndex then
+            local other = circles[otherIndex]
+            local dx = other.center.x - circle.center.x
+            local dy = other.center.y - circle.center.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            local duplicate = dx == 0 and dy == 0 and other.radius == circle.radius
+            if duplicate and otherIndex < circleIndex then
+                return nil, true
+            elseif distance <= math.abs(other.radius - circle.radius) then
+                if other.radius > circle.radius then
+                    return nil, true
+                end
+            elseif distance < other.radius + circle.radius then
+                local centerAngle = math.atan2(dy, dx)
+                local cosine = (
+                    distance * distance
+                    + circle.radius * circle.radius
+                    - other.radius * other.radius
+                ) / (2 * distance * circle.radius)
+                local halfAngle = math.acos(math.max(-1, math.min(1, cosine)))
+                GeoMathInternal.addCircleCoveredInterval(
+                    intervals,
+                    centerAngle - halfAngle,
+                    centerAngle + halfAngle
+                )
+            end
+        end
+    end
+    return intervals, false
+end
+
+--- Orders covered angular intervals by their starting angle.
+---@param left number[] Left interval.
+---@param right number[] Right interval.
+---@return boolean before True when left starts before right.
+function GeoMathInternal.circleIntervalStartsBefore(left, right)
+    return left[1] < right[1]
+end
+
+--- Merges covered angular intervals into ordered disjoint intervals.
+---@param intervals table[] Covered angular intervals owned by the current calculation.
+---@return table[] merged Ordered disjoint interval copies.
+function GeoMathInternal.mergeCircleCoveredIntervals(intervals)
+    table.sort(intervals, GeoMathInternal.circleIntervalStartsBefore)
+    local merged = {}
+    for i = 1, #intervals do
+        local interval = intervals[i]
+        local previous = merged[#merged]
+        if previous and interval[1] <= previous[2] then
+            previous[2] = math.max(previous[2], interval[2])
+        else
+            merged[#merged + 1] = { interval[1], interval[2] }
+        end
+    end
+    return merged
+end
+
+--- Calculates the signed area contribution from one exposed circle arc.
+---@param circle Circle2D Circle that owns the exposed arc.
+---@param origin Vec2 Translation origin used to limit floating-point cancellation.
+---@param first number Starting angle in radians.
+---@param last number Ending angle in radians.
+---@return number area Signed arc contribution in square units.
+function GeoMathInternal.circleArcArea(circle, origin, first, last)
+    if first == 0 and last == CIRCLE_UNION_FULL_ANGLE then
+        return math.pi * circle.radius * circle.radius
+    end
+
+    local radius = circle.radius
+    local centerX = circle.center.x - origin.x
+    local centerY = circle.center.y - origin.y
+    return 0.5
+        * (
+            radius * centerX * (math.sin(last) - math.sin(first))
+            + radius * centerY * (math.cos(first) - math.cos(last))
+            + radius * radius * (last - first)
+        )
+end
+
+--- Calculates the analytic horizontal union area of circles from their exposed boundary arcs.
+---@param circles Circle2D[] Circles with finite Vec2 centers and positive finite radii.
+---@return number? area Union area, or nil when the input or result is invalid.
+function CircleUnionArea2D(circles)
+    if not GeoMathInternal.isCircle2DArray(circles) then
+        _HarnessInternal.log.error(
+            "CircleUnionArea2D requires an array of valid circles",
+            "GeoMath.CircleUnionArea2D"
+        )
+        return nil
+    end
+    if #circles == 0 then
+        return 0
+    end
+
+    local area = 0
+    local origin = circles[1].center
+    for i = 1, #circles do
+        local circle = circles[i]
+        local intervals, contained = GeoMathInternal.circleCoveredIntervals(circle, circles, i)
+        if not contained then
+            local cursor = 0
+            local merged = GeoMathInternal.mergeCircleCoveredIntervals(intervals)
+            for j = 1, #merged do
+                local interval = merged[j]
+                if interval[1] > cursor then
+                    area = area + GeoMathInternal.circleArcArea(circle, origin, cursor, interval[1])
+                end
+                cursor = math.max(cursor, interval[2])
+            end
+            if cursor < CIRCLE_UNION_FULL_ANGLE then
+                area = area
+                    + GeoMathInternal.circleArcArea(circle, origin, cursor, CIRCLE_UNION_FULL_ANGLE)
+            end
+        end
+    end
+
+    if not GeoMathInternal.isFiniteNumber(area) then
+        _HarnessInternal.log.error(
+            "CircleUnionArea2D result is outside the finite numeric range",
+            "GeoMath.CircleUnionArea2D"
+        )
+        return nil
+    end
+    return math.max(0, area)
 end
 
 function PolygonArea2D(polygon)

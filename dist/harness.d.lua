@@ -80,20 +80,25 @@ local __HarnessLuaLsType4 = {}
 ---@field fromTable fun(self: GeoGrid, t: table): boolean
 local __HarnessLuaLsType5 = {}
 
+---@class Circle2D
+---@field center Vec2 Horizontal circle center.
+---@field radius number Positive circle radius.
+local __HarnessLuaLsType6 = {}
+
 ---@class Logger
 ---@field namespace string
 ---@field info fun(message: string, caller?: string)
 ---@field warn fun(message: string, caller?: string)
 ---@field error fun(message: string, caller?: string)
 ---@field debug fun(message: string, caller?: string)
-local __HarnessLuaLsType6 = {}
+local __HarnessLuaLsType7 = {}
 
 ---@class UnitHealthSnapshot
 ---@field CurrentLife number
 ---@field InitialLife number?
 ---@field IsAlive boolean
 ---@field IsDamaged boolean?
-local __HarnessLuaLsType7 = {}
+local __HarnessLuaLsType8 = {}
 
 ---@class Vec2
 ---@field x number DCS world X coordinate
@@ -108,7 +113,7 @@ local __HarnessLuaLsType7 = {}
 ---@field midpointTo fun(self: Vec2, other: Vec2): Vec2
 ---@field angleTo fun(self: Vec2, other: Vec2): number
 ---@field rotate fun(self: Vec2, angleDeg: number): Vec2
-local __HarnessLuaLsType8 = {}
+local __HarnessLuaLsType9 = {}
 
 ---@class Vec3
 ---@field x number DCS world X coordinate
@@ -127,7 +132,7 @@ local __HarnessLuaLsType8 = {}
 ---@field displace2D fun(self: Vec3, bearingDeg: number, distance: number): Vec3?
 ---@field midpointTo fun(self: Vec3, other: Vec3): Vec3
 ---@field angleTo fun(self: Vec3, other: Vec3): number
-local __HarnessLuaLsType9 = {}
+local __HarnessLuaLsType10 = {}
 
 ---@type string
 HARNESS_VERSION = nil
@@ -1656,6 +1661,11 @@ function AngleBetweenVectors2D(v1, v2) end
 function PointInPolygon2D(point, polygon) end
 
 function CircleLineIntersection2D(circleCenter, radius, lineStart, lineEnd) end
+
+--- Calculates the analytic horizontal union area of circles from their exposed boundary arcs.
+---@param circles Circle2D[] Circles with finite Vec2 centers and positive finite radii.
+---@return number? area Union area, or nil when the input or result is invalid.
+function CircleUnionArea2D(circles) end
 
 function PolygonArea2D(polygon) end
 

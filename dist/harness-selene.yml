@@ -1000,6 +1000,9 @@ globals:
     - type: any
     - type: any
     - type: any
+  CircleUnionArea2D:
+    args:
+    - type: table
   PolygonArea2D:
     args:
     - type: any

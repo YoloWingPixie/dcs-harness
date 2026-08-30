@@ -35,9 +35,6 @@ function TestLogger:setUp()
         error = {},
     }
 
-    -- Save original Log global
-    self.originalLog = Log
-
     -- Mock DCS env functions to capture output
     self.originalEnv = {
         info = env.info,
@@ -63,9 +60,6 @@ function TestLogger:tearDown()
     env.info = self.originalEnv.info
     env.warning = self.originalEnv.warning
     env.error = self.originalEnv.error
-
-    -- Restore original Log global
-    Log = self.originalLog
 end
 
 -- Test logger creation with default namespace
@@ -204,24 +198,44 @@ function TestLogger:testInternalLogger()
     lu.assertEquals(self.capturedLogs.info[1], "[Harness]: Internal message")
 end
 
--- Test global Log object
-function TestLogger:testGlobalLog()
-    -- Global Log should exist with default "Script" namespace
-    lu.assertNotNil(Log)
-    lu.assertEquals(Log.namespace, "Script")
+-- Test bundled harness loads preserve consumer logger ownership
+function TestLogger:testBundledLoadsPreserveConsumerLoggers()
+    local harnessEnvironment = { _G = false }
+    harnessEnvironment._G = harnessEnvironment
+    setmetatable(harnessEnvironment, { __index = _G })
 
-    -- Test it works
-    Log.info("Script message")
-    lu.assertEquals(#self.capturedLogs.info, 1)
-    lu.assertEquals(self.capturedLogs.info[1], "[Script]: Script message")
+    local firstHarnessLoad = assert(loadfile("../dist/harness.lua"))
+    setfenv(firstHarnessLoad, harnessEnvironment)
+    firstHarnessLoad()
 
-    -- Can be reassigned
-    Log = HarnessLogger("MyProject")
-    lu.assertEquals(Log.namespace, "MyProject")
+    local scriptALog = harnessEnvironment.HarnessLogger("ScriptA")
+    local loggerRegistry = harnessEnvironment._HarnessInternal.loggers
+    local internalLog = harnessEnvironment._HarnessInternal.log
+    lu.assertNil(harnessEnvironment.Log)
 
-    Log.info("Project message")
-    lu.assertEquals(#self.capturedLogs.info, 2)
-    lu.assertEquals(self.capturedLogs.info[2], "[MyProject]: Project message")
+    local consumerLog = {}
+    harnessEnvironment.Log = consumerLog
+
+    local secondHarnessLoad = assert(loadfile("../dist/harness.lua"))
+    setfenv(secondHarnessLoad, harnessEnvironment)
+    secondHarnessLoad()
+
+    local scriptBLog = harnessEnvironment.HarnessLogger("ScriptB")
+    scriptALog.info("first")
+    scriptBLog.info("second")
+    scriptALog.info("third")
+    harnessEnvironment._HarnessInternal.log.info("internal")
+
+    lu.assertIs(harnessEnvironment._HarnessInternal.loggers, loggerRegistry)
+    lu.assertIs(harnessEnvironment.HarnessLogger("ScriptA"), scriptALog)
+    lu.assertIs(harnessEnvironment._HarnessInternal.log, internalLog)
+    lu.assertIs(harnessEnvironment.Log, consumerLog)
+    lu.assertEquals(self.capturedLogs.info, {
+        "[ScriptA]: first",
+        "[ScriptB]: second",
+        "[ScriptA]: third",
+        "[Harness]: internal",
+    })
 end
 
 -- Test message formatting edge cases

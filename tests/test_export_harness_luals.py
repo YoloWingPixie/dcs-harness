@@ -34,7 +34,7 @@ class ExportHarnessLuaLsTests(unittest.TestCase):
         self.assertIn("HARNESS_VERSION = nil", definition)
         self.assertIn("HarnessConstants = nil", definition)
         self.assertIn("HarnessWorldEventBus = nil", definition)
-        self.assertIn("Log = nil", definition)
+        self.assertNotIn("Log = nil", definition)
         self.assertIn("function LineToAll(markId, startPos, endPos", definition)
 
         source_names = {

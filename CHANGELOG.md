@@ -13,7 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Repeated bundled loads now preserve namespaced logger instances and their message prefixes.
+
 ### Removed
+
+- Harness no longer creates the shared global `Log`; consumers create and retain a local logger with `HarnessLogger(namespace)`.
 
 ### Deprecated
 

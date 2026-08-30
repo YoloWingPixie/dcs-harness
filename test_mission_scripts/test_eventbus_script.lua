@@ -1,6 +1,8 @@
 -- DCS Harness EventBus Integration Visual/Log Test
 -- Schedules a recurring tick that processes a local queue and logs events
 
+local Log = HarnessLogger("EventBusTest")
+
 local function nameOf(obj)
     if not obj then
         return "?"

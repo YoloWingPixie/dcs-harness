@@ -1989,8 +1989,8 @@ end
 -- Logger storage
 ---@type HarnessInternal
 _HarnessInternal = _HarnessInternal or {}
-_HarnessInternal.loggers = {}
-_HarnessInternal.defaultNamespace = "Harness"
+_HarnessInternal.loggers = _HarnessInternal.loggers or {}
+_HarnessInternal.defaultNamespace = _HarnessInternal.defaultNamespace or "Harness"
 
 --- Internal function to format messages
 ---@param namespace string The namespace for the log message
@@ -2059,12 +2059,6 @@ end
 -- Create internal logger for Harness use
 ---@type Logger
 _HarnessInternal.log = HarnessLogger("Harness")
-
--- Create global Log object that can be configured with a namespace
--- Projects should call: Log = HarnessLogger("MyProject")
--- Or if they just use Log without configuration, it defaults to "Script"
----@type Logger
-Log = HarnessLogger("Script")
 -- ==== END: src/logger.lua ====
 
 -- ==== BEGIN: src/cache.lua ====

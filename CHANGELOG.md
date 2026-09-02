@@ -9,8 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `RingBuffer:rotate`, `DeduplicatingQueue`, `IndexedPriorityQueue`, and `IndexedCollection` provide reusable queue and collection operations.
-
 ### Changed
 
 ### Fixed
@@ -19,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+
+## [1.2.0] - 2026-09-02
+### Added
+
+- `RingBuffer:rotate`, `DeduplicatingQueue`, `IndexedPriorityQueue`, and `IndexedCollection` provide reusable queue and collection operations.
 
 ## [1.1.0] - 2026-08-29
 ### Added
@@ -245,7 +248,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.0...v1.0.1

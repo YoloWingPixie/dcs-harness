@@ -1305,6 +1305,24 @@ function PriorityQueue(compareFunc) end
 --- Usage: local rb = RingBuffer(3)
 function RingBuffer(capacity, overwrite) end
 
+--- Create a fixed-capacity queue that retains one item per key
+---@param capacity number Queue capacity
+---@param keyFunction fun(item: any): any Stable key for an item
+---@return table queue New deduplicating queue
+function DeduplicatingQueue(capacity, keyFunction) end
+
+--- Create a fixed-capacity priority queue with key-based removal
+---@param capacity number Queue capacity
+---@param compareFunction fun(left: any, right: any): boolean Priority comparison
+---@param keyFunction fun(item: any): any Stable key for an item
+---@return table queue New indexed priority queue
+function IndexedPriorityQueue(capacity, compareFunction, keyFunction) end
+
+--- Create a fixed-capacity keyed collection with secondary indexes
+---@param specification table Collection capacity, primary key, and index definitions
+---@return table collection New indexed collection
+function IndexedCollection(specification) end
+
 --- Get all drawings from the mission
 ---@return table? drawings Table of all drawing layers and objects or nil on error
 --- Usage: local drawings = GetDrawings()

@@ -796,6 +796,18 @@ globals:
     - type: number
     - type: bool
       required: false
+  DeduplicatingQueue:
+    args:
+    - type: number
+    - type: function
+  IndexedPriorityQueue:
+    args:
+    - type: number
+    - type: function
+    - type: function
+  IndexedCollection:
+    args:
+    - type: table
   GetDrawings:
     args: []
   ProcessDrawingGeometry:

@@ -1061,6 +1061,16 @@ function RingBuffer(capacity, overwrite)
         return item
     end
 
+    --- Move the head item to the tail
+    ---@return any? item Rotated item or nil if empty
+    function ring:rotate()
+        local item = self:pop()
+        if item ~= nil then
+            self:push(item)
+        end
+        return item
+    end
+
     --- Peek at head item without removing
     ---@return any? item Head item or nil if empty
     ---@usage local front = ring:peek()
@@ -1154,4 +1164,539 @@ function RingBuffer(capacity, overwrite)
     end
 
     return ring
+end
+
+--- Create a fixed-capacity queue that retains one item per key
+---@param capacity number Queue capacity
+---@param keyFunction fun(item: any): any Stable key for an item
+---@return table queue New deduplicating queue
+function DeduplicatingQueue(capacity, keyFunction)
+    local queue = {
+        _ring = RingBuffer(capacity, false),
+        _keys = {},
+    }
+
+    --- Add an item unless its key exists or the queue is full
+    ---@param item any Item to push
+    ---@return boolean accepted True if the item was retained
+    ---@return any? duplicate Existing item with the same key
+    function queue:push(item)
+        local key = keyFunction(item)
+        if key == nil or (type(key) == "number" and key ~= key) then
+            error("DeduplicatingQueue key must not be nil or NaN")
+        end
+        local duplicate = self._keys[key]
+        if duplicate then
+            return false, duplicate.item
+        end
+        local entry = { item = item, key = key }
+        if not self._ring:push(entry) then
+            return false, nil
+        end
+        self._keys[key] = entry
+        return true, nil
+    end
+
+    --- Remove and return the head item
+    ---@return any? item Popped item or nil if empty
+    function queue:pop()
+        local entry = self._ring:pop()
+        if not entry then
+            return nil
+        end
+        self._keys[entry.key] = nil
+        return entry.item
+    end
+
+    --- Read the head item
+    ---@return any? item Head item or nil if empty
+    function queue:peek()
+        local entry = self._ring:peek()
+        return entry and entry.item or nil
+    end
+
+    --- Read an item by queue position
+    ---@param index number One-based queue position
+    ---@return any? item Item at the position or nil
+    function queue:get(index)
+        local entry = self._ring:get(index)
+        return entry and entry.item or nil
+    end
+
+    --- Return items in queue order
+    ---@return table items Items from head to tail
+    function queue:toArray()
+        local entries = self._ring:toArray()
+        local items = {}
+        for index = 1, #entries do
+            items[index] = entries[index].item
+        end
+        return items
+    end
+
+    function queue:size()
+        return self._ring:size()
+    end
+
+    function queue:capacity()
+        return self._ring:capacity()
+    end
+
+    function queue:isEmpty()
+        return self._ring:isEmpty()
+    end
+
+    function queue:isFull()
+        return self._ring:isFull()
+    end
+
+    function queue:clear()
+        self._ring:clear()
+        self._keys = {}
+    end
+
+    return queue
+end
+
+--- Create a fixed-capacity priority queue with key-based removal
+---@param capacity number Queue capacity
+---@param compareFunction fun(left: any, right: any): boolean Priority comparison
+---@param keyFunction fun(item: any): any Stable key for an item
+---@return table queue New indexed priority queue
+function IndexedPriorityQueue(capacity, compareFunction, keyFunction)
+    if type(capacity) ~= "number" or capacity < 1 then
+        error("IndexedPriorityQueue capacity must be positive")
+    end
+    capacity = math.floor(capacity)
+
+    local queue = {
+        _capacity = capacity,
+        _items = {},
+        _indexes = {},
+        _size = 0,
+    }
+
+    local function precedes(left, right)
+        return compareFunction(left.item, right.item)
+    end
+
+    local function swap(left, right)
+        queue._items[left], queue._items[right] = queue._items[right], queue._items[left]
+        queue._indexes[queue._items[left].key] = left
+        queue._indexes[queue._items[right].key] = right
+    end
+
+    local function siftUp(index)
+        while index > 1 do
+            local parent = math.floor(index / 2)
+            if not precedes(queue._items[index], queue._items[parent]) then
+                break
+            end
+            swap(index, parent)
+            index = parent
+        end
+        return index
+    end
+
+    local function siftDown(index)
+        while true do
+            local left = index * 2
+            if left > queue._size then
+                return
+            end
+            local right = left + 1
+            local nextIndex = right <= queue._size
+                    and precedes(queue._items[right], queue._items[left])
+                    and right
+                or left
+            if not precedes(queue._items[nextIndex], queue._items[index]) then
+                return
+            end
+            swap(index, nextIndex)
+            index = nextIndex
+        end
+    end
+
+    local function removeAt(index)
+        if not index or index < 1 or index > queue._size then
+            return nil
+        end
+        local removed = queue._items[index]
+        local last = queue._items[queue._size]
+        queue._items[queue._size] = nil
+        queue._indexes[removed.key] = nil
+        queue._size = queue._size - 1
+        if index <= queue._size then
+            queue._items[index] = last
+            queue._indexes[last.key] = index
+            siftDown(siftUp(index))
+        end
+        return removed.item
+    end
+
+    --- Add an item unless its key exists or the queue is full
+    ---@param item any Item to push
+    ---@return boolean accepted True if the item was retained
+    ---@return any? duplicate Existing item with the same key
+    function queue:push(item)
+        local key = keyFunction(item)
+        if key == nil or (type(key) == "number" and key ~= key) then
+            error("IndexedPriorityQueue key must not be nil or NaN")
+        end
+        local index = self._indexes[key]
+        if index then
+            return false, self._items[index].item
+        end
+        if self._size >= self._capacity then
+            return false, nil
+        end
+        self._size = self._size + 1
+        self._items[self._size] = { item = item, key = key }
+        self._indexes[key] = self._size
+        siftUp(self._size)
+        return true, nil
+    end
+
+    --- Remove and return the highest-priority item
+    ---@return any? item Removed item or nil if empty
+    function queue:pop()
+        return removeAt(1)
+    end
+
+    --- Read the highest-priority item
+    ---@return any? item Highest-priority item or nil if empty
+    function queue:peek()
+        return self._items[1] and self._items[1].item or nil
+    end
+
+    --- Read an item by heap position
+    ---@param index number One-based heap position
+    ---@return any? item Item at the position or nil
+    function queue:get(index)
+        return self._items[index] and self._items[index].item or nil
+    end
+
+    --- Remove an item by key
+    ---@param key any Item key
+    ---@return any? item Removed item or nil if absent
+    function queue:remove(key)
+        return removeAt(self._indexes[key])
+    end
+
+    --- Return items in priority order
+    ---@return table items Ordered items
+    function queue:toArray()
+        local entries = {}
+        for index = 1, self._size do
+            entries[index] = self._items[index]
+        end
+        table.sort(entries, precedes)
+        local items = {}
+        for index = 1, #entries do
+            items[index] = entries[index].item
+        end
+        return items
+    end
+
+    function queue:size()
+        return self._size
+    end
+
+    function queue:capacity()
+        return self._capacity
+    end
+
+    function queue:isEmpty()
+        return self._size == 0
+    end
+
+    function queue:isFull()
+        return self._size >= self._capacity
+    end
+
+    function queue:clear()
+        self._items = {}
+        self._indexes = {}
+        self._size = 0
+    end
+
+    return queue
+end
+
+--- Create a fixed-capacity keyed collection with secondary indexes
+---@param specification table Collection capacity, primary key, and index definitions
+---@return table collection New indexed collection
+function IndexedCollection(specification)
+    local capacity = specification.capacity
+    if type(capacity) ~= "number" or capacity < 1 or capacity ~= math.floor(capacity) then
+        error("IndexedCollection capacity must be a positive integer")
+    end
+
+    local function accessor(value)
+        if type(value) == "function" then
+            return value
+        end
+        if type(value) ~= "string" or value == "" then
+            error("IndexedCollection keys must be field names or functions")
+        end
+        return function(record)
+            return record[value]
+        end
+    end
+
+    local collection = {
+        _capacity = capacity,
+        _key = accessor(specification.key),
+        _byKey = {},
+        _order = {},
+        _indexValues = {},
+        _indexes = {},
+        _indexesByName = {},
+    }
+
+    for position = 1, #(specification.indexes or {}) do
+        local definition = specification.indexes[position]
+        if type(definition.name) ~= "string" or definition.name == "" then
+            error("IndexedCollection indexes require a name")
+        end
+        if collection._indexesByName[definition.name] then
+            error("Duplicate IndexedCollection index: " .. definition.name)
+        end
+        local index = {
+            name = definition.name,
+            key = accessor(definition.key),
+            unique = definition.unique == true,
+            values = {},
+        }
+        collection._indexes[position] = index
+        collection._indexesByName[index.name] = index
+    end
+
+    local function clear(array)
+        for index = #array, 1, -1 do
+            array[index] = nil
+        end
+    end
+
+    local function usableKey(value)
+        return value ~= nil and (type(value) ~= "number" or value == value)
+    end
+
+    local function indexValues(record, primaryKey)
+        local values = {}
+        for position = 1, #collection._indexes do
+            local index = collection._indexes[position]
+            local value = index.key(record)
+            if value ~= nil and not usableKey(value) then
+                error("IndexedCollection index keys must not be NaN")
+            end
+            if value ~= nil and index.unique then
+                local indexedKey = index.values[value]
+                if indexedKey ~= nil and indexedKey ~= primaryKey then
+                    return nil, collection._byKey[indexedKey], index.name
+                end
+            end
+            values[position] = value
+        end
+        return values
+    end
+
+    local function removeIndexes(primaryKey, values)
+        for position = 1, #collection._indexes do
+            local index = collection._indexes[position]
+            local value = values[position]
+            if value ~= nil and index.unique then
+                index.values[value] = nil
+            elseif value ~= nil then
+                local bucket = index.values[value]
+                bucket[primaryKey] = nil
+                if next(bucket) == nil then
+                    index.values[value] = nil
+                end
+            end
+        end
+    end
+
+    local function addIndexes(primaryKey, record, values)
+        for position = 1, #collection._indexes do
+            local index = collection._indexes[position]
+            local value = values[position]
+            if value ~= nil and index.unique then
+                index.values[value] = primaryKey
+            elseif value ~= nil then
+                local bucket = index.values[value]
+                if not bucket then
+                    bucket = {}
+                    index.values[value] = bucket
+                end
+                bucket[primaryKey] = record
+            end
+        end
+    end
+
+    local function recordValues(record)
+        if type(record) ~= "table" then
+            error("IndexedCollection records must be tables")
+        end
+        local primaryKey = collection._key(record)
+        if not usableKey(primaryKey) then
+            error("IndexedCollection records require a key")
+        end
+        local values, conflict, index = indexValues(record, primaryKey)
+        return primaryKey, values, conflict, index
+    end
+
+    --- Add a record
+    ---@param record table Record to add
+    ---@return boolean accepted True if the record was added
+    ---@return table? conflict Existing record or nil when capacity is full
+    ---@return string? index Conflicting unique index name
+    function collection:add(record)
+        local primaryKey, values, conflict, index = recordValues(record)
+        if conflict then
+            return false, conflict, index
+        end
+        local existing = self._byKey[primaryKey]
+        if existing then
+            return false, existing
+        end
+        if #self._order >= self._capacity then
+            return false
+        end
+        self._byKey[primaryKey] = record
+        self._order[#self._order + 1] = primaryKey
+        self._indexValues[primaryKey] = values
+        addIndexes(primaryKey, record, values)
+        return true
+    end
+
+    --- Replace a record with the same primary key
+    ---@param record table Replacement record
+    ---@return boolean replaced True if the record was replaced
+    ---@return table? previous Previous or conflicting record
+    ---@return string? index Conflicting unique index name
+    function collection:replace(record)
+        local primaryKey, values, conflict, index = recordValues(record)
+        if conflict then
+            return false, conflict, index
+        end
+        local previous = self._byKey[primaryKey]
+        if not previous then
+            return false
+        end
+        removeIndexes(primaryKey, self._indexValues[primaryKey])
+        self._byKey[primaryKey] = record
+        self._indexValues[primaryKey] = values
+        addIndexes(primaryKey, record, values)
+        return true, previous
+    end
+
+    --- Remove a record by primary key
+    ---@param primaryKey any Record key
+    ---@return table? record Removed record or nil
+    function collection:remove(primaryKey)
+        local record = self._byKey[primaryKey]
+        if not record then
+            return nil
+        end
+        removeIndexes(primaryKey, self._indexValues[primaryKey])
+        self._byKey[primaryKey] = nil
+        self._indexValues[primaryKey] = nil
+        for position = 1, #self._order do
+            if self._order[position] == primaryKey then
+                table.remove(self._order, position)
+                break
+            end
+        end
+        return record
+    end
+
+    --- Read a record by primary key
+    ---@param primaryKey any Record key
+    ---@return table? record Current record or nil
+    function collection:get(primaryKey)
+        return self._byKey[primaryKey]
+    end
+
+    --- Return records selected by a set of primary keys
+    ---@param primaryKeys table? Set of record keys
+    ---@param resultLimit number? Maximum returned records
+    ---@param output table? Reusable output array
+    ---@return table records Matching records
+    function collection:getByKeys(primaryKeys, resultLimit, output)
+        local records = output or {}
+        clear(records)
+        local limit = resultLimit and math.max(0, math.floor(resultLimit)) or #self._order
+        if type(primaryKeys) ~= "table" or limit == 0 then
+            return records
+        end
+        for primaryKey in pairs(primaryKeys) do
+            local record = self._byKey[primaryKey]
+            if record then
+                records[#records + 1] = record
+                if #records >= limit then
+                    break
+                end
+            end
+        end
+        return records
+    end
+
+    --- Read a record through a unique index
+    ---@param indexName string Index name
+    ---@param value any Indexed value
+    ---@return table? record Matching record or nil
+    function collection:getUnique(indexName, value)
+        local index = self._indexesByName[indexName]
+        if not index or not index.unique then
+            error("Unknown unique IndexedCollection index: " .. tostring(indexName))
+        end
+        return self._byKey[index.values[value]]
+    end
+
+    --- Return records through a non-unique index
+    ---@param indexName string Index name
+    ---@param value any Indexed value
+    ---@param output table? Reusable output array
+    ---@return table records Matching records in insertion order
+    function collection:getAll(indexName, value, output)
+        local index = self._indexesByName[indexName]
+        if not index or index.unique then
+            error("Unknown non-unique IndexedCollection index: " .. tostring(indexName))
+        end
+        local records = output or {}
+        clear(records)
+        local bucket = index.values[value]
+        if bucket then
+            for position = 1, #self._order do
+                local record = bucket[self._order[position]]
+                if record then
+                    records[#records + 1] = record
+                end
+            end
+        end
+        return records
+    end
+
+    --- Return all records in insertion order
+    ---@param output table? Reusable output array
+    ---@return table records Current records
+    function collection:values(output)
+        local records = output or {}
+        clear(records)
+        for position = 1, #self._order do
+            records[position] = self._byKey[self._order[position]]
+        end
+        return records
+    end
+
+    function collection:count()
+        return #self._order
+    end
+
+    function collection:capacity()
+        return self._capacity
+    end
+
+    return collection
 end

@@ -475,6 +475,108 @@ function TestDataStructures:testRingBufferNoOverwrite()
     lu.assertEquals(rb:toArray(), { 20, 30 })
 end
 
+function TestDataStructures:testRingBufferRotate()
+    local rb = RingBuffer(3, false)
+    rb:push("first")
+    rb:push("second")
+    rb:push("third")
+
+    lu.assertEquals(rb:rotate(), "first")
+    lu.assertEquals(rb:toArray(), { "second", "third", "first" })
+    lu.assertEquals(rb:size(), 3)
+end
+
+function TestDataStructures:testDeduplicatingQueue()
+    local queue = DeduplicatingQueue(2, function(item)
+        return item.id
+    end)
+    local first = { id = "first" }
+    local second = { id = "second" }
+
+    lu.assertTrue(queue:push(first))
+    local accepted, duplicate = queue:push({ id = "first" })
+    lu.assertFalse(accepted)
+    lu.assertIs(duplicate, first)
+    lu.assertTrue(queue:push(second))
+    accepted, duplicate = queue:push({ id = "third" })
+    lu.assertFalse(accepted)
+    lu.assertNil(duplicate)
+
+    first.id = "changed"
+    lu.assertIs(queue:pop(), first)
+    lu.assertTrue(queue:push({ id = "first" }))
+    lu.assertEquals(queue:toArray(), { second, { id = "first" } })
+end
+
+function TestDataStructures:testIndexedPriorityQueue()
+    local queue = IndexedPriorityQueue(3, function(left, right)
+        return left.due < right.due or (left.due == right.due and left.order < right.order)
+    end, function(item)
+        return item.id
+    end)
+    local later = { id = "later", due = 2, order = 1 }
+    local second = { id = "second", due = 1, order = 2 }
+    local first = { id = "first", due = 1, order = 1 }
+
+    lu.assertTrue(queue:push(later))
+    lu.assertTrue(queue:push(second))
+    lu.assertTrue(queue:push(first))
+    local accepted, duplicate = queue:push({ id = "first", due = 0, order = 0 })
+    lu.assertFalse(accepted)
+    lu.assertIs(duplicate, first)
+    accepted, duplicate = queue:push({ id = "full", due = 0, order = 0 })
+    lu.assertFalse(accepted)
+    lu.assertNil(duplicate)
+
+    lu.assertIs(queue:remove("second"), second)
+    lu.assertEquals(queue:toArray(), { first, later })
+    lu.assertIs(queue:pop(), first)
+    lu.assertIs(queue:pop(), later)
+    lu.assertTrue(queue:isEmpty())
+end
+
+function TestDataStructures:testIndexedCollection()
+    local collection = IndexedCollection({
+        capacity = 2,
+        key = "id",
+        indexes = {
+            { name = "name", key = "name", unique = true },
+            { name = "team", key = "team" },
+        },
+    })
+    local first = { id = "first", name = "alpha", team = "blue" }
+    local second = { id = "second", name = "bravo", team = "blue" }
+
+    lu.assertTrue(collection:add(first))
+    lu.assertTrue(collection:add(second))
+    local accepted, conflict, index = collection:add({ id = "first", name = "charlie" })
+    lu.assertFalse(accepted)
+    lu.assertIs(conflict, first)
+    lu.assertNil(index)
+    accepted, conflict = collection:add({ id = "third", name = "charlie" })
+    lu.assertFalse(accepted)
+    lu.assertNil(conflict)
+
+    accepted, conflict, index = collection:replace({
+        id = "first",
+        name = "bravo",
+        team = "red",
+    })
+    lu.assertFalse(accepted)
+    lu.assertIs(conflict, second)
+    lu.assertEquals(index, "name")
+    lu.assertEquals(collection:getAll("team", "blue"), { first, second })
+
+    local replacement = { id = "first", name = "alpha-2", team = "red" }
+    local previous
+    accepted, previous = collection:replace(replacement)
+    lu.assertTrue(accepted)
+    lu.assertIs(previous, first)
+    lu.assertIs(collection:getUnique("name", "alpha-2"), replacement)
+    lu.assertEquals(collection:getAll("team", "blue"), { second })
+    lu.assertEquals(collection:values(), { replacement, second })
+end
+
 -- Memoize Tests
 function TestDataStructures:testMemoize()
     -- Test basic memoization

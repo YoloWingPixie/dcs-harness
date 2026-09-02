@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `RingBuffer:rotate`, `DeduplicatingQueue`, `IndexedPriorityQueue`, and `IndexedCollection` provide reusable queue and collection operations.
+
 ### Changed
 
 ### Fixed

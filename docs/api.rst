@@ -26,6 +26,8 @@ Vector and terrain functions
 
 ::
 
+   IsFiniteVec2(value) -> boolean
+   IsFiniteVec3(value) -> boolean
    Bearing(from, to) -> headingDeg|nil
    BearingBetween(from, to) -> headingDeg|nil
    FromBearingDistance(origin, headingDeg, distanceM) -> Vec2|Vec3|nil
@@ -37,6 +39,8 @@ Vector and terrain functions
    SetAGL(position, aglM) -> Vec3
    GetClosestRoadPoint(position, roadType?) -> Vec2|nil
    FindRoadPath(from, to, roadType?) -> Vec2[]
+
+``IsFiniteVec2`` and ``IsFiniteVec3`` accept plain tables or vector instances with finite numeric coordinates. They return ``false`` for malformed vectors, NaN, and positive or negative infinity in any coordinate. Vec2 requires numeric X/Y and no Z component. Vec3 requires numeric X/Y/Z. ``IsVec2`` and ``IsVec3`` retain their structural checks and accept non-finite numeric coordinates.
 
 ``ToVec2`` normalizes a Vec2 or projects Vec3 X/Z to Vec2 X/Y. Terrain calls use this projection before calling ``land.getHeight`` or ``land.getSurfaceType``. Terrain height keeps the established zero fallback. Invalid surface queries return ``nil``.
 

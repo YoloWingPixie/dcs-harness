@@ -115,6 +115,17 @@ function IsVec3(vec)
     return type(vec.x) == "number" and type(vec.y) == "number" and type(vec.z) == "number"
 end
 
+--- Check if valid 3D vector with finite coordinates (plain table or Vec3 instance)
+---@param vec any Value to check
+---@return boolean isValid True if vec is a Vec3 with no NaN or infinite coordinates; false otherwise
+---@usage if IsFiniteVec3(pos) then ... end
+function IsFiniteVec3(vec)
+    return IsVec3(vec)
+        and VectorInternal.isFiniteNumber(vec.x)
+        and VectorInternal.isFiniteNumber(vec.y)
+        and VectorInternal.isFiniteNumber(vec.z)
+end
+
 --- Check if a position is a valid Vec3 and not at the world origin
 ---@param pos any Position to validate
 ---@return boolean isValid True if pos is a valid non-origin Vec3
@@ -132,6 +143,16 @@ function IsVec2(vec)
         return false
     end
     return type(vec.x) == "number" and type(vec.y) == "number" and vec.z == nil
+end
+
+--- Check if valid 2D vector with finite coordinates (plain table or Vec2 instance)
+---@param vec any Value to check
+---@return boolean isValid True if vec is a Vec2 with no NaN or infinite coordinates; false otherwise
+---@usage if IsFiniteVec2(pos) then ... end
+function IsFiniteVec2(vec)
+    return IsVec2(vec)
+        and VectorInternal.isFiniteNumber(vec.x)
+        and VectorInternal.isFiniteNumber(vec.y)
 end
 
 -- Conversion functions

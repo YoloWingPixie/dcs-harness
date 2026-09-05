@@ -2195,10 +2195,16 @@ globals:
   IsVec3:
     args:
     - type: any
+  IsFiniteVec3:
+    args:
+    - type: any
   IsNotAtMapOrigin:
     args:
     - type: any
   IsVec2:
+    args:
+    - type: any
+  IsFiniteVec2:
     args:
     - type: any
   ToVec2:

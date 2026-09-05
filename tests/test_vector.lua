@@ -62,6 +62,62 @@ function TestVector:testIsVec2()
     lu.assertFalse(IsVec2({ x = "not a number", y = 2 }))
 end
 
+function TestVector:testIsFiniteVec2()
+    lu.assertTrue(IsFiniteVec2(Vec2()))
+    lu.assertTrue(IsFiniteVec2({ x = -1.25, y = 2.5 }))
+    lu.assertTrue(IsFiniteVec2({ x = 1e308, y = -1e308 }))
+
+    lu.assertFalse(IsFiniteVec2(nil))
+    lu.assertFalse(IsFiniteVec2(false))
+    lu.assertFalse(IsFiniteVec2("string"))
+    lu.assertFalse(IsFiniteVec2(123))
+    lu.assertFalse(IsFiniteVec2({}))
+    lu.assertFalse(IsFiniteVec2({ 1, 2 }))
+    lu.assertFalse(IsFiniteVec2({ x = 1 }))
+    lu.assertFalse(IsFiniteVec2({ y = 2 }))
+    lu.assertFalse(IsFiniteVec2({ x = "1", y = 2 }))
+    lu.assertFalse(IsFiniteVec2({ x = 1, y = "2" }))
+    lu.assertFalse(IsFiniteVec2({ x = 1, z = 2 }))
+    lu.assertFalse(IsFiniteVec2(Vec3(1, 2, 3)))
+    lu.assertFalse(IsFiniteVec2({ x = 1, y = 2, z = false }))
+end
+
+function TestVector:testIsFiniteVec3()
+    lu.assertTrue(IsFiniteVec3(Vec3()))
+    lu.assertTrue(IsFiniteVec3({ x = -1.25, y = 2.5, z = -3.75 }))
+    lu.assertTrue(IsFiniteVec3({ x = 1e308, y = -1e308, z = 1e308 }))
+
+    lu.assertFalse(IsFiniteVec3(nil))
+    lu.assertFalse(IsFiniteVec3(false))
+    lu.assertFalse(IsFiniteVec3("string"))
+    lu.assertFalse(IsFiniteVec3(123))
+    lu.assertFalse(IsFiniteVec3({}))
+    lu.assertFalse(IsFiniteVec3({ 1, 2, 3 }))
+    lu.assertFalse(IsFiniteVec3({ y = 2, z = 3 }))
+    lu.assertFalse(IsFiniteVec3({ x = 1, z = 3 }))
+    lu.assertFalse(IsFiniteVec3(Vec2(1, 2)))
+    lu.assertFalse(IsFiniteVec3({ x = "1", y = 2, z = 3 }))
+    lu.assertFalse(IsFiniteVec3({ x = 1, y = "2", z = 3 }))
+    lu.assertFalse(IsFiniteVec3({ x = 1, y = 2, z = "3" }))
+end
+
+function TestVector:testFiniteValidationRejectsNonFiniteCoordinatesWithoutChangingTypeChecks()
+    for _, value in ipairs({ 0 / 0, math.huge, -math.huge }) do
+        for _, coordinate in ipairs({ "x", "y" }) do
+            local vec = { x = 1, y = 2 }
+            vec[coordinate] = value
+            lu.assertTrue(IsVec2(vec), coordinate)
+            lu.assertFalse(IsFiniteVec2(vec), coordinate)
+        end
+        for _, coordinate in ipairs({ "x", "y", "z" }) do
+            local vec = { x = 1, y = 2, z = 3 }
+            vec[coordinate] = value
+            lu.assertTrue(IsVec3(vec), coordinate)
+            lu.assertFalse(IsFiniteVec3(vec), coordinate)
+        end
+    end
+end
+
 -- Test Vec2 to Vec3 conversion
 function TestVector:testToVec3()
     local v2 = Vec2(10, 20)

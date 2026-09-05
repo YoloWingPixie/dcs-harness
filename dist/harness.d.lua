@@ -3596,6 +3596,12 @@ function Vec3(x, y, z) end
 --- Usage: if IsVec3(pos) then ... end
 function IsVec3(vec) end
 
+--- Check if valid 3D vector with finite coordinates (plain table or Vec3 instance)
+---@param vec any Value to check
+---@return boolean isValid True if vec is a Vec3 with no NaN or infinite coordinates; false otherwise
+--- Usage: if IsFiniteVec3(pos) then ... end
+function IsFiniteVec3(vec) end
+
 --- Check if a position is a valid Vec3 and not at the world origin
 ---@param pos any Position to validate
 ---@return boolean isValid True if pos is a valid non-origin Vec3
@@ -3607,6 +3613,12 @@ function IsNotAtMapOrigin(pos) end
 ---@return boolean isValid True if vec has numeric x and y components and no z component
 --- Usage: if IsVec2(pos) then ... end
 function IsVec2(vec) end
+
+--- Check if valid 2D vector with finite coordinates (plain table or Vec2 instance)
+---@param vec any Value to check
+---@return boolean isValid True if vec is a Vec2 with no NaN or infinite coordinates; false otherwise
+--- Usage: if IsFiniteVec2(pos) then ... end
+function IsFiniteVec2(vec) end
 
 --- Convert to Vec2 (from table, Vec2, or Vec3)
 ---@param t any Input value to convert

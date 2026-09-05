@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `IsFiniteVec2` and `IsFiniteVec3` validate vector structure and reject NaN and positive or negative infinity without changing `IsVec2` or `IsVec3`.
+
 ### Changed
 
 ### Fixed

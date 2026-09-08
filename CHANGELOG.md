@@ -9,12 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Start and continue GeoGrid radius searches over several mission updates with a work limit for each call.
+- Read detected unit and weapon IDs, categories, positions, and velocities with the `GetObject*` functions.
+- Update a mission report with `ReplaceMissionTextFile`, keeping the previous file recoverable if saving fails.
+- Look up Mission Editor unit settings by name with `MissionUnitIndex`.
+- Read a sensor's listed air-detection ranges with `ReadSensorAirDetectionRanges`.
+- Find a moving object's closest future distance to a fixed point with `EstimateCPAToPoint3D`.
+- Measure the area of one circle covered by other circles with `CircleCoveredArea2D`.
+- Check individual numbers with `IsFiniteNumber`.
+
 - `IsFiniteVec2` and `IsFiniteVec3` validate vector structure and reject NaN and positive or negative infinity without changing `IsVec2` or `IsVec3`.
 
 ### Changed
 
 ### Fixed
 
+- `LOtoLL` now returns both latitude and longitude in its documented table. `LOtoMGRS` uses that corrected result.
+- Native wrappers now catch errors while finding a DCS method as well as calling it. Error reporting also handles error values that cannot be converted to text.
+- `GetMissionName` now runs the mission-name request inside its error protection.
 ### Removed
 
 ### Deprecated

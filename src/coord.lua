@@ -13,21 +13,27 @@ require("vector")
 ---@return table? latlon Table with latitude and longitude fields, nil on error
 ---@usage local ll = LOtoLL(position)
 function LOtoLL(vec3)
-    if not vec3 or type(vec3) ~= "table" or not vec3.x or not vec3.y or not vec3.z then
+    if not IsFiniteVec3(vec3) then
         _HarnessInternal.log.error("LOtoLL requires valid vec3 with x, y, z", "Coord.LOtoLL")
         return nil
     end
 
-    local success, result = pcall(coord.LOtoLL, vec3)
+    local success, latitude, longitude = pcall(function()
+        return coord.LOtoLL(vec3)
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to convert LO to LL: " .. tostring(result),
+            "Failed to convert LO to LL: " .. _HarnessInternal.safeString(latitude),
             "Coord.LOtoLL"
         )
         return nil
     end
 
-    return result
+    if not IsFiniteNumber(latitude) or not IsFiniteNumber(longitude) then
+        _HarnessInternal.log.error("LOtoLL returned invalid latitude or longitude", "Coord.LOtoLL")
+        return nil
+    end
+    return { latitude = latitude, longitude = longitude }
 end
 
 --- Convert latitude/longitude to local coordinates
@@ -49,10 +55,12 @@ function LLtoLO(latitude, longitude, altitude)
 
     altitude = altitude or 0
 
-    local success, result = pcall(coord.LLtoLO, latitude, longitude, altitude)
+    local success, result = pcall(function(...)
+        return coord.LLtoLO(...)
+    end, latitude, longitude, altitude)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to convert LL to LO: " .. tostring(result),
+            "Failed to convert LL to LO: " .. _HarnessInternal.safeString(result),
             "Coord.LLtoLO"
         )
         return nil
@@ -72,16 +80,21 @@ function LOtoMGRS(vec3)
     end
 
     -- DCS does not expose coord.LOtoMGRS; compose LO->LL->MGRS
-    local okLL, ll = pcall(coord.LOtoLL, vec3)
-    if not okLL or not ll or type(ll.latitude) ~= "number" or type(ll.longitude) ~= "number" then
-        _HarnessInternal.log.error("Failed to convert LO to LL: " .. tostring(ll), "Coord.LOtoMGRS")
+    local ll = LOtoLL(vec3)
+    if not ll then
+        _HarnessInternal.log.error(
+            "Failed to convert LO to LL: " .. _HarnessInternal.safeString(ll),
+            "Coord.LOtoMGRS"
+        )
         return nil
     end
 
-    local okMGRS, mgrs = pcall(coord.LLtoMGRS, ll.latitude, ll.longitude)
+    local okMGRS, mgrs = pcall(function(...)
+        return coord.LLtoMGRS(...)
+    end, ll.latitude, ll.longitude)
     if not okMGRS then
         _HarnessInternal.log.error(
-            "Failed to convert LL to MGRS: " .. tostring(mgrs),
+            "Failed to convert LL to MGRS: " .. _HarnessInternal.safeString(mgrs),
             "Coord.LOtoMGRS"
         )
         return nil
@@ -101,18 +114,25 @@ function MGRStoLO(mgrsString)
     end
 
     -- DCS does not expose coord.MGRStoLO; compose MGRS->LL->LO
-    local okLL, ll = pcall(coord.MGRStoLL, mgrsString)
+    local okLL, ll = pcall(function(...)
+        return coord.MGRStoLL(...)
+    end, mgrsString)
     if not okLL or not ll or type(ll.lat) ~= "number" or type(ll.lon) ~= "number" then
         _HarnessInternal.log.error(
-            "Failed to convert MGRS to LL: " .. tostring(ll),
+            "Failed to convert MGRS to LL: " .. _HarnessInternal.safeString(ll),
             "Coord.MGRStoLO"
         )
         return nil
     end
 
-    local okLO, lo = pcall(coord.LLtoLO, ll.lat, ll.lon)
+    local okLO, lo = pcall(function(...)
+        return coord.LLtoLO(...)
+    end, ll.lat, ll.lon)
     if not okLO then
-        _HarnessInternal.log.error("Failed to convert LL to LO: " .. tostring(lo), "Coord.MGRStoLO")
+        _HarnessInternal.log.error(
+            "Failed to convert LL to LO: " .. _HarnessInternal.safeString(lo),
+            "Coord.MGRStoLO"
+        )
         return nil
     end
 
@@ -179,10 +199,12 @@ function CoordToMGRS(lat, lon, precision)
         precision = 5
     end
 
-    local success, mgrs = pcall(coord.LLtoMGRS, lat, lon)
+    local success, mgrs = pcall(function(...)
+        return coord.LLtoMGRS(...)
+    end, lat, lon)
     if not success or not mgrs then
         _HarnessInternal.log.error(
-            "Failed to convert LL to MGRS: " .. tostring(mgrs),
+            "Failed to convert LL to MGRS: " .. _HarnessInternal.safeString(mgrs),
             "Coord.CoordToMGRS"
         )
         return nil

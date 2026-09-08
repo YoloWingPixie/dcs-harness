@@ -1015,6 +1015,11 @@ globals:
   CircleUnionArea2D:
     args:
     - type: table
+  CircleCoveredArea2D:
+    args:
+    - type:
+        display: Circle2D
+    - type: table
   PolygonArea2D:
     args:
     - type: any
@@ -1024,6 +1029,14 @@ globals:
   ConvexHull2D:
     args:
     - type: any
+  EstimateCPAToPoint3D:
+    args:
+    - type:
+        display: Vec3
+    - type:
+        display: Vec3
+    - type:
+        display: Vec3
   EstimateCPAToPoint:
     args:
     - type: table
@@ -1142,6 +1155,9 @@ globals:
     args:
     - type: string
       required: false
+  IsFiniteNumber:
+    args:
+    - type: any
   DeepCopy:
     args:
     - type: any
@@ -1275,6 +1291,10 @@ globals:
     - type: function
     - type: table
       required: false
+  MissionUnitIndex:
+    args:
+    - type: table
+      required: false
   AddCommand:
     args:
     - type: any
@@ -1348,6 +1368,10 @@ globals:
     - type: string
     - type: number
       required: false
+  ReplaceMissionTextFile:
+    args:
+    - type: string
+    - type: string
   SendChat:
     args:
     - type: string
@@ -1393,6 +1417,18 @@ globals:
     - type: number
     - type: number
     - type: string
+  GetObjectID:
+    args:
+    - type: any
+  GetObjectCategory:
+    args:
+    - type: any
+  GetObjectPoint:
+    args:
+    - type: any
+  GetObjectVelocity:
+    args:
+    - type: any
   InitializeShapeCache:
     args: []
   GetAllShapes:
@@ -2090,6 +2126,9 @@ globals:
   GetUnitController:
     args:
     - type: table
+  ReadSensorAirDetectionRanges:
+    args:
+    - type: any
   GetUnitSensors:
     args:
     - type: table
@@ -2546,4 +2585,8 @@ globals:
   HarnessWorldEventBus:
     property: new-fields
   HarnessConstants:
+    property: read-only
+  GeoGridQueryStatus:
+    property: read-only
+  GeoGridQueryStatus.*:
     property: read-only

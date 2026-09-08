@@ -19,17 +19,14 @@ local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
 local DEG_TO_RAD = HarnessConstants.DEG_TO_RAD
 local RAD_TO_DEG = HarnessConstants.RAD_TO_DEG
 local CIRCLE_UNION_FULL_ANGLE = 2 * math.pi
+local CPA_STATIONARY_SPEED_SQUARED = 1e-6
 local GeoMathInternal = {}
 
-function GeoMathInternal.isFiniteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
-
 function GeoMathInternal.groundEast(value)
-    if IsVec3(value) and GeoMathInternal.isFiniteNumber(value.z) then
+    if IsVec3(value) and IsFiniteNumber(value.z) then
         return value.z
     end
-    if IsVec2(value) and GeoMathInternal.isFiniteNumber(value.y) then
+    if IsVec2(value) and IsFiniteNumber(value.y) then
         return value.y
     end
     return nil
@@ -240,9 +237,9 @@ function GroundTrackFromVelocity(velocity, minSpeedMps)
     minSpeedMps = minSpeedMps == nil and 15 or minSpeedMps
     if
         not IsVec3(velocity)
-        or not GeoMathInternal.isFiniteNumber(velocity.x)
-        or not GeoMathInternal.isFiniteNumber(velocity.y)
-        or not GeoMathInternal.isFiniteNumber(velocity.z)
+        or not IsFiniteNumber(velocity.x)
+        or not IsFiniteNumber(velocity.y)
+        or not IsFiniteNumber(velocity.z)
         or type(minSpeedMps) ~= "number"
         or minSpeedMps ~= minSpeedMps
         or minSpeedMps < 0
@@ -269,9 +266,9 @@ end
 function HeadingFrame2D(origin, headingDeg)
     if
         not IsVec3(origin)
-        or not GeoMathInternal.isFiniteNumber(origin.x)
-        or not GeoMathInternal.isFiniteNumber(origin.y)
-        or not GeoMathInternal.isFiniteNumber(origin.z)
+        or not IsFiniteNumber(origin.x)
+        or not IsFiniteNumber(origin.y)
+        or not IsFiniteNumber(origin.z)
     then
         _HarnessInternal.log.error(
             "HeadingFrame2D requires a Vec3 origin",
@@ -295,16 +292,16 @@ end
 function GeoMathInternal.isHeadingFrame(frame)
     return type(frame) == "table"
         and IsVec3(frame.origin)
-        and GeoMathInternal.isFiniteNumber(frame.origin.x)
-        and GeoMathInternal.isFiniteNumber(frame.origin.y)
-        and GeoMathInternal.isFiniteNumber(frame.origin.z)
+        and IsFiniteNumber(frame.origin.x)
+        and IsFiniteNumber(frame.origin.y)
+        and IsFiniteNumber(frame.origin.z)
         and IsVec2(frame.forward)
-        and GeoMathInternal.isFiniteNumber(frame.forward.x)
-        and GeoMathInternal.isFiniteNumber(frame.forward.y)
+        and IsFiniteNumber(frame.forward.x)
+        and IsFiniteNumber(frame.forward.y)
         and IsVec2(frame.right)
-        and GeoMathInternal.isFiniteNumber(frame.right.x)
-        and GeoMathInternal.isFiniteNumber(frame.right.y)
-        and GeoMathInternal.isFiniteNumber(frame.headingDeg)
+        and IsFiniteNumber(frame.right.x)
+        and IsFiniteNumber(frame.right.y)
+        and IsFiniteNumber(frame.headingDeg)
 end
 
 --- Project a point into a DCS heading-relative frame
@@ -316,7 +313,7 @@ function ProjectPointToHeadingFrame2D(frame, point)
     if
         not GeoMathInternal.isHeadingFrame(frame)
         or type(point) ~= "table"
-        or not GeoMathInternal.isFiniteNumber(point.x)
+        or not IsFiniteNumber(point.x)
         or GeoMathInternal.groundEast(point) == nil
     then
         _HarnessInternal.log.error(
@@ -340,7 +337,7 @@ function ProjectVectorToHeadingFrame2D(frame, vector)
     if
         not GeoMathInternal.isHeadingFrame(frame)
         or type(vector) ~= "table"
-        or not GeoMathInternal.isFiniteNumber(vector.x)
+        or not IsFiniteNumber(vector.x)
         or GeoMathInternal.groundEast(vector) == nil
     then
         _HarnessInternal.log.error(
@@ -386,7 +383,7 @@ end
 --- local rotated = RotatePoint2D({x=100, y=0}, {x=0, y=0}, 90) -- Returns {x=0, y=100}
 --- local formation = RotatePoint2D(wingman, lead, 45) -- Rotate wingman 45° around lead
 function RotatePoint2D(point, center, angleDeg)
-    if not point or not center or not GeoMathInternal.isFiniteNumber(angleDeg) then
+    if not point or not center or not IsFiniteNumber(angleDeg) then
         _HarnessInternal.log.error(
             "RotatePoint2D requires point, center, and angle",
             "GeoMath.RotatePoint2D"
@@ -428,7 +425,7 @@ end
 --- local dir = NormalizeVector2D(velocity) -- Get direction from velocity
 function NormalizeVector2D(vector)
     local east = GeoMathInternal.groundEast(vector)
-    if type(vector) ~= "table" or not GeoMathInternal.isFiniteNumber(vector.x) or east == nil then
+    if type(vector) ~= "table" or not IsFiniteNumber(vector.x) or east == nil then
         _HarnessInternal.log.error(
             "NormalizeVector2D requires a DCS Vec2 or Vec3",
             "GeoMath.NormalizeVector2D"
@@ -492,9 +489,9 @@ function DotProduct2D(v1, v2)
     local firstEast = GeoMathInternal.groundEast(v1)
     local secondEast = GeoMathInternal.groundEast(v2)
     if
-        not GeoMathInternal.isFiniteNumber(v1.x)
+        not IsFiniteNumber(v1.x)
         or firstEast == nil
-        or not GeoMathInternal.isFiniteNumber(v2.x)
+        or not IsFiniteNumber(v2.x)
         or secondEast == nil
     then
         _HarnessInternal.log.error(
@@ -567,9 +564,9 @@ function AngleBetweenVectors2D(v1, v2)
     local firstEast = GeoMathInternal.groundEast(v1)
     local secondEast = GeoMathInternal.groundEast(v2)
     if
-        not GeoMathInternal.isFiniteNumber(v1.x)
+        not IsFiniteNumber(v1.x)
         or firstEast == nil
-        or not GeoMathInternal.isFiniteNumber(v2.x)
+        or not IsFiniteNumber(v2.x)
         or secondEast == nil
     then
         _HarnessInternal.log.error(
@@ -602,7 +599,7 @@ function PointInPolygon2D(point, polygon)
     end
 
     local x, east = point.x, GeoMathInternal.groundEast(point)
-    if not GeoMathInternal.isFiniteNumber(x) or east == nil then
+    if not IsFiniteNumber(x) or east == nil then
         _HarnessInternal.log.error(
             "PointInPolygon2D requires a DCS Vec2 or Vec3 point",
             "GeoMath.PointInPolygon2D"
@@ -710,9 +707,9 @@ end
 function GeoMathInternal.isCircle2D(circle)
     return type(circle) == "table"
         and IsVec2(circle.center)
-        and GeoMathInternal.isFiniteNumber(circle.center.x)
-        and GeoMathInternal.isFiniteNumber(circle.center.y)
-        and GeoMathInternal.isFiniteNumber(circle.radius)
+        and IsFiniteNumber(circle.center.x)
+        and IsFiniteNumber(circle.center.y)
+        and IsFiniteNumber(circle.radius)
         and circle.radius > 0
 end
 
@@ -886,7 +883,7 @@ function CircleUnionArea2D(circles)
         end
     end
 
-    if not GeoMathInternal.isFiniteNumber(area) then
+    if not IsFiniteNumber(area) then
         _HarnessInternal.log.error(
             "CircleUnionArea2D result is outside the finite numeric range",
             "GeoMath.CircleUnionArea2D"
@@ -894,6 +891,117 @@ function CircleUnionArea2D(circles)
         return nil
     end
     return math.max(0, area)
+end
+
+function GeoMathInternal.circleDistance(dx, dy)
+    local scale = math.max(math.abs(dx), math.abs(dy))
+    if scale == 0 then
+        return 0
+    end
+    return scale * math.sqrt((dx / scale) ^ 2 + (dy / scale) ^ 2)
+end
+
+function GeoMathInternal.coverageProviders(envelope, providers)
+    local circles = {}
+    for _, provider in ipairs(providers) do
+        local dx = provider.center.x - envelope.center.x
+        local dy = provider.center.y - envelope.center.y
+        local distance = GeoMathInternal.circleDistance(dx, dy)
+        if not IsFiniteNumber(distance) then
+            return nil
+        end
+        if distance <= provider.radius - envelope.radius then
+            return circles, true
+        end
+        if distance - envelope.radius < provider.radius then
+            local x, y, radius =
+                dx / envelope.radius, dy / envelope.radius, provider.radius / envelope.radius
+            if not IsFiniteNumber(x * x + y * y + radius * radius) then
+                return nil
+            end
+            circles[#circles + 1] = { center = { x = x, y = y }, radius = radius }
+        end
+    end
+    return circles, false
+end
+
+function GeoMathInternal.exposedCircleIntervals(circle, circles, index)
+    local covered, contained = GeoMathInternal.circleCoveredIntervals(circle, circles, index)
+    if contained then
+        return {}
+    end
+    local exposed, cursor = {}, 0
+    for _, interval in ipairs(GeoMathInternal.mergeCircleCoveredIntervals(covered)) do
+        if interval[1] > cursor then
+            exposed[#exposed + 1] = { cursor, interval[1] }
+        end
+        cursor = math.max(cursor, interval[2])
+    end
+    if cursor < CIRCLE_UNION_FULL_ANGLE then
+        exposed[#exposed + 1] = { cursor, CIRCLE_UNION_FULL_ANGLE }
+    end
+    return exposed
+end
+
+function GeoMathInternal.clippedCircleArcArea(circle, envelope, exposed)
+    local covered, contained = GeoMathInternal.circleCoveredIntervals(circle, { envelope }, 0)
+    local inside = contained and { { 0, CIRCLE_UNION_FULL_ANGLE } }
+        or GeoMathInternal.mergeCircleCoveredIntervals(covered)
+    local area, firstIndex, secondIndex = 0, 1, 1
+    while firstIndex <= #exposed and secondIndex <= #inside do
+        local first, second = exposed[firstIndex], inside[secondIndex]
+        local low, high = math.max(first[1], second[1]), math.min(first[2], second[2])
+        if low < high then
+            area = area + GeoMathInternal.circleArcArea(circle, envelope.center, low, high)
+        end
+        if first[2] < second[2] then
+            firstIndex = firstIndex + 1
+        else
+            secondIndex = secondIndex + 1
+        end
+    end
+    return area
+end
+
+--- Measure how much of a circular area is covered by other circles.
+--- Overlapping circles count only once. Circle centers use {x, y} on the ground.
+---@param envelope Circle2D The area to measure: {center = {x, y}, radius = meters}.
+---@param providers Circle2D[] The circles covering that area, in a list without gaps. Inputs are left unchanged.
+---@return number? area Covered area in square meters, or nil if the circles are invalid or the calculation fails.
+---@usage local coveredArea = CircleCoveredArea2D(zoneCircle, radarCircles)
+function CircleCoveredArea2D(envelope, providers)
+    if
+        not GeoMathInternal.isCircle2D(envelope) or not GeoMathInternal.isCircle2DArray(providers)
+    then
+        return nil
+    end
+    local envelopeArea = math.pi * envelope.radius * envelope.radius
+    if not IsFiniteNumber(envelopeArea) then
+        return nil
+    end
+    local circles, contained = GeoMathInternal.coverageProviders(envelope, providers)
+    if not circles then
+        return nil
+    end
+    if contained then
+        return envelopeArea
+    end
+    local normalized = { center = { x = 0, y = 0 }, radius = 1 }
+    local covered = GeoMathInternal.circleCoveredIntervals(normalized, circles, 0)
+    local area = 0
+    for _, interval in ipairs(GeoMathInternal.mergeCircleCoveredIntervals(covered)) do
+        area = area
+            + GeoMathInternal.circleArcArea(normalized, normalized.center, interval[1], interval[2])
+    end
+    for index, circle in ipairs(circles) do
+        local exposed = GeoMathInternal.exposedCircleIntervals(circle, circles, index)
+        area = area + GeoMathInternal.clippedCircleArcArea(circle, normalized, exposed)
+    end
+    area = area * envelope.radius * envelope.radius
+    if not IsFiniteNumber(area) then
+        return nil
+    end
+    return math.max(0, math.min(envelopeArea, area))
 end
 
 function PolygonArea2D(polygon)
@@ -1028,6 +1136,40 @@ function ConvexHull2D(points)
 end
 
 -- ==================== Closest Point of Approach (CPA) Utilities ====================
+
+--- Find when a moving object will get closest to a fixed point.
+--- Includes altitude and assumes the object keeps its current velocity.
+--- If it is moving away or slower than 0.001 m/s, use its current distance.
+---@param position Vec3 The object's position in meters.
+---@param velocity Vec3 The object's velocity in meters per second.
+---@param target Vec3 The fixed point in meters. Inputs are left unchanged.
+---@return number? seconds Seconds until closest approach, or nil if the inputs or result are invalid.
+---@return number? distance Closest distance in meters, or nil on failure.
+---@usage local seconds, distance = EstimateCPAToPoint3D(position, velocity, defendedPoint)
+function EstimateCPAToPoint3D(position, velocity, target)
+    if not IsFiniteVec3(position) or not IsFiniteVec3(velocity) or not IsFiniteVec3(target) then
+        return nil, nil
+    end
+    local x, y, z = position.x - target.x, position.y - target.y, position.z - target.z
+    local speedSquared = velocity.x ^ 2 + velocity.y ^ 2 + velocity.z ^ 2
+    if not IsFiniteNumber(speedSquared) then
+        return nil, nil
+    end
+    local seconds = 0
+    if speedSquared >= CPA_STATIONARY_SPEED_SQUARED then
+        local projection = x * velocity.x + y * velocity.y + z * velocity.z
+        if not IsFiniteNumber(projection) then
+            return nil, nil
+        end
+        seconds = math.max(0, -projection / speedSquared)
+    end
+    local dx, dy, dz = x + velocity.x * seconds, y + velocity.y * seconds, z + velocity.z * seconds
+    local distance = math.sqrt(dx ^ 2 + dy ^ 2 + dz ^ 2)
+    if not IsFiniteNumber(seconds) or not IsFiniteNumber(distance) then
+        return nil, nil
+    end
+    return seconds, distance
+end
 
 --- Estimate time of closest approach between a moving point and a fixed point (2D)
 ---@param pos table Vec3 current position

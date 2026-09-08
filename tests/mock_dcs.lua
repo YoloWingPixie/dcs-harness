@@ -71,7 +71,7 @@ land = {
 
 coord = {
     LOtoLL = function(vec3)
-        return { latitude = 43.5, longitude = 41.2 }
+        return 43.5, 41.2
     end,
     LLtoLO = function(lat, lon, alt)
         return { x = 1000, y = alt or 0, z = 2000 }

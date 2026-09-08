@@ -1,6 +1,18 @@
 -- Unit tests for misc.lua module
 local lu = require("luaunit")
 
+TestFiniteNumber = {}
+
+function TestFiniteNumber:testFiniteNumbersWithoutCoercion()
+    for _, value in ipairs({ 0, -1, 0.5, -1e308, 1e308 }) do
+        lu.assertTrue(IsFiniteNumber(value))
+    end
+    lu.assertFalse(IsFiniteNumber(nil))
+    for _, value in ipairs({ true, false, {}, function() end, "1", 0 / 0, math.huge, -math.huge }) do
+        lu.assertFalse(IsFiniteNumber(value))
+    end
+end
+
 TestMisc = {}
 
 -- Test DeepCopy

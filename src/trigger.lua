@@ -81,10 +81,12 @@ function OutText(text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outText, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outText(...)
+    end, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display text: " .. tostring(result),
+            "Failed to display text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutText"
         )
         return nil
@@ -123,11 +125,12 @@ function OutTextForCoalition(coalitionId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result =
-        pcall(trigger.action.outTextForCoalition, coalitionId, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForCoalition(...)
+    end, coalitionId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display coalition text: " .. tostring(result),
+            "Failed to display coalition text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutTextForCoalition"
         )
         return nil
@@ -166,11 +169,12 @@ function OutTextForGroup(groupId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result =
-        pcall(trigger.action.outTextForGroup, groupId, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForGroup(...)
+    end, groupId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display group text: " .. tostring(result),
+            "Failed to display group text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutTextForGroup"
         )
         return nil
@@ -190,7 +194,8 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
     local normalizedUnitId = TriggerInternal.normalizeUnitId(unitId)
     if not normalizedUnitId then
         _HarnessInternal.log.error(
-            "OutTextForUnit requires a positive integral unit ID: " .. tostring(unitId),
+            "OutTextForUnit requires a positive integral unit ID: "
+                .. _HarnessInternal.safeString(unitId),
             "Trigger.OutTextForUnit"
         )
         return nil
@@ -222,11 +227,12 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.outTextForUnit, normalizedUnitId, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForUnit(...)
+    end, normalizedUnitId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display unit text: " .. tostring(result),
+            "Failed to display unit text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutTextForUnit"
         )
         return nil
@@ -246,9 +252,14 @@ function OutSound(soundFile, soundType)
         return nil
     end
 
-    local success, result = pcall(trigger.action.outSound, soundFile, soundType)
+    local success, result = pcall(function(...)
+        return trigger.action.outSound(...)
+    end, soundFile, soundType)
     if not success then
-        _HarnessInternal.log.error("Failed to play sound: " .. tostring(result), "Trigger.OutSound")
+        _HarnessInternal.log.error(
+            "Failed to play sound: " .. _HarnessInternal.safeString(result),
+            "Trigger.OutSound"
+        )
         return nil
     end
 
@@ -278,11 +289,12 @@ function OutSoundForCoalition(coalitionId, soundFile, soundType)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.outSoundForCoalition, coalitionId, soundFile, soundType)
+    local success, result = pcall(function(...)
+        return trigger.action.outSoundForCoalition(...)
+    end, coalitionId, soundFile, soundType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to play coalition sound: " .. tostring(result),
+            "Failed to play coalition sound: " .. _HarnessInternal.safeString(result),
             "Trigger.OutSoundForCoalition"
         )
         return nil
@@ -310,10 +322,12 @@ function Explosion(pos, power)
         return nil
     end
 
-    local success, result = pcall(trigger.action.explosion, pos, power)
+    local success, result = pcall(function(...)
+        return trigger.action.explosion(...)
+    end, pos, power)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create explosion: " .. tostring(result),
+            "Failed to create explosion: " .. _HarnessInternal.safeString(result),
             "Trigger.Explosion"
         )
         return nil
@@ -340,9 +354,14 @@ function Smoke(pos, smokeColor, density, name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.smoke, pos, smokeColor, density, name)
+    local success, result = pcall(function(...)
+        return trigger.action.smoke(...)
+    end, pos, smokeColor, density, name)
     if not success then
-        _HarnessInternal.log.error("Failed to create smoke: " .. tostring(result), "Trigger.Smoke")
+        _HarnessInternal.log.error(
+            "Failed to create smoke: " .. _HarnessInternal.safeString(result),
+            "Trigger.Smoke"
+        )
         return nil
     end
 
@@ -373,10 +392,12 @@ function EffectSmokeBig(pos, smokePreset, density, name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.effectSmokeBig, pos, smokePreset, density, name)
+    local success, result = pcall(function(...)
+        return trigger.action.effectSmokeBig(...)
+    end, pos, smokePreset, density, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create big smoke effect: " .. tostring(result),
+            "Failed to create big smoke effect: " .. _HarnessInternal.safeString(result),
             "Trigger.EffectSmokeBig"
         )
         return nil
@@ -398,10 +419,12 @@ function EffectSmokeStop(name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.effectSmokeStop, name)
+    local success, result = pcall(function(...)
+        return trigger.action.effectSmokeStop(...)
+    end, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to stop smoke effect: " .. tostring(result),
+            "Failed to stop smoke effect: " .. _HarnessInternal.safeString(result),
             "Trigger.EffectSmokeStop"
         )
         return nil
@@ -428,10 +451,12 @@ function IlluminationBomb(pos, power)
         power = 1000000
     end
 
-    local success, result = pcall(trigger.action.illuminationBomb, pos, power)
+    local success, result = pcall(function(...)
+        return trigger.action.illuminationBomb(...)
+    end, pos, power)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create illumination bomb: " .. tostring(result),
+            "Failed to create illumination bomb: " .. _HarnessInternal.safeString(result),
             "Trigger.IlluminationBomb"
         )
         return nil
@@ -467,10 +492,12 @@ function SignalFlare(pos, flareColor, azimuth)
         azimuth = 0
     end
 
-    local success, result = pcall(trigger.action.signalFlare, pos, flareColor, azimuth)
+    local success, result = pcall(function(...)
+        return trigger.action.signalFlare(...)
+    end, pos, flareColor, azimuth)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create signal flare: " .. tostring(result),
+            "Failed to create signal flare: " .. _HarnessInternal.safeString(result),
             "Trigger.SignalFlare"
         )
         return nil
@@ -518,19 +545,12 @@ function RadioTransmission(filename, pos, modulation, loop, frequency, power, na
         power = 100
     end
 
-    local success, result = pcall(
-        trigger.action.radioTransmission,
-        filename,
-        pos,
-        modulation,
-        loop,
-        frequency,
-        power,
-        name
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.radioTransmission(...)
+    end, filename, pos, modulation, loop, frequency, power, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to start radio transmission: " .. tostring(result),
+            "Failed to start radio transmission: " .. _HarnessInternal.safeString(result),
             "Trigger.RadioTransmission"
         )
         return nil
@@ -552,10 +572,12 @@ function StopRadioTransmission(name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.stopRadioTransmission, name)
+    local success, result = pcall(function(...)
+        return trigger.action.stopRadioTransmission(...)
+    end, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to stop radio transmission: " .. tostring(result),
+            "Failed to stop radio transmission: " .. _HarnessInternal.safeString(result),
             "Trigger.StopRadioTransmission"
         )
         return nil
@@ -586,10 +608,12 @@ function SetMarkupRadius(markId, radius)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupRadius, markId, radius)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupRadius(...)
+    end, markId, radius)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup radius: " .. tostring(result),
+            "Failed to set markup radius: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupRadius"
         )
         return nil
@@ -617,10 +641,12 @@ function SetMarkupText(markId, text)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupText, markId, text)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupText(...)
+    end, markId, text)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup text: " .. tostring(result),
+            "Failed to set markup text: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupText"
         )
         return nil
@@ -651,10 +677,12 @@ function SetMarkupColor(markId, color)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupColor, markId, color)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupColor(...)
+    end, markId, color)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup color: " .. tostring(result),
+            "Failed to set markup color: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupColor"
         )
         return nil
@@ -685,10 +713,12 @@ function SetMarkupColorFill(markId, colorFill)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupColorFill, markId, colorFill)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupColorFill(...)
+    end, markId, colorFill)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup color fill: " .. tostring(result),
+            "Failed to set markup color fill: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupColorFill"
         )
         return nil
@@ -719,10 +749,12 @@ function SetMarkupFontSize(markId, fontSize)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupFontSize, markId, fontSize)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupFontSize(...)
+    end, markId, fontSize)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup font size: " .. tostring(result),
+            "Failed to set markup font size: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupFontSize"
         )
         return nil
@@ -741,10 +773,12 @@ function RemoveMark(markId)
         return nil
     end
 
-    local success, result = pcall(trigger.action.removeMark, markId)
+    local success, result = pcall(function(...)
+        return trigger.action.removeMark(...)
+    end, markId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove mark: " .. tostring(result),
+            "Failed to remove mark: " .. _HarnessInternal.safeString(result),
             "Trigger.RemoveMark"
         )
         return nil
@@ -779,10 +813,12 @@ function MarkToAll(markId, text, pos, readOnly, message)
         return nil
     end
 
-    local success, result = pcall(trigger.action.markToAll, markId, text, pos, readOnly, message)
+    local success, result = pcall(function(...)
+        return trigger.action.markToAll(...)
+    end, markId, text, pos, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create mark for all: " .. tostring(result),
+            "Failed to create mark for all: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkToAll"
         )
         return nil
@@ -829,11 +865,12 @@ function MarkToCoalition(markId, text, pos, coalitionId, readOnly, message)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.markToCoalition, markId, text, pos, coalitionId, readOnly, message)
+    local success, result = pcall(function(...)
+        return trigger.action.markToCoalition(...)
+    end, markId, text, pos, coalitionId, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create mark for coalition: " .. tostring(result),
+            "Failed to create mark for coalition: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkToCoalition"
         )
         return nil
@@ -874,11 +911,12 @@ function MarkToGroup(markId, text, pos, groupId, readOnly, message)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.markToGroup, markId, text, pos, groupId, readOnly, message)
+    local success, result = pcall(function(...)
+        return trigger.action.markToGroup(...)
+    end, markId, text, pos, groupId, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create mark for group: " .. tostring(result),
+            "Failed to create mark for group: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkToGroup"
         )
         return nil
@@ -966,20 +1004,12 @@ function LineToAll(
 
     color = TriggerInternal.normalizeColor(color)
     local colorArr = TriggerInternal.toArrayColor(color)
-    local success, result = pcall(
-        trigger.action.lineToAll,
-        coalitionArg,
-        idArg,
-        startPos,
-        endPos,
-        colorArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.lineToAll(...)
+    end, coalitionArg, idArg, startPos, endPos, colorArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create line for all: " .. tostring(result),
+            "Failed to create line for all: " .. _HarnessInternal.safeString(result),
             "Trigger.LineToAll"
         )
         return nil
@@ -1062,21 +1092,12 @@ function CircleToAll(
     fillColor = TriggerInternal.defaultFill(color, fillColor)
     local colorArr = TriggerInternal.toArrayColor(color)
     local fillArr = TriggerInternal.toArrayColor(fillColor)
-    local success, result = pcall(
-        trigger.action.circleToAll,
-        coalitionArg,
-        idArg,
-        center,
-        radius,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.circleToAll(...)
+    end, coalitionArg, idArg, center, radius, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create circle for all: " .. tostring(result),
+            "Failed to create circle for all: " .. _HarnessInternal.safeString(result),
             "Trigger.CircleToAll"
         )
         return nil
@@ -1165,21 +1186,12 @@ function RectToAll(
 
     local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
     local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
-    local success, result = pcall(
-        trigger.action.rectToAll,
-        coalitionArg,
-        idArg,
-        startPos,
-        endPos,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.rectToAll(...)
+    end, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create rectangle for all: " .. tostring(result),
+            "Failed to create rectangle for all: " .. _HarnessInternal.safeString(result),
             "Trigger.RectToAll"
         )
         return nil
@@ -1278,23 +1290,12 @@ function QuadToAll(
 
     local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
     local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
-    local success, result = pcall(
-        trigger.action.quadToAll,
-        coalitionArg,
-        idArg,
-        p1,
-        p2,
-        p3,
-        p4,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.quadToAll(...)
+    end, coalitionArg, idArg, p1, p2, p3, p4, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create quad for all: " .. tostring(result),
+            "Failed to create quad for all: " .. _HarnessInternal.safeString(result),
             "Trigger.QuadToAll"
         )
         return nil
@@ -1378,20 +1379,12 @@ function TextToAll(
     local colorArr = TriggerInternal.toArrayColor(color)
     local fillArr = TriggerInternal.toArrayColor(fillColor)
     -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
-    local success, result = pcall(
-        trigger.action.textToAll,
-        coalitionArg,
-        idArg,
-        pos,
-        colorArr,
-        fillArr,
-        fontSize,
-        readOnly,
-        text
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.textToAll(...)
+    end, coalitionArg, idArg, pos, colorArr, fillArr, fontSize, readOnly, text)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create text for all: " .. tostring(result),
+            "Failed to create text for all: " .. _HarnessInternal.safeString(result),
             "Trigger.TextToAll"
         )
         return nil
@@ -1480,21 +1473,12 @@ function ArrowToAll(
 
     local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
     local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
-    local success, result = pcall(
-        trigger.action.arrowToAll,
-        coalitionArg,
-        idArg,
-        startPos,
-        endPos,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.arrowToAll(...)
+    end, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create arrow for all: " .. tostring(result),
+            "Failed to create arrow for all: " .. _HarnessInternal.safeString(result),
             "Trigger.ArrowToAll"
         )
         return nil
@@ -1519,10 +1503,12 @@ function SetAITask(group, actionIndex)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setAITask, group, actionIndex)
+    local success, result = pcall(function(...)
+        return trigger.action.setAITask(...)
+    end, group, actionIndex)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set AI task: " .. tostring(result),
+            "Failed to set AI task: " .. _HarnessInternal.safeString(result),
             "Trigger.SetAITask"
         )
         return nil
@@ -1547,10 +1533,12 @@ function PushAITask(group, actionIndex)
         return nil
     end
 
-    local success, result = pcall(trigger.action.pushAITask, group, actionIndex)
+    local success, result = pcall(function(...)
+        return trigger.action.pushAITask(...)
+    end, group, actionIndex)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to push AI task: " .. tostring(result),
+            "Failed to push AI task: " .. _HarnessInternal.safeString(result),
             "Trigger.PushAITask"
         )
         return nil
@@ -1572,10 +1560,12 @@ function TriggerActivateGroup(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.activateGroup, group)
+    local success, result = pcall(function(...)
+        return trigger.action.activateGroup(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to activate group: " .. tostring(result),
+            "Failed to activate group: " .. _HarnessInternal.safeString(result),
             "Trigger.TriggerActivateGroup"
         )
         return nil
@@ -1597,10 +1587,12 @@ function TriggerDeactivateGroup(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.deactivateGroup, group)
+    local success, result = pcall(function(...)
+        return trigger.action.deactivateGroup(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to deactivate group: " .. tostring(result),
+            "Failed to deactivate group: " .. _HarnessInternal.safeString(result),
             "Trigger.TriggerDeactivateGroup"
         )
         return nil
@@ -1619,10 +1611,12 @@ function SetGroupAIOn(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setGroupAIOn, group)
+    local success, result = pcall(function(...)
+        return trigger.action.setGroupAIOn(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set group AI on: " .. tostring(result),
+            "Failed to set group AI on: " .. _HarnessInternal.safeString(result),
             "Trigger.SetGroupAIOn"
         )
         return nil
@@ -1641,10 +1635,12 @@ function SetGroupAIOff(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setGroupAIOff, group)
+    local success, result = pcall(function(...)
+        return trigger.action.setGroupAIOff(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set group AI off: " .. tostring(result),
+            "Failed to set group AI off: " .. _HarnessInternal.safeString(result),
             "Trigger.SetGroupAIOff"
         )
         return nil
@@ -1666,10 +1662,12 @@ function GroupStopMoving(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.groupStopMoving, group)
+    local success, result = pcall(function(...)
+        return trigger.action.groupStopMoving(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to stop group moving: " .. tostring(result),
+            "Failed to stop group moving: " .. _HarnessInternal.safeString(result),
             "Trigger.GroupStopMoving"
         )
         return nil
@@ -1691,10 +1689,12 @@ function GroupContinueMoving(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.groupContinueMoving, group)
+    local success, result = pcall(function(...)
+        return trigger.action.groupContinueMoving(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to continue group moving: " .. tostring(result),
+            "Failed to continue group moving: " .. _HarnessInternal.safeString(result),
             "Trigger.GroupContinueMoving"
         )
         return nil
@@ -1758,7 +1758,7 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create markup shape: " .. tostring(result),
+            "Failed to create markup shape: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkupToAll"
         )
         return nil

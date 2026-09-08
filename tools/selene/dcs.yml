@@ -1114,8 +1114,7 @@ globals:
       required: false
   coord.LOtoLL:
     args:
-    - type: number
-    - type: number
+    - type: table
   coord.LLtoMGRS:
     args:
     - type:

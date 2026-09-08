@@ -1772,223 +1772,6 @@ function IndexedCollection(specification)
 end
 -- ==== END: src/datastructures.lua ====
 
--- ==== BEGIN: src/eventbus.lua ====
---[[
-    EventBus Module - minimal pub/sub for events
-
-    - Subscribe by arbitrary topic key (number/string/any non-nil)
-    - Optional predicate(event) -> boolean filters deliveries
-    - Delivery enqueues the event table directly into the provided Queue
-    - Supports multiple subscribers per event ID
-    - Key selection is customizable; defaults to `event.id`
-    - HarnessWorldEventBus integrates with `world.addEventHandler` lazily
-]]
-
--- Single-handler approach: one handler instance per mission
-local ACTIVE_HANDLER = nil
-
----@class EventBus
----@field _subscribers table<any, table> Map of topicKey -> array of subscriber records
----@field _nextSubId number
----@field _keySelector fun(event: table): any
----@field subscribe fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
----@field unsubscribe fun(self: EventBus, subscriptionId: number): boolean
----@field sub fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
----@field unsub fun(self: EventBus, subscriptionId: number): boolean
----@field publish fun(self: EventBus, event: table)
----@param keySelector function?
----@return EventBus
-function EventBus(keySelector)
-    local selector = nil
-    if type(keySelector) == "function" then
-        selector = keySelector
-    else
-        selector = function(event)
-            return event and event.id
-        end
-    end
-
-    local bus = { _subscribers = {}, _nextSubId = 1, _keySelector = selector }
-
-    --- Subscribe to a topic key with optional predicate and a target queue
-    ---@param topicKey any topic key to route on (must be non-nil)
-    ---@param queue table Queue() instance receiving DTOs via :enqueue
-    ---@param predicate fun(event: table): boolean Optional predicate to filter deliveries
-    ---@return number? subscriptionId Returns an id to later unsubscribe, or nil on error
-    function bus:subscribe(topicKey, queue, predicate)
-        if topicKey == nil then
-            return nil
-        end
-        if type(queue) ~= "table" or type(queue.enqueue) ~= "function" then
-            return nil
-        end
-        if predicate ~= nil and type(predicate) ~= "function" then
-            return nil
-        end
-
-        if not self._subscribers[topicKey] then
-            self._subscribers[topicKey] = {}
-        end
-
-        local id = self._nextSubId
-        self._nextSubId = self._nextSubId + 1
-
-        table.insert(self._subscribers[topicKey], {
-            id = id,
-            queue = queue,
-            predicate = predicate,
-        })
-        return id
-    end
-
-    --- Unsubscribe a previously created subscription id
-    ---@param subscriptionId number
-    ---@return boolean removed True if removed
-    function bus:unsubscribe(subscriptionId)
-        if type(subscriptionId) ~= "number" then
-            return false
-        end
-        for eventId, list in pairs(self._subscribers) do
-            for i = #list, 1, -1 do
-                if list[i].id == subscriptionId then
-                    table.remove(list, i)
-                    if #list == 0 then
-                        self._subscribers[eventId] = nil
-                    end
-                    return true
-                end
-            end
-        end
-        return false
-    end
-
-    -- Idiomatic aliases
-    function bus:sub(topicKey, queue, predicate)
-        return self:subscribe(topicKey, queue, predicate)
-    end
-    function bus:unsub(subscriptionId)
-        return self:unsubscribe(subscriptionId)
-    end
-
-    --- Publish an event to subscribers of its derived topic key
-    ---@param event table Event payload
-    function bus:publish(event)
-        if type(event) ~= "table" then
-            return
-        end
-        local key = self._keySelector(event)
-        if key == nil then
-            return
-        end
-        local list = self._subscribers[key]
-        if not list or #list == 0 then
-            return
-        end
-
-        for i = 1, #list do
-            local sub = list[i]
-            local deliver = true
-            if sub.predicate ~= nil then
-                local ok, result = pcall(sub.predicate, event)
-                deliver = ok and result == true
-            end
-            if deliver then
-                pcall(sub.queue.enqueue, sub.queue, event)
-            end
-        end
-    end
-
-    return bus
-end
-
----@class HarnessWorldEventBus : EventBus
----@field _handler table
----@field dispose fun(self: HarnessWorldEventBus)
----@return HarnessWorldEventBus
-function CreateHarnessWorldEventBus()
-    local bus = EventBus()
-    bus._registered = false
-    bus._totalSubs = 0
-
-    bus._handler = {
-        onEvent = function(self, event)
-            bus:publish(event)
-        end,
-    }
-
-    local baseSubscribe = bus.subscribe
-    function bus:subscribe(eventId, queue, predicate)
-        local id = baseSubscribe(self, eventId, queue, predicate)
-        if id then
-            self._totalSubs = self._totalSubs + 1
-            if (not self._registered) and world and type(world.addEventHandler) == "function" then
-                world.addEventHandler(self._handler)
-                self._registered = true
-                ACTIVE_HANDLER = self._handler
-            end
-        end
-        return id
-    end
-
-    local baseUnsubscribe = bus.unsubscribe
-    function bus:unsubscribe(subscriptionId)
-        local removed = baseUnsubscribe(self, subscriptionId)
-        if removed then
-            self._totalSubs = self._totalSubs - 1
-            if self._totalSubs < 0 then
-                self._totalSubs = 0
-            end
-            if
-                self._registered
-                and self._totalSubs == 0
-                and world
-                and type(world.removeEventHandler) == "function"
-            then
-                if ACTIVE_HANDLER == self._handler then
-                    world.removeEventHandler(self._handler)
-                    ACTIVE_HANDLER = nil
-                end
-                self._registered = false
-            end
-        end
-        return removed
-    end
-
-    function bus:dispose()
-        if self._registered and world and type(world.removeEventHandler) == "function" then
-            if ACTIVE_HANDLER == self._handler then
-                world.removeEventHandler(self._handler)
-                ACTIVE_HANDLER = nil
-            end
-        end
-        self._registered = false
-        self._totalSubs = 0
-    end
-
-    return bus
-end
-
--- Provide a globally accessible singleton for harness initialization if desired
----@type HarnessWorldEventBus?
-HarnessWorldEventBus = nil
--- Back-compat alias
----@type HarnessWorldEventBus?
-HarnessWorldEventBusInstance = nil
-
---- Initialize global HarnessWorldEventBus if not already created
----@return HarnessWorldEventBus
-function InitHarnessWorldEventBus()
-    if not HarnessWorldEventBus then
-        HarnessWorldEventBus = CreateHarnessWorldEventBus()
-        HarnessWorldEventBusInstance = HarnessWorldEventBus
-    end
-    return HarnessWorldEventBus
-end
-
--- Lazy init only creates the instance; it will not register with world
-InitHarnessWorldEventBus()
--- ==== END: src/eventbus.lua ====
-
 -- ==== BEGIN: src/geogrid.lua ====
 --[[
 ==================================================================================================
@@ -2003,9 +1786,13 @@ InitHarnessWorldEventBus()
 ---@field type string
 ---@field bucket string
 ---@field p { x: number, y: number, z: number }
+---@field id any
+---@field previous GeoGridLocation?
+---@field next GeoGridLocation?
+---@field chain table?
 
 ---@class GeoGrid
----@field grid table<integer, table<integer, table<string, table<any, boolean>>>>
+---@field grid table Grid data. Use the search methods to find entries.
 ---@field idx table<any, GeoGridLocation>
 ---@field cell number
 ---@field types table<string, boolean>
@@ -2021,11 +1808,31 @@ InitHarnessWorldEventBus()
 ---@field move fun(self: GeoGrid, entityId: any, pos: { x: number, y: number|nil, z: number }): boolean, table|nil, table|nil
 ---@field changeType fun(self: GeoGrid, entityId: any, newType: string): boolean
 ---@field queryRadius fun(self: GeoGrid, pos: { x: number, y: number|nil, z: number }, radius: number, types: string[]): table<string, table<any, boolean>>
+---@field beginRadiusQuery fun(self: GeoGrid, position: Vec3, radius: number, types: string[], maxResults: integer): GeoGridRadiusQuery?, string?
+---@field continueRadiusQuery fun(self: GeoGrid, cursor: GeoGridRadiusQuery, workBudget: integer, output: any[]): integer, integer, GeoGridQueryStatus
+---@field closeRadiusQuery fun(self: GeoGrid, cursor: GeoGridRadiusQuery)
 ---@field clear fun(self: GeoGrid)
 ---@field size fun(self: GeoGrid): integer
 ---@field has fun(self: GeoGrid, id: any): boolean
 ---@field toTable fun(self: GeoGrid): table
 ---@field fromTable fun(self: GeoGrid, t: table): boolean
+---@class GeoGridQueryStatusConstants
+---@field MORE 'MORE'
+---@field DONE 'DONE'
+---@field LIMIT 'LIMIT'
+---@field CLOSED 'CLOSED'
+---@field INVALID 'INVALID'
+
+---@type GeoGridQueryStatusConstants
+GeoGridQueryStatus =
+    { MORE = "MORE", DONE = "DONE", LIMIT = "LIMIT", CLOSED = "CLOSED", INVALID = "INVALID" }
+
+---@class GeoGridRadiusQuery
+
+local GeoGridInternal = {
+    phase = { CELL = "cell", BUCKET = "bucket", ENTRY = "entry" },
+}
+
 local floor = math.floor
 
 ---@param t any
@@ -2039,6 +1846,44 @@ local function norm_type(t)
 end
 
 local GeoGridProto = {}
+
+function GeoGridProto:_attach(loc)
+    local cell = self:_ensure_cell(loc.cx, loc.cz)
+    local chain = cell[loc.bucket]
+    if not chain then
+        chain = { ids = {} }
+        cell[loc.bucket] = chain
+    end
+    chain.ids[loc.id] = true
+    loc.chain, loc.previous, loc.next = chain, chain.last, nil
+    if chain.last then
+        chain.last.next = loc
+    else
+        chain.first = loc
+    end
+    chain.last = loc
+end
+
+function GeoGridProto:_detach(loc)
+    for _, state in pairs(self._queries) do
+        if state.nextEntry == loc then
+            state.nextEntry = loc.next
+        end
+    end
+    local chain = loc.chain
+    if loc.previous then
+        loc.previous.next = loc.next
+    else
+        chain.first = loc.next
+    end
+    if loc.next then
+        loc.next.previous = loc.previous
+    else
+        chain.last = loc.previous
+    end
+    chain.ids[loc.id] = nil
+    loc.chain, loc.previous, loc.next = nil, nil, nil
+end
 
 --- Compute integer cell coordinates for a position
 ---@param p { x: number|nil, y: number|nil, z: number|nil }
@@ -2110,20 +1955,18 @@ function GeoGridProto:add(entityType, entityId, pos)
     end
 
     local cx, cz = self:_cell_coords(pos)
-    local cell = self:_ensure_cell(cx, cz)
     local bucket = et .. "Ids"
-    cell[bucket] = cell[bucket] or {}
-    if not cell[bucket][entityId] then
-        cell[bucket][entityId] = true
-        self.count = self.count + 1
-    end
-    self.idx[entityId] = {
+    loc = {
+        id = entityId,
         cx = cx,
         cz = cz,
         type = et,
         bucket = bucket,
         p = { x = pos.x, y = pos.y or 0, z = pos.z },
     }
+    self:_attach(loc)
+    self.idx[entityId] = loc
+    self.count = self.count + 1
     return true
 end
 
@@ -2135,12 +1978,8 @@ function GeoGridProto:remove(entityId)
     if not loc then
         return false
     end
-    local col = self.grid[loc.cx]
-    local cell = col and col[loc.cz]
-    if cell and cell[loc.bucket] and cell[loc.bucket][entityId] then
-        cell[loc.bucket][entityId] = nil
-        self.count = self.count - 1
-    end
+    self:_detach(loc)
+    self.count = self.count - 1
     self.idx[entityId] = nil
     return true
 end
@@ -2165,16 +2004,9 @@ function GeoGridProto:updatePosition(entityId, pos, defaultType)
         return true
     end
 
-    local ocol = self.grid[loc.cx]
-    local ocell = ocol and ocol[loc.cz]
-    if ocell and ocell[loc.bucket] then
-        ocell[loc.bucket][entityId] = nil
-    end
-
-    local ncell = self:_ensure_cell(ncx, ncz)
-    ncell[loc.bucket] = ncell[loc.bucket] or {}
-    ncell[loc.bucket][entityId] = true
+    self:_detach(loc)
     loc.cx, loc.cz = ncx, ncz
+    self:_attach(loc)
     return true
 end
 
@@ -2218,13 +2050,10 @@ function GeoGridProto:changeType(entityId, newType)
         return false
     end
 
-    if cell[loc.bucket] then
-        cell[loc.bucket][entityId] = nil
-    end
+    self:_detach(loc)
     local nb = et .. "Ids"
-    cell[nb] = cell[nb] or {}
-    cell[nb][entityId] = true
     loc.type, loc.bucket = et, nb
+    self:_attach(loc)
     return true
 end
 
@@ -2265,7 +2094,7 @@ function GeoGridProto:queryRadius(pos, radius, types)
                     for k = 1, #keys do
                         local b = cell[keys[k]]
                         if b then
-                            for id in pairs(b) do
+                            for id in pairs(b.ids) do
                                 local loc = self.idx[id]
                                 local lp = loc and loc.p
                                 if lp then
@@ -2284,9 +2113,245 @@ function GeoGridProto:queryRadius(pos, radius, types)
     return out
 end
 
+function GeoGridInternal.finishQuery(state, status)
+    for key in pairs(state) do
+        state[key] = nil
+    end
+    state.status = status
+end
+
+function GeoGridInternal.copyQueryTypes(grid, types)
+    if type(types) ~= "table" then
+        return nil
+    end
+    local count = 0
+    for key in pairs(types) do
+        if not IsFiniteNumber(key) or key < 1 or key % 1 ~= 0 then
+            return nil
+        end
+        count = count + 1
+    end
+    if count ~= #types then
+        return nil
+    end
+    local keys, seen = {}, {}
+    for _, value in ipairs(types) do
+        local entityType = norm_type(value)
+        if not entityType or not grid.types[entityType] then
+            return nil
+        end
+        if not seen[entityType] then
+            keys[#keys + 1] = entityType .. "Ids"
+            seen[entityType] = true
+        end
+    end
+    return keys
+end
+
+function GeoGridInternal.cellBound(value, cellSize)
+    local bound = floor(value / cellSize)
+    if not IsFiniteNumber(bound) or (bound + 1) - bound ~= 1 then
+        return nil
+    end
+    return bound
+end
+
+--- Start a radius search that you can finish over several calls.
+--- Searches distance along the ground. The search remembers its center and type list.
+---@param position Vec3 Center of the search. All three coordinates must be valid numbers.
+---@param radius number Search radius in meters; zero is allowed.
+---@param types string[] Types registered with this grid, such as {"Unit"}. Use a list without gaps.
+---@param maxResults integer Stop after returning this many IDs across all calls. Must be positive.
+---@return GeoGridRadiusQuery? cursor Pass this search to continueRadiusQuery; nil if it cannot start.
+---@return string? reason Why the search could not start.
+---@usage local search, reason = grid:beginRadiusQuery(center, 5000, {"Unit"}, 100)
+function GeoGridProto:beginRadiusQuery(position, radius, types, maxResults)
+    if not IsFiniteVec3(position) then
+        return nil, "search center needs numeric x, y, z coordinates without NaN or infinity"
+    end
+    if not IsFiniteNumber(radius) or radius < 0 then
+        return nil, "search radius must be zero or greater, without NaN or infinity"
+    end
+    if not IsFiniteNumber(maxResults) or maxResults <= 0 or maxResults % 1 ~= 0 then
+        return nil, "maxResults must be a positive finite integer"
+    end
+    if not IsFiniteNumber(self.cell) or self.cell <= 0 then
+        return nil, "grid cell size must be finite and positive"
+    end
+    local keys = GeoGridInternal.copyQueryTypes(self, types)
+    if not keys then
+        return nil, "types must be a list of registered grid types, with no gaps"
+    end
+    local minX = GeoGridInternal.cellBound(position.x - radius, self.cell)
+    local maxX = GeoGridInternal.cellBound(position.x + radius, self.cell)
+    local minZ = GeoGridInternal.cellBound(position.z - radius, self.cell)
+    local maxZ = GeoGridInternal.cellBound(position.z + radius, self.cell)
+    if not minX or not maxX or not minZ or not maxZ then
+        return nil, "search coordinates are too large for this grid's cell size"
+    end
+    local cursor = {}
+    local state = {
+        status = GeoGridQueryStatus.MORE,
+        phase = GeoGridInternal.phase.CELL,
+        position = { x = position.x, y = position.y, z = position.z },
+        radius = radius,
+        keys = keys,
+        maxResults = maxResults,
+        emitted = 0,
+        seen = {},
+        cx = minX,
+        cz = minZ,
+        minZ = minZ,
+        maxX = maxX,
+        maxZ = maxZ,
+    }
+    if #keys == 0 then
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.DONE)
+    end
+    self._queries[cursor] = state
+    return cursor, nil
+end
+
+function GeoGridInternal.nextQueryCell(state)
+    state.cell, state.chain, state.nextEntry = nil, nil, nil
+    if state.cz == state.maxZ then
+        if state.cx == state.maxX then
+            GeoGridInternal.finishQuery(state, GeoGridQueryStatus.DONE)
+            return
+        end
+        state.cx, state.cz = state.cx + 1, state.minZ
+    else
+        state.cz = state.cz + 1
+    end
+    state.phase = GeoGridInternal.phase.CELL
+end
+
+function GeoGridInternal.nextQueryBucket(state)
+    state.chain, state.nextEntry = nil, nil
+    state.typeIndex = state.typeIndex + 1
+    if state.typeIndex > #state.keys then
+        GeoGridInternal.nextQueryCell(state)
+    else
+        state.phase = GeoGridInternal.phase.BUCKET
+    end
+end
+
+function GeoGridInternal.queryMatches(state, loc)
+    local dx, dz = loc.p.x - state.position.x, loc.p.z - state.position.z
+    if not IsFiniteNumber(dx) or not IsFiniteNumber(dz) then
+        return false
+    end
+    if state.radius == 0 then
+        return dx == 0 and dz == 0
+    end
+    if math.abs(dx) > state.radius or math.abs(dz) > state.radius then
+        return false
+    end
+    return (dx / state.radius) ^ 2 + (dz / state.radius) ^ 2 <= 1
+end
+
+function GeoGridInternal.inspectQueryEntry(grid, state)
+    local loc = state.nextEntry
+    local id = nil
+    if loc then
+        state.nextEntry = loc.next
+        if
+            grid.idx[loc.id] == loc
+            and loc.chain == state.chain
+            and not state.seen[loc.id]
+            and GeoGridInternal.queryMatches(state, loc)
+        then
+            id = loc.id
+            state.seen[id] = true
+            state.emitted = state.emitted + 1
+        end
+    end
+    if state.emitted >= state.maxResults then
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.LIMIT)
+    elseif not state.nextEntry then
+        GeoGridInternal.nextQueryBucket(state)
+    end
+    return id
+end
+
+function GeoGridInternal.inspectQuery(grid, state)
+    if state.phase == GeoGridInternal.phase.CELL then
+        local column = grid.grid[state.cx]
+        state.cell = column and column[state.cz]
+        if state.cell then
+            state.typeIndex, state.phase = 1, GeoGridInternal.phase.BUCKET
+        else
+            GeoGridInternal.nextQueryCell(state)
+        end
+    elseif state.phase == GeoGridInternal.phase.BUCKET then
+        state.chain = state.cell[state.keys[state.typeIndex]]
+        state.nextEntry = state.chain and state.chain.first
+        if state.nextEntry then
+            state.phase = GeoGridInternal.phase.ENTRY
+        else
+            GeoGridInternal.nextQueryBucket(state)
+        end
+    else
+        return GeoGridInternal.inspectQueryEntry(grid, state)
+    end
+    return nil
+end
+
+--- Continue a radius search and fill output with this call's matching IDs.
+--- Process the IDs before calling again: each call clears the previous output.
+--- Objects can move between calls. Each returned ID matches when it is checked.
+--- Keep calling while status is MORE. DONE means the search finished.
+--- LIMIT means maxResults was reached; other matches may still exist.
+--- CLOSED means the search was stopped. INVALID means check the arguments.
+---@param cursor GeoGridRadiusQuery A search started by this grid.
+---@param workBudget integer Maximum search steps this call. Zero pauses the search.
+---@param output any[] Your result list. The same table is reused and cleared even if the call fails.
+---@return integer written Number of IDs added to output.
+---@return integer workUsed Steps used to check grid squares, object types, and entries. Never exceeds workBudget.
+---@return GeoGridQueryStatus status Whether to continue, stop, or check the arguments.
+---@usage local found, work, status = grid:continueRadiusQuery(search, 50, matches)
+function GeoGridProto:continueRadiusQuery(cursor, workBudget, output)
+    if type(output) ~= "table" then
+        return 0, 0, GeoGridQueryStatus.INVALID
+    end
+    for key in pairs(output) do
+        if type(key) == "number" and key >= 1 and key % 1 == 0 then
+            output[key] = nil
+        end
+    end
+    local state = type(cursor) == "table" and self._queries[cursor]
+    if not state or not IsFiniteNumber(workBudget) or workBudget < 0 or workBudget % 1 ~= 0 then
+        return 0, 0, GeoGridQueryStatus.INVALID
+    end
+    local written, used = 0, 0
+    while state.status == GeoGridQueryStatus.MORE and used < workBudget do
+        local id = GeoGridInternal.inspectQuery(self, state)
+        used = used + 1
+        if id ~= nil then
+            written = written + 1
+            output[written] = id
+        end
+    end
+    return written, used, state.status
+end
+
+--- Stop a radius search and release the memory it uses.
+--- Leaves grid entries unchanged. Calling it again is harmless.
+---@param cursor GeoGridRadiusQuery The search to stop. Searches from other grids are ignored.
+---@usage grid:closeRadiusQuery(search)
+function GeoGridProto:closeRadiusQuery(cursor)
+    local state = type(cursor) == "table" and self._queries[cursor]
+    if state then
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.CLOSED)
+    end
+end
+
 --- Reset grid state
 ---@return nil
 function GeoGridProto:clear()
+    for _, state in pairs(self._queries) do
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.CLOSED)
+    end
     self.grid, self.idx, self.count, self.has_bounds = {}, {}, 0, false
     self.minX, self.minZ, self.maxX, self.maxZ = 0, 0, 0, 0
 end
@@ -2373,6 +2438,7 @@ function GeoGrid(cellSizeMeters, allowedTypes)
         maxZ = 0,
         count = 0,
         has_bounds = false,
+        _queries = setmetatable({}, { __mode = "k" }),
     }, { __index = GeoGridProto })
 end
 -- ==== END: src/geogrid.lua ====
@@ -2537,6 +2603,18 @@ _HarnessInternal = _HarnessInternal or {}
 _HarnessInternal.loggers = _HarnessInternal.loggers or {}
 _HarnessInternal.defaultNamespace = _HarnessInternal.defaultNamespace or "Harness"
 
+local LoggerInternal = {}
+
+function LoggerInternal.safeString(value)
+    local ok, result = pcall(tostring, value)
+    if ok then
+        return result
+    end
+    return "<unprintable " .. type(value) .. ">"
+end
+
+_HarnessInternal.safeString = LoggerInternal.safeString
+
 --- Internal function to format messages
 ---@param namespace string The namespace for the log message
 ---@param message string The message to log
@@ -2555,6 +2633,7 @@ end
 ---@usage local myLogger = HarnessLogger("MyMod")
 ---@usage myLogger.info("Starting up")
 function HarnessLogger(namespace)
+    _HarnessInternal.safeString = LoggerInternal.safeString
     if not namespace or type(namespace) ~= "string" then
         namespace = _HarnessInternal.defaultNamespace
     end
@@ -2573,28 +2652,36 @@ function HarnessLogger(namespace)
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.info(message, caller)
-        env.info(formatMessage(namespace, message, caller))
+        pcall(function()
+            env.info(formatMessage(namespace, message, caller))
+        end)
     end
 
     --- Log a warning message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.warn(message, caller)
-        env.warning(formatMessage(namespace, message, caller))
+        pcall(function()
+            env.warning(formatMessage(namespace, message, caller))
+        end)
     end
 
     --- Log an error message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.error(message, caller)
-        env.error(formatMessage(namespace, message, caller))
+        pcall(function()
+            env.error(formatMessage(namespace, message, caller))
+        end)
     end
 
     --- Log a debug message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.debug(message, caller)
-        env.info(formatMessage(namespace .. " : DEBUG", message, caller))
+        pcall(function()
+            env.info(formatMessage(namespace .. " : DEBUG", message, caller))
+        end)
     end
 
     _HarnessInternal.loggers[namespace] = logger
@@ -3034,7 +3121,10 @@ function CacheDecorator(func, getCacheKey, cacheType, verifyFunc)
 
     local validTypes = { unit = true, group = true, controller = true, generic = true }
     if not validTypes[cacheType] then
-        _HarnessInternal.log.error("Invalid cache type: " .. tostring(cacheType), "CacheDecorator")
+        _HarnessInternal.log.error(
+            "Invalid cache type: " .. _HarnessInternal.safeString(cacheType),
+            "CacheDecorator"
+        )
         return func
     end
 
@@ -3195,10 +3285,12 @@ function SetControllerTask(controller, task)
         return nil
     end
 
-    local success, result = pcall(controller.setTask, controller, task)
+    local success, result = pcall(function(...)
+        return controller.setTask(...)
+    end, controller, task)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller task: " .. tostring(result),
+            "Failed to set controller task: " .. _HarnessInternal.safeString(result),
             "Controller.SetTask"
         )
         return nil
@@ -3220,10 +3312,12 @@ function ResetControllerTask(controller)
         return nil
     end
 
-    local success, result = pcall(controller.resetTask, controller)
+    local success, result = pcall(function(...)
+        return controller.resetTask(...)
+    end, controller)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to reset controller task: " .. tostring(result),
+            "Failed to reset controller task: " .. _HarnessInternal.safeString(result),
             "Controller.ResetTask"
         )
         return nil
@@ -3254,10 +3348,12 @@ function PushControllerTask(controller, task)
         return nil
     end
 
-    local success, result = pcall(controller.pushTask, controller, task)
+    local success, result = pcall(function(...)
+        return controller.pushTask(...)
+    end, controller, task)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to push controller task: " .. tostring(result),
+            "Failed to push controller task: " .. _HarnessInternal.safeString(result),
             "Controller.PushTask"
         )
         return nil
@@ -3279,10 +3375,12 @@ function PopControllerTask(controller)
         return nil
     end
 
-    local success, result = pcall(controller.popTask, controller)
+    local success, result = pcall(function(...)
+        return controller.popTask(...)
+    end, controller)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to pop controller task: " .. tostring(result),
+            "Failed to pop controller task: " .. _HarnessInternal.safeString(result),
             "Controller.PopTask"
         )
         return nil
@@ -3304,10 +3402,12 @@ function HasControllerTask(controller)
         return nil
     end
 
-    local success, result = pcall(controller.hasTask, controller)
+    local success, result = pcall(function(...)
+        return controller.hasTask(...)
+    end, controller)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check controller task: " .. tostring(result),
+            "Failed to check controller task: " .. _HarnessInternal.safeString(result),
             "Controller.HasTask"
         )
         return nil
@@ -3338,10 +3438,12 @@ function SetControllerCommand(controller, command)
         return nil
     end
 
-    local success, result = pcall(controller.setCommand, controller, command)
+    local success, result = pcall(function(...)
+        return controller.setCommand(...)
+    end, controller, command)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller command: " .. tostring(result),
+            "Failed to set controller command: " .. _HarnessInternal.safeString(result),
             "Controller.SetCommand"
         )
         return nil
@@ -3372,10 +3474,12 @@ function SetControllerOnOff(controller, onOff)
         return nil
     end
 
-    local success, result = pcall(controller.setOnOff, controller, onOff)
+    local success, result = pcall(function(...)
+        return controller.setOnOff(...)
+    end, controller, onOff)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller on/off: " .. tostring(result),
+            "Failed to set controller on/off: " .. _HarnessInternal.safeString(result),
             "Controller.SetOnOff"
         )
         return nil
@@ -3408,10 +3512,12 @@ function SetControllerAltitude(controller, altitude, keep, altType)
         return nil
     end
 
-    local success, result = pcall(controller.setAltitude, controller, altitude, keep, altType)
+    local success, result = pcall(function(...)
+        return controller.setAltitude(...)
+    end, controller, altitude, keep, altType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller altitude: " .. tostring(result),
+            "Failed to set controller altitude: " .. _HarnessInternal.safeString(result),
             "Controller.SetAltitude"
         )
         return nil
@@ -3440,10 +3546,12 @@ function SetControllerSpeed(controller, speed, keep)
         return nil
     end
 
-    local success, result = pcall(controller.setSpeed, controller, speed, keep)
+    local success, result = pcall(function(...)
+        return controller.setSpeed(...)
+    end, controller, speed, keep)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller speed: " .. tostring(result),
+            "Failed to set controller speed: " .. _HarnessInternal.safeString(result),
             "Controller.SetSpeed"
         )
         return nil
@@ -3475,10 +3583,12 @@ function SetControllerOption(controller, optionId, optionValue)
         return nil
     end
 
-    local success, result = pcall(controller.setOption, controller, optionId, optionValue)
+    local success, result = pcall(function(...)
+        return controller.setOption(...)
+    end, controller, optionId, optionValue)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller option: " .. tostring(result),
+            "Failed to set controller option: " .. _HarnessInternal.safeString(result),
             "Controller.SetOption"
         )
         return nil
@@ -3912,11 +4022,12 @@ function GetControllerDetectedTargets(controller, detectionType, categoryFilter)
         return nil
     end
 
-    local success, result =
-        pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
+    local success, result = pcall(function(...)
+        return controller.getDetectedTargets(...)
+    end, controller, detectionType, categoryFilter)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get detected targets: " .. tostring(result),
+            "Failed to get detected targets: " .. _HarnessInternal.safeString(result),
             "Controller.GetDetectedTargets"
         )
         return nil
@@ -3949,11 +4060,12 @@ function KnowControllerTarget(controller, target, typeKnown, distanceKnown)
         return nil
     end
 
-    local success, result =
-        pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
+    local success, result = pcall(function(...)
+        return controller.knowTarget(...)
+    end, controller, target, typeKnown, distanceKnown)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to know target: " .. tostring(result),
+            "Failed to know target: " .. _HarnessInternal.safeString(result),
             "Controller.KnowTarget"
         )
         return nil
@@ -3985,10 +4097,12 @@ function IsControllerTargetDetected(controller, target, detectionType)
         return nil
     end
 
-    local success, result = pcall(controller.isTargetDetected, controller, target, detectionType)
+    local success, result = pcall(function(...)
+        return controller.isTargetDetected(...)
+    end, controller, target, detectionType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check target detection: " .. tostring(result),
+            "Failed to check target detection: " .. _HarnessInternal.safeString(result),
             "Controller.IsTargetDetected"
         )
         return nil
@@ -5032,9 +5146,14 @@ function GetFlag(flagName)
         return 0
     end
 
-    local success, value = pcall(trigger.misc.getUserFlag, flagName)
+    local success, value = pcall(function(...)
+        return trigger.misc.getUserFlag(...)
+    end, flagName)
     if not success then
-        _HarnessInternal.log.error("Failed to get flag: " .. tostring(value), "GetFlag")
+        _HarnessInternal.log.error(
+            "Failed to get flag: " .. _HarnessInternal.safeString(value),
+            "GetFlag"
+        )
         return 0
     end
 
@@ -5054,9 +5173,14 @@ function SetFlag(flagName, value)
 
     value = value or 1
 
-    local success, result = pcall(trigger.action.setUserFlag, flagName, value)
+    local success, result = pcall(function(...)
+        return trigger.action.setUserFlag(...)
+    end, flagName, value)
     if not success then
-        _HarnessInternal.log.error("Failed to set flag: " .. tostring(result), "SetFlag")
+        _HarnessInternal.log.error(
+            "Failed to set flag: " .. _HarnessInternal.safeString(result),
+            "SetFlag"
+        )
         return false
     end
 
@@ -5227,6 +5351,14 @@ end
     Miscellaneous utility functions
 ==================================================================================================
 ]]
+--- Check that a value is a number that is neither NaN nor infinity.
+---@param value any Value to check.
+---@return boolean valid True for ordinary numbers, including zero and negative numbers.
+---@usage if IsFiniteNumber(range) then ... end
+function IsFiniteNumber(value)
+    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
 --- Deep copy a table
 ---@param original any Value to copy (tables are copied recursively)
 ---@return any copy Deep copy of the original
@@ -5776,13 +5908,25 @@ end
 ---@usage local s = EncodeJson({a=1})
 function EncodeJson(value)
     -- Prefer DCS-provided implementation if available
-    if net and type(net.lua2json) == "function" then
-        local ok, res = pcall(net.lua2json, value)
+    local lookupOk, available = pcall(function()
+        return net and type(net.lua2json) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve net.lua2json: " .. _HarnessInternal.safeString(available),
+            "EncodeJson"
+        )
+        return nil
+    end
+    if available then
+        local ok, res = pcall(function(...)
+            return net.lua2json(...)
+        end, value)
         if ok then
             return res
         end
         _HarnessInternal.log.error(
-            "EncodeJson failed via net.lua2json: " .. tostring(res),
+            "EncodeJson failed via net.lua2json: " .. _HarnessInternal.safeString(res),
             "EncodeJson"
         )
         return nil
@@ -5846,13 +5990,25 @@ function DecodeJson(json)
     end
 
     -- Prefer DCS-provided implementation if available
-    if net and type(net.json2lua) == "function" then
-        local ok, res = pcall(net.json2lua, json)
+    local lookupOk, available = pcall(function()
+        return net and type(net.json2lua) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve net.json2lua: " .. _HarnessInternal.safeString(available),
+            "DecodeJson"
+        )
+        return nil
+    end
+    if available then
+        local ok, res = pcall(function(...)
+            return net.json2lua(...)
+        end, json)
         if ok then
             return res
         end
         _HarnessInternal.log.error(
-            "DecodeJson failed via net.json2lua: " .. tostring(res),
+            "DecodeJson failed via net.json2lua: " .. _HarnessInternal.safeString(res),
             "DecodeJson"
         )
         return nil
@@ -6001,9 +6157,9 @@ function Retry(func, options)
                 if attempt >= maxRetries then
                     _HarnessInternal.log.error(
                         "Retry exhausted after "
-                            .. tostring(attempt)
+                            .. _HarnessInternal.safeString(attempt)
                             .. " attempts: "
-                            .. tostring(err),
+                            .. _HarnessInternal.safeString(err),
                         "Retry"
                     )
                     return nil
@@ -6013,7 +6169,10 @@ function Retry(func, options)
                     pcall(onRetry, attempt, err)
                 end
                 _HarnessInternal.log.warn(
-                    "Retry attempt " .. tostring(attempt) .. " after error: " .. tostring(err),
+                    "Retry attempt "
+                        .. _HarnessInternal.safeString(attempt)
+                        .. " after error: "
+                        .. _HarnessInternal.safeString(err),
                     "Retry"
                 )
                 -- loop to retry
@@ -6115,9 +6274,9 @@ function CircuitBreaker(func, options)
             state.consecutiveFailures = state.consecutiveFailures + 1
             _HarnessInternal.log.warn(
                 "Function error (failure "
-                    .. tostring(state.consecutiveFailures)
+                    .. _HarnessInternal.safeString(state.consecutiveFailures)
                     .. "): "
-                    .. tostring(err),
+                    .. _HarnessInternal.safeString(err),
                 "CircuitBreaker"
             )
             if trial or state.consecutiveFailures >= failureThreshold then
@@ -6128,6 +6287,119 @@ function CircuitBreaker(func, options)
     end
 end
 -- ==== END: src/misc.lua ====
+
+-- ==== BEGIN: src/mission.lua ====
+---@class MissionUnitRecord
+---@field name string
+---@field unitId number?
+---@field typeName string?
+---@field skill string?
+---@field category string?
+---@field countryId number?
+---@field coalition string?
+
+---@class MissionUnitIndex
+---@field get fun(self: MissionUnitIndex, unitName: any): MissionUnitRecord?
+
+local MissionInternal = {}
+local MissionUnitIndexProto = {}
+
+function MissionInternal.tableField(value, field)
+    local result = type(value) == "table" and rawget(value, field)
+    return type(result) == "table" and result or {}
+end
+
+function MissionInternal.scalar(value, expectedType)
+    if type(value) ~= expectedType or (expectedType == "number" and not IsFiniteNumber(value)) then
+        return nil
+    end
+    return value
+end
+
+function MissionInternal.indexCategory(records, categoryData, category, country, coalitionKey)
+    for _, group in pairs(MissionInternal.tableField(categoryData, "group")) do
+        for _, unit in pairs(MissionInternal.tableField(group, "units")) do
+            local name = type(unit) == "table" and rawget(unit, "name")
+            if type(name) == "string" and name ~= "" then
+                if records[name] then
+                    return nil, "duplicate mission unit name: " .. name
+                end
+                records[name] = {
+                    name = name,
+                    unitId = MissionInternal.scalar(rawget(unit, "unitId"), "number"),
+                    typeName = MissionInternal.scalar(rawget(unit, "type"), "string"),
+                    skill = MissionInternal.scalar(rawget(unit, "skill"), "string"),
+                    category = MissionInternal.scalar(category, "string"),
+                    countryId = MissionInternal.scalar(rawget(country, "id"), "number"),
+                    coalition = MissionInternal.scalar(coalitionKey, "string"),
+                }
+            end
+        end
+    end
+    return true
+end
+
+--- Get a unit's Mission Editor settings by name.
+---@param unitName any The unit name used in the Mission Editor.
+---@return MissionUnitRecord? record A new table of settings, or nil if the name is invalid or unknown.
+---@usage local settings = units:get("SAM Radar")
+function MissionUnitIndexProto:get(unitName)
+    if type(unitName) ~= "string" or unitName == "" then
+        return nil
+    end
+    local record = self.records[unitName]
+    if not record then
+        return nil
+    end
+    local copy = {}
+    for key, value in pairs(record) do
+        copy[key] = value
+    end
+    return copy
+end
+
+--- Build a name lookup for units placed in the Mission Editor.
+--- Build it during setup. Later spawns and mission changes do not update it.
+--- Skill stays as the editor text, including Random, Player, and Client.
+---@param mission table? Mission data to read. Leave out to use env.mission.
+---@return MissionUnitIndex? index Use index:get(unitName) to read a unit's settings.
+---@return string? reason Why the lookup could not be built, such as missing mission data or duplicate names.
+---@usage local units, reason = MissionUnitIndex()
+function MissionUnitIndex(mission)
+    if mission == nil then
+        local ok, current = pcall(function()
+            return env.mission
+        end)
+        if not ok then
+            return nil, "mission data is unavailable"
+        end
+        mission = current
+    end
+    if type(mission) ~= "table" then
+        return nil, "mission must be a table"
+    end
+    local records = {}
+    for coalitionKey, coalitionData in pairs(MissionInternal.tableField(mission, "coalition")) do
+        for _, country in pairs(MissionInternal.tableField(coalitionData, "country")) do
+            if type(country) == "table" then
+                for category, categoryData in pairs(country) do
+                    local ok, reason = MissionInternal.indexCategory(
+                        records,
+                        categoryData,
+                        category,
+                        country,
+                        coalitionKey
+                    )
+                    if not ok then
+                        return nil, reason
+                    end
+                end
+            end
+        end
+    end
+    return setmetatable({ records = records }, { __index = MissionUnitIndexProto }), nil
+end
+-- ==== END: src/mission.lua ====
 
 -- ==== BEGIN: src/missioncommands.lua ====
 --[[
@@ -6168,17 +6440,22 @@ function AddCommand(path, menuItem, handler, params)
         return nil
     end
 
-    if type(missionCommands) ~= "table" or type(missionCommands.addCommand) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table" or type(missionCommands.addCommand) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addCommand is unavailable",
             "MissionCommands.AddCommand"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addCommand, menuItem.name, path, handler, params)
+    local success, result = pcall(function(...)
+        return missionCommands.addCommand(...)
+    end, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add command: " .. tostring(result),
+            "Failed to add command: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddCommand"
         )
         return nil
@@ -6209,17 +6486,22 @@ function AddSubMenu(path, name)
         return nil
     end
 
-    if type(missionCommands) ~= "table" or type(missionCommands.addSubMenu) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table" or type(missionCommands.addSubMenu) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addSubMenu is unavailable",
             "MissionCommands.AddSubMenu"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addSubMenu, name, path)
+    local success, result = pcall(function(...)
+        return missionCommands.addSubMenu(...)
+    end, name, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add submenu: " .. tostring(result),
+            "Failed to add submenu: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddSubMenu"
         )
         return nil
@@ -6241,17 +6523,22 @@ function RemoveItem(path)
         return nil
     end
 
-    if type(missionCommands) ~= "table" or type(missionCommands.removeItem) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table" or type(missionCommands.removeItem) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.removeItem is unavailable",
             "MissionCommands.RemoveItem"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.removeItem, path)
+    local success, result = pcall(function(...)
+        return missionCommands.removeItem(...)
+    end, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove item: " .. tostring(result),
+            "Failed to remove item: " .. _HarnessInternal.safeString(result),
             "MissionCommands.RemoveItem"
         )
         return nil
@@ -6301,27 +6588,23 @@ function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addCommandForCoalition) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addCommandForCoalition) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addCommandForCoalition is unavailable",
             "MissionCommands.AddCommandForCoalition"
         )
         return nil
     end
-    local success, result = pcall(
-        missionCommands.addCommandForCoalition,
-        coalitionId,
-        menuItem.name,
-        path,
-        handler,
-        params
-    )
+    local success, result = pcall(function(...)
+        return missionCommands.addCommandForCoalition(...)
+    end, coalitionId, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition command: " .. tostring(result),
+            "Failed to add coalition command: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddCommandForCoalition"
         )
         return nil
@@ -6361,20 +6644,23 @@ function AddSubMenuForCoalition(coalitionId, path, name)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addSubMenuForCoalition) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addSubMenuForCoalition) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addSubMenuForCoalition is unavailable",
             "MissionCommands.AddSubMenuForCoalition"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addSubMenuForCoalition, coalitionId, name, path)
+    local success, result = pcall(function(...)
+        return missionCommands.addSubMenuForCoalition(...)
+    end, coalitionId, name, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition submenu: " .. tostring(result),
+            "Failed to add coalition submenu: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddSubMenuForCoalition"
         )
         return nil
@@ -6405,20 +6691,23 @@ function RemoveItemForCoalition(coalitionId, path)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.removeItemForCoalition) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.removeItemForCoalition) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.removeItemForCoalition is unavailable",
             "MissionCommands.RemoveItemForCoalition"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.removeItemForCoalition, coalitionId, path)
+    local success, result = pcall(function(...)
+        return missionCommands.removeItemForCoalition(...)
+    end, coalitionId, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove coalition item: " .. tostring(result),
+            "Failed to remove coalition item: " .. _HarnessInternal.safeString(result),
             "MissionCommands.RemoveItemForCoalition"
         )
         return nil
@@ -6468,21 +6757,23 @@ function AddCommandForGroup(groupId, path, menuItem, handler, params)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addCommandForGroup) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addCommandForGroup) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addCommandForGroup is unavailable",
             "MissionCommands.AddCommandForGroup"
         )
         return nil
     end
-    local success, result =
-        pcall(missionCommands.addCommandForGroup, groupId, menuItem.name, path, handler, params)
+    local success, result = pcall(function(...)
+        return missionCommands.addCommandForGroup(...)
+    end, groupId, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add group command: " .. tostring(result),
+            "Failed to add group command: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddCommandForGroup"
         )
         return nil
@@ -6522,20 +6813,23 @@ function AddSubMenuForGroup(groupId, path, name)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addSubMenuForGroup) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addSubMenuForGroup) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addSubMenuForGroup is unavailable",
             "MissionCommands.AddSubMenuForGroup"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addSubMenuForGroup, groupId, name, path)
+    local success, result = pcall(function(...)
+        return missionCommands.addSubMenuForGroup(...)
+    end, groupId, name, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add group submenu: " .. tostring(result),
+            "Failed to add group submenu: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddSubMenuForGroup"
         )
         return nil
@@ -6566,20 +6860,23 @@ function RemoveItemForGroup(groupId, path)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.removeItemForGroup) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.removeItemForGroup) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.removeItemForGroup is unavailable",
             "MissionCommands.RemoveItemForGroup"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.removeItemForGroup, groupId, path)
+    local success, result = pcall(function(...)
+        return missionCommands.removeItemForGroup(...)
+    end, groupId, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove group item: " .. tostring(result),
+            "Failed to remove group item: " .. _HarnessInternal.safeString(result),
             "MissionCommands.RemoveItemForGroup"
         )
         return nil
@@ -6649,6 +6946,9 @@ end
 
 local MissionFileInternal = {
     targetExistsReason = "target already exists",
+    temporarySuffix = ".harness-tmp",
+    backupSuffix = ".harness-backup",
+    fileNotFoundCode = 2,
 }
 
 function MissionFileInternal.failure(caller, reason)
@@ -6790,7 +7090,10 @@ function MissionFileInternal.ensureDirectory(capabilities, components)
         current = MissionFileInternal.appendPath(current, component, separator)
         local attributesOk, attributes = pcall(capabilities.attributes, current)
         if not attributesOk then
-            return nil, "lfs.attributes failed for mission directory: " .. tostring(attributes)
+            return nil,
+                "lfs.attributes failed for mission directory: " .. _HarnessInternal.safeString(
+                    attributes
+                )
         end
         if attributes ~= nil then
             if type(attributes) ~= "table" or attributes.mode ~= "directory" then
@@ -6799,12 +7102,13 @@ function MissionFileInternal.ensureDirectory(capabilities, components)
         else
             local mkdirOk, created, mkdirReason = pcall(capabilities.mkdir, current)
             if not mkdirOk then
-                return nil, "lfs.mkdir failed: " .. tostring(created)
+                return nil, "lfs.mkdir failed: " .. _HarnessInternal.safeString(created)
             end
             if not created then
                 local verifyOk, verified = pcall(capabilities.attributes, current)
                 if not verifyOk or type(verified) ~= "table" or verified.mode ~= "directory" then
-                    return nil, "lfs.mkdir failed: " .. tostring(mkdirReason or created)
+                    return nil,
+                        "lfs.mkdir failed: " .. _HarnessInternal.safeString(mkdirReason or created)
                 end
             end
         end
@@ -6836,39 +7140,43 @@ function MissionFileInternal.close(file)
     local closeOk, closeResult, closeReason = pcall(function()
         return file:close()
     end)
-    if not closeOk or closeResult == nil then
-        return nil, tostring(closeReason or closeResult)
+    if not closeOk or not closeResult then
+        return nil, _HarnessInternal.safeString(closeReason or closeResult)
     end
     return true, nil
 end
 
-function MissionFileInternal.write(capabilities, absolutePath, contents)
-    local openOk, file, openReason = pcall(capabilities.open, absolutePath, "w")
-    if not openOk or file == nil then
-        return nil, "io.open failed: " .. tostring(openReason or file)
+function MissionFileInternal.write(capabilities, absolutePath, contents, mode)
+    local openOk, file, openReason = pcall(capabilities.open, absolutePath, mode or "w")
+    if not openOk or not file then
+        return nil, "io.open failed: " .. _HarnessInternal.safeString(openReason or file), false
     end
 
     local writeOk, writeResult, writeReason = pcall(function()
         return file:write(contents)
     end)
-    if not writeOk or writeResult == nil then
+    if not writeOk or not writeResult then
         MissionFileInternal.close(file)
-        return nil, "file write failed: " .. tostring(writeReason or writeResult)
+        return nil,
+            "file write failed: " .. _HarnessInternal.safeString(writeReason or writeResult),
+            true
     end
 
     local flushOk, flushResult, flushReason = pcall(function()
         return file:flush()
     end)
-    if not flushOk or flushResult == nil then
+    if not flushOk or not flushResult then
         MissionFileInternal.close(file)
-        return nil, "file flush failed: " .. tostring(flushReason or flushResult)
+        return nil,
+            "file flush failed: " .. _HarnessInternal.safeString(flushReason or flushResult),
+            true
     end
 
     local closed, closeReason = MissionFileInternal.close(file)
     if not closed then
-        return nil, "file close failed: " .. tostring(closeReason)
+        return nil, "file close failed: " .. _HarnessInternal.safeString(closeReason), true
     end
-    return absolutePath, nil
+    return absolutePath, nil, true
 end
 
 --- Write a new text file below lfs.writedir()
@@ -6914,7 +7222,7 @@ function WriteMissionTextFile(relativePath, contents)
     if not attributesOk then
         return MissionFileInternal.failure(
             "MissionFile.WriteMissionTextFile",
-            "lfs.attributes failed for target: " .. tostring(attributes)
+            "lfs.attributes failed for target: " .. _HarnessInternal.safeString(attributes)
         )
     end
     if attributes ~= nil then
@@ -6974,6 +7282,183 @@ function WriteUniqueMissionTextFile(relativePath, contents, maxSuffix)
         "no unique mission filename available within suffix limit"
     )
 end
+
+function MissionFileInternal.replacementCapabilities()
+    local capabilities, reason = MissionFileInternal.probeCapabilities()
+    if not capabilities then
+        return nil, reason
+    end
+    local ok, rename, remove = pcall(function()
+        return os.rename, os.remove
+    end)
+    if not ok or type(rename) ~= "function" or type(remove) ~= "function" then
+        return nil, "os.rename and os.remove are required for mission file replacement"
+    end
+    capabilities.rename, capabilities.remove = rename, remove
+    return capabilities
+end
+
+function MissionFileInternal.replacementAttributes(capabilities, path)
+    local ok, attributes, reason, code = pcall(capabilities.attributes, path)
+    if not ok then
+        return nil, "lfs.attributes failed: " .. _HarnessInternal.safeString(attributes)
+    end
+    if attributes == nil and (reason == nil or code == MissionFileInternal.fileNotFoundCode) then
+        return nil, nil
+    end
+    if type(attributes) ~= "table" then
+        return nil, "lfs.attributes failed: " .. _HarnessInternal.safeString(reason or attributes)
+    end
+    return attributes, nil
+end
+
+function MissionFileInternal.replacementPaths(capabilities, components)
+    local parent = {}
+    for index = 1, #components - 1 do
+        parent[index] = components[index]
+    end
+    local directory, reason = MissionFileInternal.ensureDirectory(capabilities, parent)
+    if not directory then
+        return nil, reason
+    end
+    local target = MissionFileInternal.appendPath(
+        directory,
+        components[#components],
+        MissionFileInternal.pathSeparator(directory)
+    )
+    local paths = {
+        target = target,
+        temporary = target .. MissionFileInternal.temporarySuffix,
+        backup = target .. MissionFileInternal.backupSuffix,
+    }
+    for _, workPath in ipairs({ paths.temporary, paths.backup }) do
+        local attributes, attributeReason =
+            MissionFileInternal.replacementAttributes(capabilities, workPath)
+        if attributeReason then
+            return nil, attributeReason
+        end
+        if attributes then
+            return nil, "replacement work file already exists: " .. workPath
+        end
+    end
+    local targetAttributes, targetReason =
+        MissionFileInternal.replacementAttributes(capabilities, target)
+    if targetReason then
+        return nil, targetReason
+    end
+    if targetAttributes and targetAttributes.mode ~= "file" then
+        return nil, "replacement target is not a regular file"
+    end
+    paths.targetExists = targetAttributes ~= nil
+    return paths
+end
+
+function MissionFileInternal.rename(capabilities, from, to)
+    local ok, renamed, reason = pcall(capabilities.rename, from, to)
+    if not ok or not renamed then
+        return nil,
+            "rename failed from " .. from .. " to " .. to .. ": " .. _HarnessInternal.safeString(
+                reason or renamed
+            )
+    end
+    return true
+end
+
+function MissionFileInternal.cleanup(capabilities, path)
+    local ok, removed, reason = pcall(capabilities.remove, path)
+    if not ok or not removed then
+        _HarnessInternal.log.error(
+            "Replacement cleanup failed for "
+                .. path
+                .. ": "
+                .. _HarnessInternal.safeString(reason or removed),
+            "MissionFile.ReplaceMissionTextFile"
+        )
+    end
+end
+
+function MissionFileInternal.publishReplacement(capabilities, paths)
+    local published, reason =
+        MissionFileInternal.rename(capabilities, paths.temporary, paths.target)
+    if published then
+        return paths.target
+    end
+    if not paths.targetExists then
+        return nil, reason
+    end
+    local backedUp, backupReason =
+        MissionFileInternal.rename(capabilities, paths.target, paths.backup)
+    if not backedUp then
+        return nil, backupReason
+    end
+    published, reason = MissionFileInternal.rename(capabilities, paths.temporary, paths.target)
+    if published then
+        MissionFileInternal.cleanup(capabilities, paths.backup)
+        return paths.target
+    end
+    local restored, restoreReason =
+        MissionFileInternal.rename(capabilities, paths.backup, paths.target)
+    if not restored then
+        return nil, reason .. "; rollback failed: " .. restoreReason, paths.backup
+    end
+    return nil, reason
+end
+
+--- Save new contents over a mission text file in the DCS Saved Games directory.
+--- If saving fails, keep the old file or return the path where it can be recovered.
+--- Requires the mission's file-access libraries to be available.
+---@param relativePath string File path such as "Reports/status.txt". Use / between folders; missing folders are created.
+---@param contents string Text to save exactly as provided. No newline is added.
+---@return string? absolutePath The saved file's full path, or nil if saving failed.
+---@return string? reason Why the file could not be saved.
+---@return string? recoveryPath Where the old file remains if it could not be put back.
+---@usage local path, reason, recovery = ReplaceMissionTextFile("Reports/status.txt", reportText)
+function ReplaceMissionTextFile(relativePath, contents)
+    local caller = "MissionFile.ReplaceMissionTextFile"
+    local components, reason = MissionFileInternal.validateRelativePath(relativePath)
+    if not components then
+        return MissionFileInternal.failure(caller, reason)
+    end
+    if type(contents) ~= "string" then
+        return MissionFileInternal.failure(caller, "contents must be a string")
+    end
+    local capabilities
+    capabilities, reason = MissionFileInternal.replacementCapabilities()
+    if not capabilities then
+        return MissionFileInternal.failure(caller, reason)
+    end
+    local paths
+    paths, reason = MissionFileInternal.replacementPaths(capabilities, components)
+    if not paths then
+        return MissionFileInternal.failure(caller, reason)
+    end
+    local written, created
+    written, reason, created =
+        MissionFileInternal.write(capabilities, paths.temporary, contents, "wb")
+    if not written then
+        if created then
+            MissionFileInternal.cleanup(capabilities, paths.temporary)
+        end
+        return MissionFileInternal.failure(caller, reason)
+    end
+    local attributes
+    attributes, reason = MissionFileInternal.replacementAttributes(capabilities, paths.temporary)
+    if not attributes or attributes.mode ~= "file" or attributes.size ~= #contents then
+        MissionFileInternal.cleanup(capabilities, paths.temporary)
+        return MissionFileInternal.failure(
+            caller,
+            reason or "closed temporary file size does not match contents"
+        )
+    end
+    local published, recovery
+    published, reason, recovery = MissionFileInternal.publishReplacement(capabilities, paths)
+    if not published then
+        MissionFileInternal.cleanup(capabilities, paths.temporary)
+        MissionFileInternal.failure(caller, reason)
+        return nil, reason, recovery
+    end
+    return published, nil, nil
+end
 -- ==== END: src/missionfile.lua ====
 
 -- ==== BEGIN: src/namespace.lua ====
@@ -7003,9 +7488,14 @@ function SendChat(message, all)
         return false
     end
 
-    local success, result = pcall(net.send_chat, message, all)
+    local success, result = pcall(function(...)
+        return net.send_chat(...)
+    end, message, all)
     if not success then
-        _HarnessInternal.log.error("Failed to send chat: " .. tostring(result), "SendChat")
+        _HarnessInternal.log.error(
+            "Failed to send chat: " .. _HarnessInternal.safeString(result),
+            "SendChat"
+        )
         return false
     end
 
@@ -7035,10 +7525,12 @@ function SendChatTo(message, playerId, fromId)
         return false
     end
 
-    local success, result = pcall(net.send_chat_to, message, playerId, fromId)
+    local success, result = pcall(function(...)
+        return net.send_chat_to(...)
+    end, message, playerId, fromId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to send chat to player: " .. tostring(result),
+            "Failed to send chat to player: " .. _HarnessInternal.safeString(result),
             "SendChatTo"
         )
         return false
@@ -7051,14 +7543,19 @@ end
 --- Get connected network player IDs
 ---@return table? playerIds Array of player IDs, or nil when unavailable
 function GetPlayerIds()
-    if type(net) ~= "table" or type(net.get_player_list) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(net) ~= "table" or type(net.get_player_list) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("net.get_player_list is unavailable", "GetPlayerIds")
         return nil
     end
-    local success, playerIds = pcall(net.get_player_list)
+    local success, playerIds = pcall(function()
+        return net.get_player_list()
+    end)
     if not success or type(playerIds) ~= "table" then
         _HarnessInternal.log.error(
-            "Failed to get player ID list: " .. tostring(playerIds),
+            "Failed to get player ID list: " .. _HarnessInternal.safeString(playerIds),
             "GetPlayerIds"
         )
         return nil
@@ -7073,19 +7570,27 @@ function GetPlayerInfos()
     if not playerIds then
         return nil
     end
-    if type(net) ~= "table" or type(net.get_player_info) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(net) ~= "table" or type(net.get_player_info) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("net.get_player_info is unavailable", "GetPlayerInfos")
         return nil
     end
 
     local playerInfos = {}
     for _, playerId in ipairs(playerIds) do
-        local success, info = pcall(net.get_player_info, playerId)
+        local success, info = pcall(function(...)
+            return net.get_player_info(...)
+        end, playerId)
         if success and type(info) == "table" then
             playerInfos[#playerInfos + 1] = info
         else
             _HarnessInternal.log.error(
-                "Failed to get player info for ID " .. tostring(playerId) .. ": " .. tostring(info),
+                "Failed to get player info for ID "
+                    .. _HarnessInternal.safeString(playerId)
+                    .. ": "
+                    .. _HarnessInternal.safeString(info),
                 "GetPlayerInfos"
             )
         end
@@ -7137,13 +7642,21 @@ function GetPlayerInfo(playerId)
         return nil
     end
 
-    if type(net) ~= "table" or type(net.get_player_info) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(net) ~= "table" or type(net.get_player_info) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("net.get_player_info is unavailable", "GetPlayerInfo")
         return nil
     end
-    local success, info = pcall(net.get_player_info, playerId)
+    local success, info = pcall(function(...)
+        return net.get_player_info(...)
+    end, playerId)
     if not success then
-        _HarnessInternal.log.error("Failed to get player info: " .. tostring(info), "GetPlayerInfo")
+        _HarnessInternal.log.error(
+            "Failed to get player info: " .. _HarnessInternal.safeString(info),
+            "GetPlayerInfo"
+        )
         return nil
     end
 
@@ -7163,9 +7676,14 @@ function KickPlayer(playerId, reason)
 
     reason = reason or "Kicked by server"
 
-    local success, result = pcall(net.kick, playerId, reason)
+    local success, result = pcall(function(...)
+        return net.kick(...)
+    end, playerId, reason)
     if not success then
-        _HarnessInternal.log.error("Failed to kick player: " .. tostring(result), "KickPlayer")
+        _HarnessInternal.log.error(
+            "Failed to kick player: " .. _HarnessInternal.safeString(result),
+            "KickPlayer"
+        )
         return false
     end
 
@@ -7189,10 +7707,12 @@ function GetPlayerStat(playerId, statId)
         return nil
     end
 
-    local success, value = pcall(net.get_stat, playerId, statId)
+    local success, value = pcall(function(...)
+        return net.get_stat(...)
+    end, playerId, statId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get player stat: " .. tostring(value),
+            "Failed to get player stat: " .. _HarnessInternal.safeString(value),
             "GetPlayerStat"
         )
         return nil
@@ -7206,11 +7726,24 @@ end
 ---@usage if IsServer() then ... end
 function IsServer()
     -- Prefer the official DCS API when available
-    if DCS and type(DCS.isServer) == "function" then
-        local successDcs, resultDcs = pcall(DCS.isServer)
+    local lookupOk, available = pcall(function()
+        return DCS and type(DCS.isServer) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve DCS.isServer: " .. _HarnessInternal.safeString(available),
+            "IsServer"
+        )
+        return false
+    end
+    if available then
+        local successDcs, resultDcs = pcall(function()
+            return DCS.isServer()
+        end)
         if not successDcs then
             _HarnessInternal.log.error(
-                "Failed to check server status via DCS.isServer: " .. tostring(resultDcs),
+                "Failed to check server status via DCS.isServer: "
+                    .. _HarnessInternal.safeString(resultDcs),
                 "IsServer"
             )
             return false
@@ -7230,9 +7763,14 @@ function LoadMission(missionPath)
         return false
     end
 
-    local success, result = pcall(net.load_mission, missionPath)
+    local success, result = pcall(function(...)
+        return net.load_mission(...)
+    end, missionPath)
     if not success then
-        _HarnessInternal.log.error("Failed to load mission: " .. tostring(result), "LoadMission")
+        _HarnessInternal.log.error(
+            "Failed to load mission: " .. _HarnessInternal.safeString(result),
+            "LoadMission"
+        )
         return false
     end
 
@@ -7244,10 +7782,12 @@ end
 ---@return boolean success True if next mission load was initiated
 ---@usage LoadNextMission()
 function LoadNextMission()
-    local success, result = pcall(net.load_next_mission)
+    local success, result = pcall(function()
+        return net.load_next_mission()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to load next mission: " .. tostring(result),
+            "Failed to load next mission: " .. _HarnessInternal.safeString(result),
             "LoadNextMission"
         )
         return false
@@ -7261,11 +7801,23 @@ end
 ---@return string? name Mission name or nil on error
 ---@usage local mission = GetMissionName()
 function GetMissionName()
-    if DCS and type(DCS.getMissionName) == "function" then
-        local success, name = pcall(net.dostring_in("gui", "return DCS.getMissionName()"))
+    local lookupOk, available = pcall(function()
+        return DCS and type(DCS.getMissionName) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve DCS.getMissionName: " .. _HarnessInternal.safeString(available),
+            "GetMissionName"
+        )
+        return nil
+    end
+    if available then
+        local success, name = pcall(function()
+            return net.dostring_in("gui", "return DCS.getMissionName()")
+        end)
         if not success then
             _HarnessInternal.log.error(
-                "Failed to get mission name: " .. tostring(name),
+                "Failed to get mission name: " .. _HarnessInternal.safeString(name),
                 "GetMissionName"
             )
             return nil
@@ -7297,10 +7849,12 @@ function ForcePlayerSlot(playerId, side, slotId)
         return false
     end
 
-    local success, result = pcall(net.force_player_slot, playerId, side, slotId)
+    local success, result = pcall(function(...)
+        return net.force_player_slot(...)
+    end, playerId, side, slotId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to force player slot: " .. tostring(result),
+            "Failed to force player slot: " .. _HarnessInternal.safeString(result),
             "ForcePlayerSlot"
         )
         return false
@@ -7325,9 +7879,14 @@ end
 ---@return number time Current mission time in seconds
 ---@usage local time = GetTime()
 function GetTime()
-    local success, time = pcall(timer.getTime)
+    local success, time = pcall(function()
+        return timer.getTime()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get mission time: " .. tostring(time), "GetTime")
+        _HarnessInternal.log.error(
+            "Failed to get mission time: " .. _HarnessInternal.safeString(time),
+            "GetTime"
+        )
         return 0
     end
 
@@ -7338,9 +7897,14 @@ end
 ---@return number time Absolute time in seconds since midnight
 ---@usage local absTime = GetAbsTime()
 function GetAbsTime()
-    local success, time = pcall(timer.getAbsTime)
+    local success, time = pcall(function()
+        return timer.getAbsTime()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get absolute time: " .. tostring(time), "GetAbsTime")
+        _HarnessInternal.log.error(
+            "Failed to get absolute time: " .. _HarnessInternal.safeString(time),
+            "GetAbsTime"
+        )
         return 0
     end
 
@@ -7351,10 +7915,12 @@ end
 ---@return number time Mission start time in seconds
 ---@usage local startTime = GetTime0()
 function GetTime0()
-    local success, time = pcall(timer.getTime0)
+    local success, time = pcall(function()
+        return timer.getTime0()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get mission start time: " .. tostring(time),
+            "Failed to get mission start time: " .. _HarnessInternal.safeString(time),
             "GetTime0"
         )
         return 0
@@ -7439,10 +8005,12 @@ function ScheduleOnce(func, args, delay)
     delay = delay or 0
     local time = GetTime() + delay
 
-    local success, timerId = pcall(timer.scheduleFunction, func, args, time)
+    local success, timerId = pcall(function(...)
+        return timer.scheduleFunction(...)
+    end, func, args, time)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to schedule function: " .. tostring(timerId),
+            "Failed to schedule function: " .. _HarnessInternal.safeString(timerId),
             "ScheduleOnce"
         )
         return nil
@@ -7460,10 +8028,12 @@ function CancelSchedule(timerId)
         return false
     end
 
-    local success, result = pcall(timer.removeFunction, timerId)
+    local success, result = pcall(function(...)
+        return timer.removeFunction(...)
+    end, timerId)
     if not success then
         _HarnessInternal.log.warn(
-            "Failed to cancel scheduled function: " .. tostring(result),
+            "Failed to cancel scheduled function: " .. _HarnessInternal.safeString(result),
             "CancelSchedule"
         )
         return false
@@ -7486,10 +8056,12 @@ function RescheduleFunction(timerId, newTime)
         return false
     end
 
-    local success, result = pcall(timer.setFunctionTime, timerId, newTime)
+    local success, result = pcall(function(...)
+        return timer.setFunctionTime(...)
+    end, timerId, newTime)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to reschedule function: " .. tostring(result),
+            "Failed to reschedule function: " .. _HarnessInternal.safeString(result),
             "RescheduleFunction"
         )
         return false
@@ -8617,15 +9189,11 @@ Vec2_mt.__index = Vec2_mt
 
 local VectorInternal = {}
 
-function VectorInternal.isFiniteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
-
 function VectorInternal.groundEast(value)
-    if IsVec3(value) and VectorInternal.isFiniteNumber(value.z) then
+    if IsVec3(value) and IsFiniteNumber(value.z) then
         return value.z
     end
-    if IsVec2(value) and VectorInternal.isFiniteNumber(value.y) then
+    if IsVec2(value) and IsFiniteNumber(value.y) then
         return value.y
     end
     return nil
@@ -8713,10 +9281,7 @@ end
 ---@return boolean isValid True if vec is a Vec3 with no NaN or infinite coordinates; false otherwise
 ---@usage if IsFiniteVec3(pos) then ... end
 function IsFiniteVec3(vec)
-    return IsVec3(vec)
-        and VectorInternal.isFiniteNumber(vec.x)
-        and VectorInternal.isFiniteNumber(vec.y)
-        and VectorInternal.isFiniteNumber(vec.z)
+    return IsVec3(vec) and IsFiniteNumber(vec.x) and IsFiniteNumber(vec.y) and IsFiniteNumber(vec.z)
 end
 
 --- Check if a position is a valid Vec3 and not at the world origin
@@ -8743,9 +9308,7 @@ end
 ---@return boolean isValid True if vec is a Vec2 with no NaN or infinite coordinates; false otherwise
 ---@usage if IsFiniteVec2(pos) then ... end
 function IsFiniteVec2(vec)
-    return IsVec2(vec)
-        and VectorInternal.isFiniteNumber(vec.x)
-        and VectorInternal.isFiniteNumber(vec.y)
+    return IsVec2(vec) and IsFiniteNumber(vec.x) and IsFiniteNumber(vec.y)
 end
 
 -- Conversion functions
@@ -8758,29 +9321,13 @@ function ToVec2(t)
         return nil
     end
 
-    if
-        getmetatable(t) == Vec2_mt
-        and VectorInternal.isFiniteNumber(t.x)
-        and VectorInternal.isFiniteNumber(t.y)
-    then
+    if getmetatable(t) == Vec2_mt and IsFiniteNumber(t.x) and IsFiniteNumber(t.y) then
         return t
-    elseif
-        IsVec3(t)
-        and VectorInternal.isFiniteNumber(t.x)
-        and VectorInternal.isFiniteNumber(t.z)
-    then
+    elseif IsVec3(t) and IsFiniteNumber(t.x) and IsFiniteNumber(t.z) then
         return Vec2(t.x, t.z)
-    elseif
-        IsVec2(t)
-        and VectorInternal.isFiniteNumber(t.x)
-        and VectorInternal.isFiniteNumber(t.y)
-    then
+    elseif IsVec2(t) and IsFiniteNumber(t.x) and IsFiniteNumber(t.y) then
         return Vec2(t.x, t.y)
-    elseif
-        type(t) == "table"
-        and VectorInternal.isFiniteNumber(t[1])
-        and VectorInternal.isFiniteNumber(t[2])
-    then
+    elseif type(t) == "table" and IsFiniteNumber(t[1]) and IsFiniteNumber(t[2]) then
         return Vec2(t[1], t[2])
     end
 
@@ -8920,7 +9467,7 @@ function VecLength2D(vec)
     end
 
     local east = VectorInternal.groundEast(vec)
-    if not VectorInternal.isFiniteNumber(vec.x) or east == nil then
+    if not IsFiniteNumber(vec.x) or east == nil then
         _HarnessInternal.log.error("VecLength2D requires valid vector", "Vector.VecLength2D")
         return 0
     end
@@ -9020,12 +9567,7 @@ function Distance2D(a, b)
 
     local aEast = VectorInternal.groundEast(a)
     local bEast = VectorInternal.groundEast(b)
-    if
-        not VectorInternal.isFiniteNumber(a.x)
-        or not VectorInternal.isFiniteNumber(b.x)
-        or aEast == nil
-        or bEast == nil
-    then
+    if not IsFiniteNumber(a.x) or not IsFiniteNumber(b.x) or aEast == nil or bEast == nil then
         _HarnessInternal.log.error("Distance2D requires two valid positions", "Vector.Distance2D")
         return 0
     end
@@ -9071,12 +9613,7 @@ function Distance2DSquared(a, b)
 
     local aEast = VectorInternal.groundEast(a)
     local bEast = VectorInternal.groundEast(b)
-    if
-        not VectorInternal.isFiniteNumber(a.x)
-        or not VectorInternal.isFiniteNumber(b.x)
-        or aEast == nil
-        or bEast == nil
-    then
+    if not IsFiniteNumber(a.x) or not IsFiniteNumber(b.x) or aEast == nil or bEast == nil then
         _HarnessInternal.log.error(
             "Distance2DSquared requires two valid positions",
             "Vector.Distance2DSquared"
@@ -9100,8 +9637,8 @@ function Bearing(from, to)
     if
         type(from) ~= "table"
         or type(to) ~= "table"
-        or not VectorInternal.isFiniteNumber(from.x)
-        or not VectorInternal.isFiniteNumber(to.x)
+        or not IsFiniteNumber(from.x)
+        or not IsFiniteNumber(to.x)
         or fromEast == nil
         or toEast == nil
     then
@@ -9124,10 +9661,10 @@ function FromBearingDistance(origin, bearing, distance)
     local originEast = VectorInternal.groundEast(origin)
     if
         type(origin) ~= "table"
-        or not VectorInternal.isFiniteNumber(origin.x)
+        or not IsFiniteNumber(origin.x)
         or originEast == nil
-        or not VectorInternal.isFiniteNumber(bearing)
-        or not VectorInternal.isFiniteNumber(distance)
+        or not IsFiniteNumber(bearing)
+        or not IsFiniteNumber(distance)
     then
         _HarnessInternal.log.error(
             "FromBearingDistance requires origin, bearing, and distance",
@@ -9502,14 +10039,22 @@ function GetWind(point)
         )
         return nil
     end
-    if type(atmosphere) ~= "table" or type(atmosphere.getWind) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(atmosphere) ~= "table" or type(atmosphere.getWind) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("atmosphere.getWind is unavailable", "Atmosphere.GetWind")
         return nil
     end
 
-    local success, result = pcall(atmosphere.getWind, point)
+    local success, result = pcall(function(...)
+        return atmosphere.getWind(...)
+    end, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get wind: " .. tostring(result), "Atmosphere.GetWind")
+        _HarnessInternal.log.error(
+            "Failed to get wind: " .. _HarnessInternal.safeString(result),
+            "Atmosphere.GetWind"
+        )
         return nil
     end
 
@@ -9533,17 +10078,22 @@ function GetWindWithTurbulence(point)
         return nil
     end
 
-    if type(atmosphere) ~= "table" or type(atmosphere.getWindWithTurbulence) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(atmosphere) ~= "table" or type(atmosphere.getWindWithTurbulence) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "atmosphere.getWindWithTurbulence is unavailable",
             "Atmosphere.GetWindWithTurbulence"
         )
         return nil
     end
-    local success, result = pcall(atmosphere.getWindWithTurbulence, point)
+    local success, result = pcall(function(...)
+        return atmosphere.getWindWithTurbulence(...)
+    end, point)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get wind with turbulence: " .. tostring(result),
+            "Failed to get wind with turbulence: " .. _HarnessInternal.safeString(result),
             "Atmosphere.GetWindWithTurbulence"
         )
         return nil
@@ -9576,7 +10126,11 @@ function GetTemperatureAndPressure(point)
         )
         return nil
     end
-    if type(atmosphere) ~= "table" or type(atmosphere.getTemperatureAndPressure) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(atmosphere) ~= "table"
+            or type(atmosphere.getTemperatureAndPressure) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "atmosphere.getTemperatureAndPressure is unavailable",
             "Atmosphere.GetTemperatureAndPressure"
@@ -9585,10 +10139,12 @@ function GetTemperatureAndPressure(point)
     end
 
     -- DCS returns two numbers (temperature in Kelvin, pressure in Pascals)
-    local success, temperatureK, pressurePa = pcall(atmosphere.getTemperatureAndPressure, point)
+    local success, temperatureK, pressurePa = pcall(function(...)
+        return atmosphere.getTemperatureAndPressure(...)
+    end, point)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get temperature and pressure: " .. tostring(temperatureK),
+            "Failed to get temperature and pressure: " .. _HarnessInternal.safeString(temperatureK),
             "Atmosphere.GetTemperatureAndPressure"
         )
         return nil
@@ -9920,21 +10476,27 @@ end
 ---@return table? latlon Table with latitude and longitude fields, nil on error
 ---@usage local ll = LOtoLL(position)
 function LOtoLL(vec3)
-    if not vec3 or type(vec3) ~= "table" or not vec3.x or not vec3.y or not vec3.z then
+    if not IsFiniteVec3(vec3) then
         _HarnessInternal.log.error("LOtoLL requires valid vec3 with x, y, z", "Coord.LOtoLL")
         return nil
     end
 
-    local success, result = pcall(coord.LOtoLL, vec3)
+    local success, latitude, longitude = pcall(function()
+        return coord.LOtoLL(vec3)
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to convert LO to LL: " .. tostring(result),
+            "Failed to convert LO to LL: " .. _HarnessInternal.safeString(latitude),
             "Coord.LOtoLL"
         )
         return nil
     end
 
-    return result
+    if not IsFiniteNumber(latitude) or not IsFiniteNumber(longitude) then
+        _HarnessInternal.log.error("LOtoLL returned invalid latitude or longitude", "Coord.LOtoLL")
+        return nil
+    end
+    return { latitude = latitude, longitude = longitude }
 end
 
 --- Convert latitude/longitude to local coordinates
@@ -9956,10 +10518,12 @@ function LLtoLO(latitude, longitude, altitude)
 
     altitude = altitude or 0
 
-    local success, result = pcall(coord.LLtoLO, latitude, longitude, altitude)
+    local success, result = pcall(function(...)
+        return coord.LLtoLO(...)
+    end, latitude, longitude, altitude)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to convert LL to LO: " .. tostring(result),
+            "Failed to convert LL to LO: " .. _HarnessInternal.safeString(result),
             "Coord.LLtoLO"
         )
         return nil
@@ -9979,16 +10543,21 @@ function LOtoMGRS(vec3)
     end
 
     -- DCS does not expose coord.LOtoMGRS; compose LO->LL->MGRS
-    local okLL, ll = pcall(coord.LOtoLL, vec3)
-    if not okLL or not ll or type(ll.latitude) ~= "number" or type(ll.longitude) ~= "number" then
-        _HarnessInternal.log.error("Failed to convert LO to LL: " .. tostring(ll), "Coord.LOtoMGRS")
+    local ll = LOtoLL(vec3)
+    if not ll then
+        _HarnessInternal.log.error(
+            "Failed to convert LO to LL: " .. _HarnessInternal.safeString(ll),
+            "Coord.LOtoMGRS"
+        )
         return nil
     end
 
-    local okMGRS, mgrs = pcall(coord.LLtoMGRS, ll.latitude, ll.longitude)
+    local okMGRS, mgrs = pcall(function(...)
+        return coord.LLtoMGRS(...)
+    end, ll.latitude, ll.longitude)
     if not okMGRS then
         _HarnessInternal.log.error(
-            "Failed to convert LL to MGRS: " .. tostring(mgrs),
+            "Failed to convert LL to MGRS: " .. _HarnessInternal.safeString(mgrs),
             "Coord.LOtoMGRS"
         )
         return nil
@@ -10008,18 +10577,25 @@ function MGRStoLO(mgrsString)
     end
 
     -- DCS does not expose coord.MGRStoLO; compose MGRS->LL->LO
-    local okLL, ll = pcall(coord.MGRStoLL, mgrsString)
+    local okLL, ll = pcall(function(...)
+        return coord.MGRStoLL(...)
+    end, mgrsString)
     if not okLL or not ll or type(ll.lat) ~= "number" or type(ll.lon) ~= "number" then
         _HarnessInternal.log.error(
-            "Failed to convert MGRS to LL: " .. tostring(ll),
+            "Failed to convert MGRS to LL: " .. _HarnessInternal.safeString(ll),
             "Coord.MGRStoLO"
         )
         return nil
     end
 
-    local okLO, lo = pcall(coord.LLtoLO, ll.lat, ll.lon)
+    local okLO, lo = pcall(function(...)
+        return coord.LLtoLO(...)
+    end, ll.lat, ll.lon)
     if not okLO then
-        _HarnessInternal.log.error("Failed to convert LL to LO: " .. tostring(lo), "Coord.MGRStoLO")
+        _HarnessInternal.log.error(
+            "Failed to convert LL to LO: " .. _HarnessInternal.safeString(lo),
+            "Coord.MGRStoLO"
+        )
         return nil
     end
 
@@ -10086,10 +10662,12 @@ function CoordToMGRS(lat, lon, precision)
         precision = 5
     end
 
-    local success, mgrs = pcall(coord.LLtoMGRS, lat, lon)
+    local success, mgrs = pcall(function(...)
+        return coord.LLtoMGRS(...)
+    end, lat, lon)
     if not success or not mgrs then
         _HarnessInternal.log.error(
-            "Failed to convert LL to MGRS: " .. tostring(mgrs),
+            "Failed to convert LL to MGRS: " .. _HarnessInternal.safeString(mgrs),
             "Coord.CoordToMGRS"
         )
         return nil
@@ -10230,17 +10808,14 @@ local EARTH_RADIUS_M = HarnessConstants.EARTH_RADIUS_M
 local DEG_TO_RAD = HarnessConstants.DEG_TO_RAD
 local RAD_TO_DEG = HarnessConstants.RAD_TO_DEG
 local CIRCLE_UNION_FULL_ANGLE = 2 * math.pi
+local CPA_STATIONARY_SPEED_SQUARED = 1e-6
 local GeoMathInternal = {}
 
-function GeoMathInternal.isFiniteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
-
 function GeoMathInternal.groundEast(value)
-    if IsVec3(value) and GeoMathInternal.isFiniteNumber(value.z) then
+    if IsVec3(value) and IsFiniteNumber(value.z) then
         return value.z
     end
-    if IsVec2(value) and GeoMathInternal.isFiniteNumber(value.y) then
+    if IsVec2(value) and IsFiniteNumber(value.y) then
         return value.y
     end
     return nil
@@ -10451,9 +11026,9 @@ function GroundTrackFromVelocity(velocity, minSpeedMps)
     minSpeedMps = minSpeedMps == nil and 15 or minSpeedMps
     if
         not IsVec3(velocity)
-        or not GeoMathInternal.isFiniteNumber(velocity.x)
-        or not GeoMathInternal.isFiniteNumber(velocity.y)
-        or not GeoMathInternal.isFiniteNumber(velocity.z)
+        or not IsFiniteNumber(velocity.x)
+        or not IsFiniteNumber(velocity.y)
+        or not IsFiniteNumber(velocity.z)
         or type(minSpeedMps) ~= "number"
         or minSpeedMps ~= minSpeedMps
         or minSpeedMps < 0
@@ -10480,9 +11055,9 @@ end
 function HeadingFrame2D(origin, headingDeg)
     if
         not IsVec3(origin)
-        or not GeoMathInternal.isFiniteNumber(origin.x)
-        or not GeoMathInternal.isFiniteNumber(origin.y)
-        or not GeoMathInternal.isFiniteNumber(origin.z)
+        or not IsFiniteNumber(origin.x)
+        or not IsFiniteNumber(origin.y)
+        or not IsFiniteNumber(origin.z)
     then
         _HarnessInternal.log.error(
             "HeadingFrame2D requires a Vec3 origin",
@@ -10506,16 +11081,16 @@ end
 function GeoMathInternal.isHeadingFrame(frame)
     return type(frame) == "table"
         and IsVec3(frame.origin)
-        and GeoMathInternal.isFiniteNumber(frame.origin.x)
-        and GeoMathInternal.isFiniteNumber(frame.origin.y)
-        and GeoMathInternal.isFiniteNumber(frame.origin.z)
+        and IsFiniteNumber(frame.origin.x)
+        and IsFiniteNumber(frame.origin.y)
+        and IsFiniteNumber(frame.origin.z)
         and IsVec2(frame.forward)
-        and GeoMathInternal.isFiniteNumber(frame.forward.x)
-        and GeoMathInternal.isFiniteNumber(frame.forward.y)
+        and IsFiniteNumber(frame.forward.x)
+        and IsFiniteNumber(frame.forward.y)
         and IsVec2(frame.right)
-        and GeoMathInternal.isFiniteNumber(frame.right.x)
-        and GeoMathInternal.isFiniteNumber(frame.right.y)
-        and GeoMathInternal.isFiniteNumber(frame.headingDeg)
+        and IsFiniteNumber(frame.right.x)
+        and IsFiniteNumber(frame.right.y)
+        and IsFiniteNumber(frame.headingDeg)
 end
 
 --- Project a point into a DCS heading-relative frame
@@ -10527,7 +11102,7 @@ function ProjectPointToHeadingFrame2D(frame, point)
     if
         not GeoMathInternal.isHeadingFrame(frame)
         or type(point) ~= "table"
-        or not GeoMathInternal.isFiniteNumber(point.x)
+        or not IsFiniteNumber(point.x)
         or GeoMathInternal.groundEast(point) == nil
     then
         _HarnessInternal.log.error(
@@ -10551,7 +11126,7 @@ function ProjectVectorToHeadingFrame2D(frame, vector)
     if
         not GeoMathInternal.isHeadingFrame(frame)
         or type(vector) ~= "table"
-        or not GeoMathInternal.isFiniteNumber(vector.x)
+        or not IsFiniteNumber(vector.x)
         or GeoMathInternal.groundEast(vector) == nil
     then
         _HarnessInternal.log.error(
@@ -10597,7 +11172,7 @@ end
 --- local rotated = RotatePoint2D({x=100, y=0}, {x=0, y=0}, 90) -- Returns {x=0, y=100}
 --- local formation = RotatePoint2D(wingman, lead, 45) -- Rotate wingman 45° around lead
 function RotatePoint2D(point, center, angleDeg)
-    if not point or not center or not GeoMathInternal.isFiniteNumber(angleDeg) then
+    if not point or not center or not IsFiniteNumber(angleDeg) then
         _HarnessInternal.log.error(
             "RotatePoint2D requires point, center, and angle",
             "GeoMath.RotatePoint2D"
@@ -10639,7 +11214,7 @@ end
 --- local dir = NormalizeVector2D(velocity) -- Get direction from velocity
 function NormalizeVector2D(vector)
     local east = GeoMathInternal.groundEast(vector)
-    if type(vector) ~= "table" or not GeoMathInternal.isFiniteNumber(vector.x) or east == nil then
+    if type(vector) ~= "table" or not IsFiniteNumber(vector.x) or east == nil then
         _HarnessInternal.log.error(
             "NormalizeVector2D requires a DCS Vec2 or Vec3",
             "GeoMath.NormalizeVector2D"
@@ -10703,9 +11278,9 @@ function DotProduct2D(v1, v2)
     local firstEast = GeoMathInternal.groundEast(v1)
     local secondEast = GeoMathInternal.groundEast(v2)
     if
-        not GeoMathInternal.isFiniteNumber(v1.x)
+        not IsFiniteNumber(v1.x)
         or firstEast == nil
-        or not GeoMathInternal.isFiniteNumber(v2.x)
+        or not IsFiniteNumber(v2.x)
         or secondEast == nil
     then
         _HarnessInternal.log.error(
@@ -10778,9 +11353,9 @@ function AngleBetweenVectors2D(v1, v2)
     local firstEast = GeoMathInternal.groundEast(v1)
     local secondEast = GeoMathInternal.groundEast(v2)
     if
-        not GeoMathInternal.isFiniteNumber(v1.x)
+        not IsFiniteNumber(v1.x)
         or firstEast == nil
-        or not GeoMathInternal.isFiniteNumber(v2.x)
+        or not IsFiniteNumber(v2.x)
         or secondEast == nil
     then
         _HarnessInternal.log.error(
@@ -10813,7 +11388,7 @@ function PointInPolygon2D(point, polygon)
     end
 
     local x, east = point.x, GeoMathInternal.groundEast(point)
-    if not GeoMathInternal.isFiniteNumber(x) or east == nil then
+    if not IsFiniteNumber(x) or east == nil then
         _HarnessInternal.log.error(
             "PointInPolygon2D requires a DCS Vec2 or Vec3 point",
             "GeoMath.PointInPolygon2D"
@@ -10921,9 +11496,9 @@ end
 function GeoMathInternal.isCircle2D(circle)
     return type(circle) == "table"
         and IsVec2(circle.center)
-        and GeoMathInternal.isFiniteNumber(circle.center.x)
-        and GeoMathInternal.isFiniteNumber(circle.center.y)
-        and GeoMathInternal.isFiniteNumber(circle.radius)
+        and IsFiniteNumber(circle.center.x)
+        and IsFiniteNumber(circle.center.y)
+        and IsFiniteNumber(circle.radius)
         and circle.radius > 0
 end
 
@@ -11097,7 +11672,7 @@ function CircleUnionArea2D(circles)
         end
     end
 
-    if not GeoMathInternal.isFiniteNumber(area) then
+    if not IsFiniteNumber(area) then
         _HarnessInternal.log.error(
             "CircleUnionArea2D result is outside the finite numeric range",
             "GeoMath.CircleUnionArea2D"
@@ -11105,6 +11680,117 @@ function CircleUnionArea2D(circles)
         return nil
     end
     return math.max(0, area)
+end
+
+function GeoMathInternal.circleDistance(dx, dy)
+    local scale = math.max(math.abs(dx), math.abs(dy))
+    if scale == 0 then
+        return 0
+    end
+    return scale * math.sqrt((dx / scale) ^ 2 + (dy / scale) ^ 2)
+end
+
+function GeoMathInternal.coverageProviders(envelope, providers)
+    local circles = {}
+    for _, provider in ipairs(providers) do
+        local dx = provider.center.x - envelope.center.x
+        local dy = provider.center.y - envelope.center.y
+        local distance = GeoMathInternal.circleDistance(dx, dy)
+        if not IsFiniteNumber(distance) then
+            return nil
+        end
+        if distance <= provider.radius - envelope.radius then
+            return circles, true
+        end
+        if distance - envelope.radius < provider.radius then
+            local x, y, radius =
+                dx / envelope.radius, dy / envelope.radius, provider.radius / envelope.radius
+            if not IsFiniteNumber(x * x + y * y + radius * radius) then
+                return nil
+            end
+            circles[#circles + 1] = { center = { x = x, y = y }, radius = radius }
+        end
+    end
+    return circles, false
+end
+
+function GeoMathInternal.exposedCircleIntervals(circle, circles, index)
+    local covered, contained = GeoMathInternal.circleCoveredIntervals(circle, circles, index)
+    if contained then
+        return {}
+    end
+    local exposed, cursor = {}, 0
+    for _, interval in ipairs(GeoMathInternal.mergeCircleCoveredIntervals(covered)) do
+        if interval[1] > cursor then
+            exposed[#exposed + 1] = { cursor, interval[1] }
+        end
+        cursor = math.max(cursor, interval[2])
+    end
+    if cursor < CIRCLE_UNION_FULL_ANGLE then
+        exposed[#exposed + 1] = { cursor, CIRCLE_UNION_FULL_ANGLE }
+    end
+    return exposed
+end
+
+function GeoMathInternal.clippedCircleArcArea(circle, envelope, exposed)
+    local covered, contained = GeoMathInternal.circleCoveredIntervals(circle, { envelope }, 0)
+    local inside = contained and { { 0, CIRCLE_UNION_FULL_ANGLE } }
+        or GeoMathInternal.mergeCircleCoveredIntervals(covered)
+    local area, firstIndex, secondIndex = 0, 1, 1
+    while firstIndex <= #exposed and secondIndex <= #inside do
+        local first, second = exposed[firstIndex], inside[secondIndex]
+        local low, high = math.max(first[1], second[1]), math.min(first[2], second[2])
+        if low < high then
+            area = area + GeoMathInternal.circleArcArea(circle, envelope.center, low, high)
+        end
+        if first[2] < second[2] then
+            firstIndex = firstIndex + 1
+        else
+            secondIndex = secondIndex + 1
+        end
+    end
+    return area
+end
+
+--- Measure how much of a circular area is covered by other circles.
+--- Overlapping circles count only once. Circle centers use {x, y} on the ground.
+---@param envelope Circle2D The area to measure: {center = {x, y}, radius = meters}.
+---@param providers Circle2D[] The circles covering that area, in a list without gaps. Inputs are left unchanged.
+---@return number? area Covered area in square meters, or nil if the circles are invalid or the calculation fails.
+---@usage local coveredArea = CircleCoveredArea2D(zoneCircle, radarCircles)
+function CircleCoveredArea2D(envelope, providers)
+    if
+        not GeoMathInternal.isCircle2D(envelope) or not GeoMathInternal.isCircle2DArray(providers)
+    then
+        return nil
+    end
+    local envelopeArea = math.pi * envelope.radius * envelope.radius
+    if not IsFiniteNumber(envelopeArea) then
+        return nil
+    end
+    local circles, contained = GeoMathInternal.coverageProviders(envelope, providers)
+    if not circles then
+        return nil
+    end
+    if contained then
+        return envelopeArea
+    end
+    local normalized = { center = { x = 0, y = 0 }, radius = 1 }
+    local covered = GeoMathInternal.circleCoveredIntervals(normalized, circles, 0)
+    local area = 0
+    for _, interval in ipairs(GeoMathInternal.mergeCircleCoveredIntervals(covered)) do
+        area = area
+            + GeoMathInternal.circleArcArea(normalized, normalized.center, interval[1], interval[2])
+    end
+    for index, circle in ipairs(circles) do
+        local exposed = GeoMathInternal.exposedCircleIntervals(circle, circles, index)
+        area = area + GeoMathInternal.clippedCircleArcArea(circle, normalized, exposed)
+    end
+    area = area * envelope.radius * envelope.radius
+    if not IsFiniteNumber(area) then
+        return nil
+    end
+    return math.max(0, math.min(envelopeArea, area))
 end
 
 function PolygonArea2D(polygon)
@@ -11239,6 +11925,40 @@ function ConvexHull2D(points)
 end
 
 -- ==================== Closest Point of Approach (CPA) Utilities ====================
+
+--- Find when a moving object will get closest to a fixed point.
+--- Includes altitude and assumes the object keeps its current velocity.
+--- If it is moving away or slower than 0.001 m/s, use its current distance.
+---@param position Vec3 The object's position in meters.
+---@param velocity Vec3 The object's velocity in meters per second.
+---@param target Vec3 The fixed point in meters. Inputs are left unchanged.
+---@return number? seconds Seconds until closest approach, or nil if the inputs or result are invalid.
+---@return number? distance Closest distance in meters, or nil on failure.
+---@usage local seconds, distance = EstimateCPAToPoint3D(position, velocity, defendedPoint)
+function EstimateCPAToPoint3D(position, velocity, target)
+    if not IsFiniteVec3(position) or not IsFiniteVec3(velocity) or not IsFiniteVec3(target) then
+        return nil, nil
+    end
+    local x, y, z = position.x - target.x, position.y - target.y, position.z - target.z
+    local speedSquared = velocity.x ^ 2 + velocity.y ^ 2 + velocity.z ^ 2
+    if not IsFiniteNumber(speedSquared) then
+        return nil, nil
+    end
+    local seconds = 0
+    if speedSquared >= CPA_STATIONARY_SPEED_SQUARED then
+        local projection = x * velocity.x + y * velocity.y + z * velocity.z
+        if not IsFiniteNumber(projection) then
+            return nil, nil
+        end
+        seconds = math.max(0, -projection / speedSquared)
+    end
+    local dx, dy, dz = x + velocity.x * seconds, y + velocity.y * seconds, z + velocity.z * seconds
+    local distance = math.sqrt(dx ^ 2 + dy ^ 2 + dz ^ 2)
+    if not IsFiniteNumber(seconds) or not IsFiniteNumber(distance) then
+        return nil, nil
+    end
+    return seconds, distance
+end
 
 --- Estimate time of closest approach between a moving point and a fixed point (2D)
 ---@param pos table Vec3 current position
@@ -11526,10 +12246,12 @@ function GetAirbaseByName(airbaseName)
         return nil
     end
 
-    local success, result = pcall(Airbase.getByName, airbaseName)
+    local success, result = pcall(function(...)
+        return Airbase.getByName(...)
+    end, airbaseName)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase by name: " .. tostring(result),
+            "Failed to get airbase by name: " .. _HarnessInternal.safeString(result),
             "Airbase.GetByName"
         )
         return nil
@@ -11551,10 +12273,12 @@ function GetAirbaseDescriptor(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getDesc, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getDesc(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase descriptor: " .. tostring(result),
+            "Failed to get airbase descriptor: " .. _HarnessInternal.safeString(result),
             "Airbase.GetDesc"
         )
         return nil
@@ -11576,10 +12300,12 @@ function GetAirbaseCallsign(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getCallsign, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getCallsign(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase callsign: " .. tostring(result),
+            "Failed to get airbase callsign: " .. _HarnessInternal.safeString(result),
             "Airbase.GetCallsign"
         )
         return nil
@@ -11598,10 +12324,12 @@ function GetAirbaseUnit(airbase, unitIndex)
         return nil
     end
 
-    local success, result = pcall(airbase.getUnit, airbase, unitIndex)
+    local success, result = pcall(function(...)
+        return airbase.getUnit(...)
+    end, airbase, unitIndex)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase unit: " .. tostring(result),
+            "Failed to get airbase unit: " .. _HarnessInternal.safeString(result),
             "Airbase.GetUnit"
         )
         return nil
@@ -11623,10 +12351,12 @@ function GetAirbaseCategoryName(airbase)
         return nil
     end
 
-    local success, categoryValue = pcall(airbase.getCategoryEx, airbase)
+    local success, categoryValue = pcall(function(...)
+        return airbase.getCategoryEx(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase category: " .. tostring(categoryValue),
+            "Failed to get airbase category: " .. _HarnessInternal.safeString(categoryValue),
             "Airbase.GetCategoryEx"
         )
         return nil
@@ -11665,10 +12395,12 @@ function GetAirbaseParking(airbase, available)
         return nil
     end
 
-    local success, result = pcall(airbase.getParking, airbase, available)
+    local success, result = pcall(function(...)
+        return airbase.getParking(...)
+    end, airbase, available)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase parking: " .. tostring(result),
+            "Failed to get airbase parking: " .. _HarnessInternal.safeString(result),
             "Airbase.GetParking"
         )
         return nil
@@ -11687,10 +12419,12 @@ function GetAirbaseRunways(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getRunways, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getRunways(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase runways: " .. tostring(result),
+            "Failed to get airbase runways: " .. _HarnessInternal.safeString(result),
             "Airbase.GetRunways"
         )
         return nil
@@ -11721,10 +12455,12 @@ function GetAirbaseTechObjectPos(airbase, techObjectType)
         return nil
     end
 
-    local success, result = pcall(airbase.getTechObjectPos, airbase, techObjectType)
+    local success, result = pcall(function(...)
+        return airbase.getTechObjectPos(...)
+    end, airbase, techObjectType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get tech object positions: " .. tostring(result),
+            "Failed to get tech object positions: " .. _HarnessInternal.safeString(result),
             "Airbase.GetTechObjectPos"
         )
         return nil
@@ -11746,10 +12482,12 @@ function GetAirbaseDispatcherTowerPos(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getDispatcherTowerPos, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getDispatcherTowerPos(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get dispatcher tower position: " .. tostring(result),
+            "Failed to get dispatcher tower position: " .. _HarnessInternal.safeString(result),
             "Airbase.GetDispatcherTowerPos"
         )
         return nil
@@ -11771,10 +12509,12 @@ function GetAirbaseRadioSilentMode(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getRadioSilentMode, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getRadioSilentMode(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get radio silent mode: " .. tostring(result),
+            "Failed to get radio silent mode: " .. _HarnessInternal.safeString(result),
             "Airbase.GetRadioSilentMode"
         )
         return nil
@@ -11805,10 +12545,12 @@ function SetAirbaseRadioSilentMode(airbase, silent)
         return nil
     end
 
-    local success, result = pcall(airbase.setRadioSilentMode, airbase, silent)
+    local success, result = pcall(function(...)
+        return airbase.setRadioSilentMode(...)
+    end, airbase, silent)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set radio silent mode: " .. tostring(result),
+            "Failed to set radio silent mode: " .. _HarnessInternal.safeString(result),
             "Airbase.SetRadioSilentMode"
         )
         return nil
@@ -11827,10 +12569,12 @@ function GetAirbaseBeacon(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getBeacon, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getBeacon(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase beacon: " .. tostring(result),
+            "Failed to get airbase beacon: " .. _HarnessInternal.safeString(result),
             "Airbase.GetBeacon"
         )
         return nil
@@ -11861,10 +12605,12 @@ function AirbaseAutoCapture(airbase, enabled)
         return nil
     end
 
-    local success, result = pcall(airbase.autoCapture, airbase, enabled)
+    local success, result = pcall(function(...)
+        return airbase.autoCapture(...)
+    end, airbase, enabled)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set auto capture: " .. tostring(result),
+            "Failed to set auto capture: " .. _HarnessInternal.safeString(result),
             "Airbase.AutoCapture"
         )
         return nil
@@ -11886,10 +12632,12 @@ function AirbaseAutoCaptureIsOn(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.autoCaptureIsOn, airbase)
+    local success, result = pcall(function(...)
+        return airbase.autoCaptureIsOn(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check auto capture status: " .. tostring(result),
+            "Failed to check auto capture status: " .. _HarnessInternal.safeString(result),
             "Airbase.AutoCaptureIsOn"
         )
         return nil
@@ -11920,10 +12668,12 @@ function SetAirbaseCoalition(airbase, coalitionId)
         return nil
     end
 
-    local success, result = pcall(airbase.setCoalition, airbase, coalitionId)
+    local success, result = pcall(function(...)
+        return airbase.setCoalition(...)
+    end, airbase, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set airbase coalition: " .. tostring(result),
+            "Failed to set airbase coalition: " .. _HarnessInternal.safeString(result),
             "Airbase.SetCoalition"
         )
         return nil
@@ -11945,10 +12695,12 @@ function GetAirbaseWarehouse(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getWarehouse, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getWarehouse(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase warehouse: " .. tostring(result),
+            "Failed to get airbase warehouse: " .. _HarnessInternal.safeString(result),
             "Airbase.GetWarehouse"
         )
         return nil
@@ -11971,10 +12723,12 @@ function GetAirbaseFreeParkingTerminal(airbase, terminalType)
         return nil
     end
 
-    local success, result = pcall(airbase.getFreeParkingTerminal, airbase, terminalType)
+    local success, result = pcall(function(...)
+        return airbase.getFreeParkingTerminal(...)
+    end, airbase, terminalType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get free parking terminal: " .. tostring(result),
+            "Failed to get free parking terminal: " .. _HarnessInternal.safeString(result),
             "Airbase.GetFreeParkingTerminal"
         )
         return nil
@@ -11998,10 +12752,12 @@ function GetAirbaseFreeParkingTerminalByType(airbase, terminalType, multiple)
         return nil
     end
 
-    local success, result = pcall(airbase.getFreeParkingTerminal, airbase, terminalType, multiple)
+    local success, result = pcall(function(...)
+        return airbase.getFreeParkingTerminal(...)
+    end, airbase, terminalType, multiple)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get free parking terminals by type: " .. tostring(result),
+            "Failed to get free parking terminals by type: " .. _HarnessInternal.safeString(result),
             "Airbase.GetFreeParkingTerminalByType"
         )
         return nil
@@ -12024,10 +12780,12 @@ function GetFreeAirbaseParkingTerminal(airbase, terminalType)
         return nil
     end
 
-    local success, result = pcall(airbase.getFreeAirbaseParkingTerminal, airbase, terminalType)
+    local success, result = pcall(function(...)
+        return airbase.getFreeAirbaseParkingTerminal(...)
+    end, airbase, terminalType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get free airbase parking terminal: " .. tostring(result),
+            "Failed to get free airbase parking terminal: " .. _HarnessInternal.safeString(result),
             "Airbase.GetFreeAirbaseParkingTerminal"
         )
         return nil
@@ -12058,10 +12816,12 @@ function GetAirbaseParkingTerminal(airbase, terminal)
         return nil
     end
 
-    local success, result = pcall(airbase.getParkingTerminal, airbase, terminal)
+    local success, result = pcall(function(...)
+        return airbase.getParkingTerminal(...)
+    end, airbase, terminal)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get parking terminal: " .. tostring(result),
+            "Failed to get parking terminal: " .. _HarnessInternal.safeString(result),
             "Airbase.GetParkingTerminal"
         )
         return nil
@@ -12092,10 +12852,12 @@ function GetAirbaseParkingTerminalByIndex(airbase, index)
         return nil
     end
 
-    local success, result = pcall(airbase.getParkingTerminalByIndex, airbase, index)
+    local success, result = pcall(function(...)
+        return airbase.getParkingTerminalByIndex(...)
+    end, airbase, index)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get parking terminal by index: " .. tostring(result),
+            "Failed to get parking terminal by index: " .. _HarnessInternal.safeString(result),
             "Airbase.GetParkingTerminalByIndex"
         )
         return nil
@@ -12117,10 +12879,12 @@ function GetAirbaseParkingCount(airbase)
         return nil
     end
 
-    local success, result = pcall(airbase.getParkingCount, airbase)
+    local success, result = pcall(function(...)
+        return airbase.getParkingCount(...)
+    end, airbase)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get parking count: " .. tostring(result),
+            "Failed to get parking count: " .. _HarnessInternal.safeString(result),
             "Airbase.GetParkingCount"
         )
         return nil
@@ -12151,10 +12915,12 @@ function GetAirbaseRunwayDetails(airbase, runwayIndex)
         return nil
     end
 
-    local success, result = pcall(airbase.getRunwayDetails, airbase, runwayIndex)
+    local success, result = pcall(function(...)
+        return airbase.getRunwayDetails(...)
+    end, airbase, runwayIndex)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get runway details: " .. tostring(result),
+            "Failed to get runway details: " .. _HarnessInternal.safeString(result),
             "Airbase.GetRunwayDetails"
         )
         return nil
@@ -12174,10 +12940,12 @@ function GetAirbaseMeteo(airbase, height)
         return nil
     end
 
-    local success, result = pcall(airbase.getMeteo, airbase, height)
+    local success, result = pcall(function(...)
+        return airbase.getMeteo(...)
+    end, airbase, height)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get airbase meteo: " .. tostring(result),
+            "Failed to get airbase meteo: " .. _HarnessInternal.safeString(result),
             "Airbase.GetMeteo"
         )
         return nil
@@ -12200,10 +12968,12 @@ function GetAirbaseWindWithTurbulence(airbase, height)
         return nil
     end
 
-    local success, result = pcall(airbase.getWindWithTurbulence, airbase, height)
+    local success, result = pcall(function(...)
+        return airbase.getWindWithTurbulence(...)
+    end, airbase, height)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get wind with turbulence: " .. tostring(result),
+            "Failed to get wind with turbulence: " .. _HarnessInternal.safeString(result),
             "Airbase.GetWindWithTurbulence"
         )
         return nil
@@ -12234,10 +13004,12 @@ function GetAirbaseIsServiceProvided(airbase, service)
         return nil
     end
 
-    local success, result = pcall(airbase.getIsServiceProvided, airbase, service)
+    local success, result = pcall(function(...)
+        return airbase.getIsServiceProvided(...)
+    end, airbase, service)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check service availability: " .. tostring(result),
+            "Failed to check service availability: " .. _HarnessInternal.safeString(result),
             "Airbase.GetIsServiceProvided"
         )
         return nil
@@ -12247,10 +13019,6 @@ function GetAirbaseIsServiceProvided(airbase, service)
 end
 
 local AirbaseInternal = {}
-
-function AirbaseInternal.finiteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
 
 function AirbaseInternal.protectedObjectMethod(object, methodName, ...)
     if object == nil then
@@ -12272,10 +13040,10 @@ end
 
 function AirbaseInternal.isGroundPoint(value)
     return type(value) == "table"
-        and AirbaseInternal.finiteNumber(value.x)
+        and IsFiniteNumber(value.x)
         and (
-            (IsVec2(value) and AirbaseInternal.finiteNumber(value.y))
-            or (IsVec3(value) and AirbaseInternal.finiteNumber(value.z))
+            (IsVec2(value) and IsFiniteNumber(value.y))
+            or (IsVec3(value) and IsFiniteNumber(value.z))
         )
 end
 
@@ -12334,7 +13102,8 @@ end
 function AirbaseInternal.parseRawRunway(rawRunway, sourceIndex)
     if type(rawRunway) ~= "table" then
         _HarnessInternal.log.error(
-            "Skipped malformed runway record at source index " .. tostring(sourceIndex),
+            "Skipped malformed runway record at source index "
+                .. _HarnessInternal.safeString(sourceIndex),
             "Airbase.NormalizeDirectionalRunways"
         )
         return nil
@@ -12348,18 +13117,19 @@ function AirbaseInternal.parseRawRunway(rawRunway, sourceIndex)
         name = rawRunway.Name or rawRunway.name,
     }
     if
-        not AirbaseInternal.finiteNumber(parsed.lengthM)
+        not IsFiniteNumber(parsed.lengthM)
         or parsed.lengthM <= 0
-        or not AirbaseInternal.finiteNumber(parsed.widthM)
+        or not IsFiniteNumber(parsed.widthM)
         or parsed.widthM <= 0
-        or not AirbaseInternal.finiteNumber(parsed.course)
+        or not IsFiniteNumber(parsed.course)
         or type(parsed.center) ~= "table"
-        or not AirbaseInternal.finiteNumber(parsed.center.x)
-        or not AirbaseInternal.finiteNumber(parsed.center.y)
-        or not AirbaseInternal.finiteNumber(parsed.center.z)
+        or not IsFiniteNumber(parsed.center.x)
+        or not IsFiniteNumber(parsed.center.y)
+        or not IsFiniteNumber(parsed.center.z)
     then
         _HarnessInternal.log.error(
-            "Skipped malformed runway record at source index " .. tostring(sourceIndex),
+            "Skipped malformed runway record at source index "
+                .. _HarnessInternal.safeString(sourceIndex),
             "Airbase.NormalizeDirectionalRunways"
         )
         return nil
@@ -12437,7 +13207,7 @@ function NormalizeDirectionalRunways(airbaseName, rawRunways, reciprocalSanityDe
         type(airbaseName) ~= "string"
         or airbaseName == ""
         or type(rawRunways) ~= "table"
-        or not AirbaseInternal.finiteNumber(reciprocalSanityDeg)
+        or not IsFiniteNumber(reciprocalSanityDeg)
         or reciprocalSanityDeg < 0
         or reciprocalSanityDeg > 180
     then
@@ -12469,7 +13239,7 @@ function GetDirectionalRunways(airbase, reciprocalSanityDeg)
     local nameOk, airbaseName = AirbaseInternal.protectedObjectMethod(airbase, "getName")
     if not nameOk or type(airbaseName) ~= "string" or airbaseName == "" then
         _HarnessInternal.log.error(
-            "Failed to get airbase name: " .. tostring(airbaseName),
+            "Failed to get airbase name: " .. _HarnessInternal.safeString(airbaseName),
             "Airbase.GetDirectionalRunways"
         )
         return nil
@@ -12477,7 +13247,8 @@ function GetDirectionalRunways(airbase, reciprocalSanityDeg)
     local runwayOk, rawRunways = AirbaseInternal.protectedObjectMethod(airbase, "getRunways")
     if not runwayOk or type(rawRunways) ~= "table" then
         _HarnessInternal.log.error(
-            "Failed Airbase:getRunways compatibility call: " .. tostring(rawRunways),
+            "Failed Airbase:getRunways compatibility call: "
+                .. _HarnessInternal.safeString(rawRunways),
             "Airbase.GetDirectionalRunways"
         )
         return nil
@@ -12531,7 +13302,7 @@ end
 ---@return number? degrees Positive values are right of centerline
 function GetRunwayLineupError(runway, point, minRangeM)
     minRangeM = minRangeM == nil and 50 or minRangeM
-    if not AirbaseInternal.finiteNumber(minRangeM) or minRangeM < 0 then
+    if not IsFiniteNumber(minRangeM) or minRangeM < 0 then
         _HarnessInternal.log.error(
             "GetRunwayLineupError requires non-negative range",
             "Airbase.GetRunwayLineupError"
@@ -12555,8 +13326,8 @@ function GetRunwayGlidepathAngle(runway, point, thresholdElevationM, minRangeM)
     minRangeM = minRangeM == nil and 50 or minRangeM
     if
         not IsVec3(point)
-        or not AirbaseInternal.finiteNumber(thresholdElevationM)
-        or not AirbaseInternal.finiteNumber(minRangeM)
+        or not IsFiniteNumber(thresholdElevationM)
+        or not IsFiniteNumber(minRangeM)
         or minRangeM < 0
     then
         _HarnessInternal.log.error(
@@ -12581,11 +13352,7 @@ end
 ---@param headingDeg number Landing heading
 ---@return number? mps Headwind component
 function GetHeadwindComponent(wind, headingDeg)
-    if
-        type(wind) ~= "table"
-        or not AirbaseInternal.finiteNumber(wind.x)
-        or not AirbaseInternal.finiteNumber(wind.z)
-    then
+    if type(wind) ~= "table" or not IsFiniteNumber(wind.x) or not IsFiniteNumber(wind.z) then
         _HarnessInternal.log.error(
             "GetHeadwindComponent requires a wind vector",
             "Airbase.GetHeadwindComponent"
@@ -12665,7 +13432,7 @@ function AirbaseInternal.collectNamedAirbases(target, list)
             end
         else
             _HarnessInternal.log.error(
-                "Skipped invalid airbase handle: " .. tostring(name),
+                "Skipped invalid airbase handle: " .. _HarnessInternal.safeString(name),
                 "Airbase.GetAllAirbases"
             )
         end
@@ -12677,34 +13444,66 @@ end
 function GetAllAirbases()
     local byName = {}
     local successfulCalls = 0
-    if type(world) == "table" and type(world.getAirbases) == "function" then
-        local success, result = pcall(world.getAirbases)
+    local worldLookupOk, worldAvailable = pcall(function()
+        return type(world) == "table" and type(world.getAirbases) == "function"
+    end)
+    if not worldLookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve world.getAirbases: " .. _HarnessInternal.safeString(worldAvailable),
+            "Airbase.GetAllAirbases"
+        )
+    end
+    if worldLookupOk and worldAvailable then
+        local success, result = pcall(function()
+            return world.getAirbases()
+        end)
         if success and type(result) == "table" then
             successfulCalls = successfulCalls + 1
             AirbaseInternal.collectNamedAirbases(byName, result)
         else
             _HarnessInternal.log.error(
-                "world.getAirbases failed: " .. tostring(result),
+                "world.getAirbases failed: " .. _HarnessInternal.safeString(result),
                 "Airbase.GetAllAirbases"
             )
         end
     end
 
-    if type(coalition) == "table" and type(coalition.getAirbases) == "function" then
-        local sides = type(coalition.side) == "table"
-                and { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
-            or {}
+    local coalitionLookupOk, coalitionAvailable = pcall(function()
+        return type(coalition) == "table" and type(coalition.getAirbases) == "function"
+    end)
+    if not coalitionLookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve coalition.getAirbases: "
+                .. _HarnessInternal.safeString(coalitionAvailable),
+            "Airbase.GetAllAirbases"
+        )
+    end
+    if coalitionLookupOk and coalitionAvailable then
+        local sidesOk, sides = pcall(function()
+            return type(coalition.side) == "table"
+                    and { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
+                or {}
+        end)
+        if not sidesOk then
+            _HarnessInternal.log.error(
+                "Failed to read coalition sides: " .. _HarnessInternal.safeString(sides),
+                "Airbase.GetAllAirbases"
+            )
+            sides = {}
+        end
         for _, side in ipairs(sides) do
-            local success, result = pcall(coalition.getAirbases, side)
+            local success, result = pcall(function(...)
+                return coalition.getAirbases(...)
+            end, side)
             if success and type(result) == "table" then
                 successfulCalls = successfulCalls + 1
                 AirbaseInternal.collectNamedAirbases(byName, result)
             else
                 _HarnessInternal.log.error(
                     "coalition.getAirbases failed for side "
-                        .. tostring(side)
+                        .. _HarnessInternal.safeString(side)
                         .. ": "
-                        .. tostring(result),
+                        .. _HarnessInternal.safeString(result),
                     "Airbase.GetAllAirbases"
                 )
             end
@@ -12735,7 +13534,7 @@ function FindAirbasesWithin(airbases, point, radiusM)
     if
         type(airbases) ~= "table"
         or not AirbaseInternal.isGroundPoint(point)
-        or not AirbaseInternal.finiteNumber(radiusM)
+        or not IsFiniteNumber(radiusM)
         or radiusM < 0
     then
         _HarnessInternal.log.error(
@@ -12818,9 +13617,14 @@ function GetGroup(groupName)
     end
 
     -- Get from DCS API
-    local success, group = pcall(Group.getByName, groupName)
+    local success, group = pcall(function(...)
+        return Group.getByName(...)
+    end, groupName)
     if not success then
-        _HarnessInternal.log.error("Failed to get group: " .. tostring(group), "GetGroup")
+        _HarnessInternal.log.error(
+            "Failed to get group: " .. _HarnessInternal.safeString(group),
+            "GetGroup"
+        )
         return nil
     end
 
@@ -12843,10 +13647,12 @@ function GroupExists(groupName)
         return false
     end
 
-    local success, exists = pcall(group.isExist, group)
+    local success, exists = pcall(function(...)
+        return group.isExist(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check group existence: " .. tostring(exists),
+            "Failed to check group existence: " .. _HarnessInternal.safeString(exists),
             "GroupExists"
         )
         return false
@@ -12865,10 +13671,12 @@ function GetGroupUnits(groupName)
         return nil
     end
 
-    local success, units = pcall(group.getUnits, group)
+    local success, units = pcall(function(...)
+        return group.getUnits(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group units: " .. tostring(units),
+            "Failed to get group units: " .. _HarnessInternal.safeString(units),
             "GetGroupUnits"
         )
         return nil
@@ -12887,9 +13695,14 @@ function GetGroupSize(groupName)
         return 0
     end
 
-    local success, size = pcall(group.getSize, group)
+    local success, size = pcall(function(...)
+        return group.getSize(...)
+    end, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group size: " .. tostring(size), "GetGroupSize")
+        _HarnessInternal.log.error(
+            "Failed to get group size: " .. _HarnessInternal.safeString(size),
+            "GetGroupSize"
+        )
         return 0
     end
 
@@ -12906,10 +13719,12 @@ function GetGroupInitialSize(groupName)
         return 0
     end
 
-    local success, size = pcall(group.getInitialSize, group)
+    local success, size = pcall(function(...)
+        return group.getInitialSize(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group initial size: " .. tostring(size),
+            "Failed to get group initial size: " .. _HarnessInternal.safeString(size),
             "GetGroupInitialSize"
         )
         return 0
@@ -12928,10 +13743,12 @@ function GetGroupCoalition(groupName)
         return nil
     end
 
-    local success, coalition = pcall(group.getCoalition, group)
+    local success, coalition = pcall(function(...)
+        return group.getCoalition(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group coalition: " .. tostring(coalition),
+            "Failed to get group coalition: " .. _HarnessInternal.safeString(coalition),
             "GetGroupCoalition"
         )
         return nil
@@ -12950,10 +13767,12 @@ function GetGroupCategory(groupName)
         return nil
     end
 
-    local success, category = pcall(group.getCategory, group)
+    local success, category = pcall(function(...)
+        return group.getCategory(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group category: " .. tostring(category),
+            "Failed to get group category: " .. _HarnessInternal.safeString(category),
             "GetGroupCategory"
         )
         return nil
@@ -12972,9 +13791,14 @@ function GetGroupID(groupName)
         return nil
     end
 
-    local success, id = pcall(group.getID, group)
+    local success, id = pcall(function(...)
+        return group.getID(...)
+    end, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group ID: " .. tostring(id), "GetGroupID")
+        _HarnessInternal.log.error(
+            "Failed to get group ID: " .. _HarnessInternal.safeString(id),
+            "GetGroupID"
+        )
         return nil
     end
 
@@ -12998,10 +13822,12 @@ function GetGroupController(groupName)
         return nil
     end
 
-    local success, controller = pcall(group.getController, group)
+    local success, controller = pcall(function(...)
+        return group.getController(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group controller: " .. tostring(controller),
+            "Failed to get group controller: " .. _HarnessInternal.safeString(controller),
             "GetGroupController"
         )
         return nil
@@ -13068,10 +13894,16 @@ function MessageToGroup(groupId, message, duration)
 
     duration = duration or 20
 
-    local success, result = pcall(trigger.action.outTextForGroup, groupId, message, duration, false)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForGroup(...)
+    end, groupId, message, duration, false)
     if not success then
         _HarnessInternal.log.error(
-            string.format("Failed to send message to group %d: %s", groupId, tostring(result)),
+            string.format(
+                "Failed to send message to group %d: %s",
+                groupId,
+                _HarnessInternal.safeString(result)
+            ),
             "MessageToGroup"
         )
         return false
@@ -13105,14 +13937,15 @@ function MessageToCoalition(coalitionId, message, duration)
 
     duration = duration or 20
 
-    local success, result =
-        pcall(trigger.action.outTextForCoalition, coalitionId, message, duration)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForCoalition(...)
+    end, coalitionId, message, duration)
     if not success then
         _HarnessInternal.log.error(
             string.format(
                 "Failed to send message to coalition %d: %s",
                 coalitionId,
-                tostring(result)
+                _HarnessInternal.safeString(result)
             ),
             "MessageToCoalition"
         )
@@ -13135,10 +13968,12 @@ function MessageToAll(message, duration)
 
     duration = duration or 20
 
-    local success, result = pcall(trigger.action.outText, message, duration)
+    local success, result = pcall(function(...)
+        return trigger.action.outText(...)
+    end, message, duration)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to send message to all: " .. tostring(result),
+            "Failed to send message to all: " .. _HarnessInternal.safeString(result),
             "MessageToAll"
         )
         return false
@@ -13157,10 +13992,12 @@ function ActivateGroup(groupName)
         return false
     end
 
-    local success, result = pcall(group.activate, group)
+    local success, result = pcall(function(...)
+        return group.activate(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to activate group: " .. tostring(result),
+            "Failed to activate group: " .. _HarnessInternal.safeString(result),
             "ActivateGroup"
         )
         return false
@@ -13185,7 +14022,10 @@ function GetGroupName(group)
         return group:getName()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get group name: " .. tostring(name), "GetGroupName")
+        _HarnessInternal.log.error(
+            "Failed to get group name: " .. _HarnessInternal.safeString(name),
+            "GetGroupName"
+        )
         return nil
     end
 
@@ -13213,7 +14053,7 @@ function GetGroupUnit(group, index)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit by index: " .. tostring(unit),
+            "Failed to get unit by index: " .. _HarnessInternal.safeString(unit),
             "GetGroupUnit"
         )
         return nil
@@ -13237,7 +14077,7 @@ function GetGroupCategoryEx(group)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group category ex: " .. tostring(category),
+            "Failed to get group category ex: " .. _HarnessInternal.safeString(category),
             "GetGroupCategoryEx"
         )
         return nil
@@ -13270,13 +14110,16 @@ function EnableGroupEmissions(group, enabled)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set group emissions: " .. tostring(result),
+            "Failed to set group emissions: " .. _HarnessInternal.safeString(result),
             "EnableGroupEmissions"
         )
         return false
     end
 
-    _HarnessInternal.log.info("Set group emissions: " .. tostring(enabled), "EnableGroupEmissions")
+    _HarnessInternal.log.info(
+        "Set group emissions: " .. _HarnessInternal.safeString(enabled),
+        "EnableGroupEmissions"
+    )
     return true
 end
 
@@ -13294,7 +14137,10 @@ function DestroyGroup(group)
         group:destroy()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy group: " .. tostring(result), "DestroyGroup")
+        _HarnessInternal.log.error(
+            "Failed to destroy group: " .. _HarnessInternal.safeString(result),
+            "DestroyGroup"
+        )
         return false
     end
 
@@ -13317,7 +14163,7 @@ function IsGroupEmbarking(group)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check group embarking: " .. tostring(embarking),
+            "Failed to check group embarking: " .. _HarnessInternal.safeString(embarking),
             "IsGroupEmbarking"
         )
         return nil
@@ -13352,7 +14198,10 @@ function MarkGroup(group, point, text)
         group:markGroup(point, text)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to mark group: " .. tostring(result), "MarkGroup")
+        _HarnessInternal.log.error(
+            "Failed to mark group: " .. _HarnessInternal.safeString(result),
+            "MarkGroup"
+        )
         return false
     end
 
@@ -13524,10 +14373,12 @@ function GetCoalitionByCountry(countryId)
         return nil
     end
 
-    local success, result = pcall(coalition.getCountryCoalition, countryId)
+    local success, result = pcall(function(...)
+        return coalition.getCountryCoalition(...)
+    end, countryId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition for country: " .. tostring(result),
+            "Failed to get coalition for country: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionByCountry"
         )
         return nil
@@ -13549,10 +14400,12 @@ function GetCoalitionPlayers(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getPlayers, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getPlayers(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition players: " .. tostring(result),
+            "Failed to get coalition players: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionPlayers"
         )
         return nil
@@ -13564,11 +14417,12 @@ end
 --- Enumerate all player-controlled units without scanning groups
 ---@return table? units Name-sorted player unit handles, or nil when any coalition query fails
 function GetAllPlayerUnits()
-    if
-        type(coalition) ~= "table"
-        or type(coalition.side) ~= "table"
-        or type(coalition.getPlayers) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(coalition) ~= "table"
+            or type(coalition.side) ~= "table"
+            or type(coalition.getPlayers) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "coalition.getPlayers is unavailable",
             "Coalition.GetAllPlayerUnits"
@@ -13577,8 +14431,10 @@ function GetAllPlayerUnits()
     end
 
     local byName = {}
-    local sides = { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
-    if sides[1] == nil or sides[2] == nil or sides[3] == nil then
+    local sidesOk, sides = pcall(function()
+        return { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
+    end)
+    if not sidesOk or sides[1] == nil or sides[2] == nil or sides[3] == nil then
         _HarnessInternal.log.error(
             "coalition side constants are unavailable",
             "Coalition.GetAllPlayerUnits"
@@ -13587,13 +14443,15 @@ function GetAllPlayerUnits()
     end
 
     for _, side in ipairs(sides) do
-        local success, players = pcall(coalition.getPlayers, side)
+        local success, players = pcall(function(...)
+            return coalition.getPlayers(...)
+        end, side)
         if not success or type(players) ~= "table" then
             _HarnessInternal.log.error(
                 "coalition.getPlayers failed for side "
-                    .. tostring(side)
+                    .. _HarnessInternal.safeString(side)
                     .. ": "
-                    .. tostring(players),
+                    .. _HarnessInternal.safeString(players),
                 "Coalition.GetAllPlayerUnits"
             )
             return nil
@@ -13663,10 +14521,12 @@ function GetCoalitionGroups(coalitionId, categoryId)
         return {}
     end
 
-    local success, result = pcall(coalition.getGroups, coalitionId, categoryId)
+    local success, result = pcall(function(...)
+        return coalition.getGroups(...)
+    end, coalitionId, categoryId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition groups: " .. tostring(result),
+            "Failed to get coalition groups: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionGroups"
         )
         return {}
@@ -13688,10 +14548,12 @@ function GetCoalitionAirbases(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getAirbases, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getAirbases(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition airbases: " .. tostring(result),
+            "Failed to get coalition airbases: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionAirbases"
         )
         return nil
@@ -13720,7 +14582,9 @@ function GetCoalitionCountries(coalitionId)
     end
     for _, id in pairs(country.id) do
         if type(id) == "number" then
-            local ok, side = pcall(coalition.getCountryCoalition, id)
+            local ok, side = pcall(function(...)
+                return coalition.getCountryCoalition(...)
+            end, id)
             if ok and side == coalitionId then
                 table.insert(countries, id)
             end
@@ -13742,10 +14606,12 @@ function GetCoalitionStaticObjects(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getStaticObjects, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getStaticObjects(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition static objects: " .. tostring(result),
+            "Failed to get coalition static objects: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionStaticObjects"
         )
         return nil
@@ -13785,10 +14651,12 @@ function AddCoalitionGroup(countryId, categoryId, groupData)
         return nil
     end
 
-    local success, result = pcall(coalition.addGroup, countryId, categoryId, groupData)
+    local success, result = pcall(function(...)
+        return coalition.addGroup(...)
+    end, countryId, categoryId, groupData)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition group: " .. tostring(result),
+            "Failed to add coalition group: " .. _HarnessInternal.safeString(result),
             "Coalition.AddGroup"
         )
         return nil
@@ -13819,10 +14687,12 @@ function AddCoalitionStaticObject(countryId, staticData)
         return nil
     end
 
-    local success, result = pcall(coalition.addStaticObject, countryId, staticData)
+    local success, result = pcall(function(...)
+        return coalition.addStaticObject(...)
+    end, countryId, staticData)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition static object: " .. tostring(result),
+            "Failed to add coalition static object: " .. _HarnessInternal.safeString(result),
             "Coalition.AddStaticObject"
         )
         return nil
@@ -13844,10 +14714,12 @@ function GetCoalitionRefPoints(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getRefPoints, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getRefPoints(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition reference points: " .. tostring(result),
+            "Failed to get coalition reference points: " .. _HarnessInternal.safeString(result),
             "Coalition.GetRefPoints"
         )
         return nil
@@ -13869,10 +14741,12 @@ function GetCoalitionMainRefPoint(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getMainRefPoint(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition main reference point: " .. tostring(result),
+            "Failed to get coalition main reference point: " .. _HarnessInternal.safeString(result),
             "Coalition.GetMainRefPoint"
         )
         return nil
@@ -13895,10 +14769,12 @@ function GetCoalitionBullseye(coalitionId)
     end
 
     -- Authoritative API name is getMainRefPoint (bullseye)
-    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getMainRefPoint(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition bullseye: " .. tostring(result),
+            "Failed to get coalition bullseye: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionBullseye"
         )
         return nil
@@ -13929,10 +14805,12 @@ function AddCoalitionRefPoint(coalitionId, refPointData)
         return nil
     end
 
-    local success, result = pcall(coalition.addRefPoint, coalitionId, refPointData)
+    local success, result = pcall(function(...)
+        return coalition.addRefPoint(...)
+    end, coalitionId, refPointData)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition reference point: " .. tostring(result),
+            "Failed to add coalition reference point: " .. _HarnessInternal.safeString(result),
             "Coalition.AddRefPoint"
         )
         return nil
@@ -13963,8 +14841,10 @@ function RemoveCoalitionRefPoint(coalitionId, refPointId)
         return nil
     end
 
-    local remover = rawget(coalition, "removeRefPoint")
-    if type(remover) ~= "function" then
+    local lookupOk, remover = pcall(function()
+        return rawget(coalition, "removeRefPoint")
+    end)
+    if not lookupOk or type(remover) ~= "function" then
         _HarnessInternal.log.error(
             "coalition.removeRefPoint not available",
             "Coalition.RemoveRefPoint"
@@ -13975,7 +14855,7 @@ function RemoveCoalitionRefPoint(coalitionId, refPointId)
     local success, result = pcall(remover, coalitionId, refPointId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove coalition reference point: " .. tostring(result),
+            "Failed to remove coalition reference point: " .. _HarnessInternal.safeString(result),
             "Coalition.RemoveRefPoint"
         )
         return nil
@@ -14006,10 +14886,12 @@ function GetCoalitionServiceProviders(coalitionId, serviceType)
         return nil
     end
 
-    local success, result = pcall(coalition.getServiceProviders, coalitionId, serviceType)
+    local success, result = pcall(function(...)
+        return coalition.getServiceProviders(...)
+    end, coalitionId, serviceType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition service providers: " .. tostring(result),
+            "Failed to get coalition service providers: " .. _HarnessInternal.safeString(result),
             "Coalition.GetServiceProviders"
         )
         return nil
@@ -14138,7 +15020,7 @@ function GoRoute(groupName, waypoints)
     end)
     if not success or not controller then
         _HarnessInternal.log.error(
-            "GoRoute failed to get controller: " .. tostring(controller),
+            "GoRoute failed to get controller: " .. _HarnessInternal.safeString(controller),
             "Coalition.GoRoute"
         )
         return false
@@ -14153,10 +15035,12 @@ function GoRoute(groupName, waypoints)
         },
     }
 
-    local ok, err = pcall(controller.setTask, controller, route)
+    local ok, err = pcall(function(...)
+        return controller.setTask(...)
+    end, controller, route)
     if not ok then
         _HarnessInternal.log.error(
-            "GoRoute failed to set route: " .. tostring(err),
+            "GoRoute failed to set route: " .. _HarnessInternal.safeString(err),
             "Coalition.GoRoute"
         )
         return false
@@ -14165,6 +15049,89 @@ function GoRoute(groupName, waypoints)
     return true
 end
 -- ==== END: src/coalition.lua ====
+
+-- ==== BEGIN: src/object.lua ====
+local ObjectInternal = {}
+
+function ObjectInternal.readMethod(object, method, caller)
+    local ok, value = pcall(function()
+        return object[method](object)
+    end)
+    if not ok then
+        _HarnessInternal.log.error(
+            "Failed to read object: " .. _HarnessInternal.safeString(value),
+            caller
+        )
+        return nil
+    end
+    return value
+end
+
+function ObjectInternal.readVector(object, method, caller)
+    local value = ObjectInternal.readMethod(object, method, caller)
+    local ok, copy = pcall(function()
+        if type(value) == "table" then
+            local result = { x = value.x, y = value.y, z = value.z }
+            if IsFiniteVec3(result) then
+                return result
+            end
+        end
+    end)
+    if not ok or not copy then
+        _HarnessInternal.log.error("Object returned an invalid finite Vec3", caller)
+        return nil
+    end
+    return copy
+end
+
+--- Get the ID carried by a detected unit or weapon.
+---@param object table|userdata The detected unit or weapon object.
+---@return number|string? id The object's id_ value, or nil if it cannot be read or is invalid.
+---@usage local id = GetObjectID(detection.object)
+function GetObjectID(object)
+    local ok, id = pcall(function()
+        return object.id_
+    end)
+    if ok and (IsFiniteNumber(id) or (type(id) == "string" and id ~= "")) then
+        return id
+    end
+    _HarnessInternal.log.error(
+        "Failed to read detected-object identity: " .. _HarnessInternal.safeString(id),
+        "GetObjectID"
+    )
+    return nil
+end
+
+--- Get the DCS object category of a unit or weapon.
+---@param object table|userdata The unit or weapon object.
+---@return number? category An Object.Category value, or nil if it cannot be read.
+---@usage local category = GetObjectCategory(detection.object)
+function GetObjectCategory(object)
+    local category = ObjectInternal.readMethod(object, "getCategory", "GetObjectCategory")
+    if IsFiniteNumber(category) then
+        return category
+    end
+    return nil
+end
+
+--- Get the position of a unit or weapon.
+--- The result is a new {x, y, z} table in meters. Y is altitude.
+---@param object table|userdata The unit or weapon object.
+---@return Vec3? point Position, or nil if it cannot be read or has invalid numbers.
+---@usage local position = GetObjectPoint(detection.object)
+function GetObjectPoint(object)
+    return ObjectInternal.readVector(object, "getPoint", "GetObjectPoint")
+end
+
+--- Get the velocity of a unit or weapon.
+--- The result is a new {x, y, z} table in meters per second.
+---@param object table|userdata The unit or weapon object.
+---@return Vec3? velocity Velocity, or nil if it cannot be read or has invalid numbers.
+---@usage local velocity = GetObjectVelocity(detection.object)
+function GetObjectVelocity(object)
+    return ObjectInternal.readVector(object, "getVelocity", "GetObjectVelocity")
+end
+-- ==== END: src/object.lua ====
 
 -- ==== BEGIN: src/shapes.lua ====
 --[[
@@ -14812,10 +15779,12 @@ function CreateLaserSpot(source, target, localRef, code)
         return nil
     end
 
-    local success, spot = pcall(Spot.createLaser, source, localRef, target, code)
+    local success, spot = pcall(function(...)
+        return Spot.createLaser(...)
+    end, source, localRef, target, code)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create laser spot: " .. tostring(spot),
+            "Failed to create laser spot: " .. _HarnessInternal.safeString(spot),
             "CreateLaserSpot"
         )
         return nil
@@ -14845,9 +15814,14 @@ function CreateIRSpot(source, target, localRef)
         return nil
     end
 
-    local success, spot = pcall(Spot.createInfraRed, source, localRef, target)
+    local success, spot = pcall(function(...)
+        return Spot.createInfraRed(...)
+    end, source, localRef, target)
     if not success then
-        _HarnessInternal.log.error("Failed to create IR spot: " .. tostring(spot), "CreateIRSpot")
+        _HarnessInternal.log.error(
+            "Failed to create IR spot: " .. _HarnessInternal.safeString(spot),
+            "CreateIRSpot"
+        )
         return nil
     end
 
@@ -14869,7 +15843,10 @@ function DestroySpot(spot)
         spot:destroy()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy spot: " .. tostring(result), "DestroySpot")
+        _HarnessInternal.log.error(
+            "Failed to destroy spot: " .. _HarnessInternal.safeString(result),
+            "DestroySpot"
+        )
         return false
     end
 
@@ -14891,7 +15868,10 @@ function GetSpotPoint(spot)
         return spot:getPoint()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get spot point: " .. tostring(point), "GetSpotPoint")
+        _HarnessInternal.log.error(
+            "Failed to get spot point: " .. _HarnessInternal.safeString(point),
+            "GetSpotPoint"
+        )
         return nil
     end
 
@@ -14921,7 +15901,10 @@ function SetSpotPoint(spot, point)
         spot:setPoint(point)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to set spot point: " .. tostring(result), "SetSpotPoint")
+        _HarnessInternal.log.error(
+            "Failed to set spot point: " .. _HarnessInternal.safeString(result),
+            "SetSpotPoint"
+        )
         return false
     end
 
@@ -14942,7 +15925,10 @@ function GetLaserCode(spot)
         return spot:getCode()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get laser code: " .. tostring(code), "GetLaserCode")
+        _HarnessInternal.log.error(
+            "Failed to get laser code: " .. _HarnessInternal.safeString(code),
+            "GetLaserCode"
+        )
         return nil
     end
 
@@ -14977,7 +15963,10 @@ function SetLaserCode(spot, code)
         spot:setCode(code)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to set laser code: " .. tostring(result), "SetLaserCode")
+        _HarnessInternal.log.error(
+            "Failed to set laser code: " .. _HarnessInternal.safeString(result),
+            "SetLaserCode"
+        )
         return false
     end
 
@@ -15017,7 +16006,7 @@ function GetSpotCategory(spot)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get spot category: " .. tostring(category),
+            "Failed to get spot category: " .. _HarnessInternal.safeString(category),
             "GetSpotCategory"
         )
         return nil
@@ -15051,10 +16040,12 @@ function GetStaticByName(name)
         return nil
     end
 
-    local success, result = pcall(StaticObject.getByName, name)
+    local success, result = pcall(function(...)
+        return StaticObject.getByName(...)
+    end, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object by name: " .. tostring(result),
+            "Failed to get static object by name: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetByName"
         )
         return nil
@@ -15073,10 +16064,12 @@ function GetStaticID(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getID, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getID(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object ID: " .. tostring(result),
+            "Failed to get static object ID: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetID"
         )
         return nil
@@ -15098,10 +16091,12 @@ function GetStaticLife(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getLife, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getLife(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object life: " .. tostring(result),
+            "Failed to get static object life: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetLife"
         )
         return nil
@@ -15123,10 +16118,12 @@ function GetStaticCargoDisplayName(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCargoDisplayName, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCargoDisplayName(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get cargo display name: " .. tostring(result),
+            "Failed to get cargo display name: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCargoDisplayName"
         )
         return nil
@@ -15148,10 +16145,12 @@ function GetStaticCargoWeight(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCargoWeight, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCargoWeight(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get cargo weight: " .. tostring(result),
+            "Failed to get cargo weight: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCargoWeight"
         )
         return nil
@@ -15176,10 +16175,12 @@ function DestroyStaticObject(staticObject)
     -- Log that delete API was triggered
     _HarnessInternal.log.info("DestroyStaticObject triggered", "StaticObject.Destroy")
 
-    local success, result = pcall(staticObject.destroy, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.destroy(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to destroy static object: " .. tostring(result),
+            "Failed to destroy static object: " .. _HarnessInternal.safeString(result),
             "StaticObject.Destroy"
         )
         return nil
@@ -15202,10 +16203,12 @@ function GetStaticCategory(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCategory, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCategory(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object category: " .. tostring(result),
+            "Failed to get static object category: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCategory"
         )
         return nil
@@ -15227,10 +16230,12 @@ function GetStaticTypeName(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getTypeName, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getTypeName(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object type name: " .. tostring(result),
+            "Failed to get static object type name: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetTypeName"
         )
         return nil
@@ -15252,10 +16257,12 @@ function GetStaticDesc(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getDesc, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getDesc(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object description: " .. tostring(result),
+            "Failed to get static object description: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetDesc"
         )
         return nil
@@ -15277,10 +16284,12 @@ function IsStaticExist(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.isExist, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.isExist(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check static object existence: " .. tostring(result),
+            "Failed to check static object existence: " .. _HarnessInternal.safeString(result),
             "StaticObject.IsExist"
         )
         return nil
@@ -15302,10 +16311,12 @@ function GetStaticCoalition(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCoalition, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCoalition(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object coalition: " .. tostring(result),
+            "Failed to get static object coalition: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCoalition"
         )
         return nil
@@ -15327,10 +16338,12 @@ function GetStaticCountry(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCountry, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCountry(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object country: " .. tostring(result),
+            "Failed to get static object country: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCountry"
         )
         return nil
@@ -15352,10 +16365,12 @@ function GetStaticPoint(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getPoint, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getPoint(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object point: " .. tostring(result),
+            "Failed to get static object point: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetPoint"
         )
         return nil
@@ -15377,10 +16392,12 @@ function GetStaticPosition(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getPosition, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getPosition(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object position: " .. tostring(result),
+            "Failed to get static object position: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetPosition"
         )
         return nil
@@ -15402,10 +16419,12 @@ function GetStaticVelocity(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getVelocity, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getVelocity(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object velocity: " .. tostring(result),
+            "Failed to get static object velocity: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetVelocity"
         )
         return nil
@@ -15468,7 +16487,7 @@ function CreateStaticObject(countryId, staticData)
     -- Log that create API was triggered
     _HarnessInternal.log.info(
         "CreateStaticObject triggered: type="
-            .. tostring(staticData.type)
+            .. _HarnessInternal.safeString(staticData.type)
             .. " country="
             .. tostring(countryId)
             .. " name="
@@ -15502,15 +16521,20 @@ function GetTerrainHeight(position)
         _HarnessInternal.log.error("GetTerrainHeight requires Vec2 or Vec3", "GetTerrainHeight")
         return 0
     end
-    if type(land) ~= "table" or type(land.getHeight) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.getHeight) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("land.getHeight is unavailable", "GetTerrainHeight")
         return 0
     end
 
-    local success, height = pcall(land.getHeight, position2)
+    local success, height = pcall(function(...)
+        return land.getHeight(...)
+    end, position2)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get terrain height: " .. tostring(height),
+            "Failed to get terrain height: " .. _HarnessInternal.safeString(height),
             "GetTerrainHeight"
         )
         return 0
@@ -15559,9 +16583,14 @@ function HasLOS(from, to)
         return false
     end
 
-    local success, visible = pcall(land.isVisible, from, to)
+    local success, visible = pcall(function(...)
+        return land.isVisible(...)
+    end, from, to)
     if not success then
-        _HarnessInternal.log.error("Failed to check LOS: " .. tostring(visible), "HasLOS")
+        _HarnessInternal.log.error(
+            "Failed to check LOS: " .. _HarnessInternal.safeString(visible),
+            "HasLOS"
+        )
         return false
     end
 
@@ -15622,15 +16651,20 @@ function GetSurfaceType(position)
         _HarnessInternal.log.error("GetSurfaceType requires Vec2 or Vec3", "GetSurfaceType")
         return nil
     end
-    if type(land) ~= "table" or type(land.getSurfaceType) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.getSurfaceType) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("land.getSurfaceType is unavailable", "GetSurfaceType")
         return nil
     end
 
-    local success, surfaceType = pcall(land.getSurfaceType, position2)
+    local success, surfaceType = pcall(function(...)
+        return land.getSurfaceType(...)
+    end, position2)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get surface type: " .. tostring(surfaceType),
+            "Failed to get surface type: " .. _HarnessInternal.safeString(surfaceType),
             "GetSurfaceType"
         )
         return nil
@@ -15682,10 +16716,12 @@ function GetTerrainIntersection(origin, direction, maxDistance)
         return nil
     end
 
-    local success, intersection = pcall(land.getIP, origin, direction, maxDistance)
+    local success, intersection = pcall(function(...)
+        return land.getIP(...)
+    end, origin, direction, maxDistance)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get terrain intersection: " .. tostring(intersection),
+            "Failed to get terrain intersection: " .. _HarnessInternal.safeString(intersection),
             "GetTerrainIntersection"
         )
         return nil
@@ -15705,10 +16741,12 @@ function GetTerrainProfile(from, to)
         return {}
     end
 
-    local success, profile = pcall(land.profile, from, to)
+    local success, profile = pcall(function(...)
+        return land.profile(...)
+    end, from, to)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get terrain profile: " .. tostring(profile),
+            "Failed to get terrain profile: " .. _HarnessInternal.safeString(profile),
             "GetTerrainProfile"
         )
         return {}
@@ -15738,7 +16776,10 @@ function GetClosestRoadPoint(position, roadType)
         roadType = "railroads"
     end
 
-    if type(land) ~= "table" or type(land.getClosestPointOnRoads) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.getClosestPointOnRoads) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "land.getClosestPointOnRoads is unavailable",
             "GetClosestRoadPoint"
@@ -15746,10 +16787,12 @@ function GetClosestRoadPoint(position, roadType)
         return nil
     end
 
-    local success, r1, r2 = pcall(land.getClosestPointOnRoads, roadType, position2.x, position2.y)
+    local success, r1, r2 = pcall(function(...)
+        return land.getClosestPointOnRoads(...)
+    end, roadType, position2.x, position2.y)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get closest road point: " .. tostring(r1),
+            "Failed to get closest road point: " .. _HarnessInternal.safeString(r1),
             "GetClosestRoadPoint"
         )
         return nil
@@ -15785,15 +16828,22 @@ function FindRoadPath(from, to, roadType)
         roadType = "rails"
     end
 
-    if type(land) ~= "table" or type(land.findPathOnRoads) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.findPathOnRoads) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("land.findPathOnRoads is unavailable", "FindRoadPath")
         return {}
     end
 
-    local success, path =
-        pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.y, toVec2.x, toVec2.y)
+    local success, path = pcall(function(...)
+        return land.findPathOnRoads(...)
+    end, roadType, fromVec2.x, fromVec2.y, toVec2.x, toVec2.y)
     if not success then
-        _HarnessInternal.log.error("Failed to find road path: " .. tostring(path), "FindRoadPath")
+        _HarnessInternal.log.error(
+            "Failed to find road path: " .. _HarnessInternal.safeString(path),
+            "FindRoadPath"
+        )
         return {}
     end
 
@@ -15812,7 +16862,7 @@ function FindRoadPath(from, to, roadType)
             result[#result + 1] = pathPoint
         else
             _HarnessInternal.log.error(
-                "Road path point " .. tostring(index) .. " was invalid",
+                "Road path point " .. _HarnessInternal.safeString(index) .. " was invalid",
                 "FindRoadPath"
             )
         end
@@ -15902,10 +16952,12 @@ function OutText(text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result = pcall(trigger.action.outText, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outText(...)
+    end, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display text: " .. tostring(result),
+            "Failed to display text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutText"
         )
         return nil
@@ -15944,11 +16996,12 @@ function OutTextForCoalition(coalitionId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result =
-        pcall(trigger.action.outTextForCoalition, coalitionId, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForCoalition(...)
+    end, coalitionId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display coalition text: " .. tostring(result),
+            "Failed to display coalition text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutTextForCoalition"
         )
         return nil
@@ -15987,11 +17040,12 @@ function OutTextForGroup(groupId, text, displayTime, clearView)
 
     clearView = clearView or false
 
-    local success, result =
-        pcall(trigger.action.outTextForGroup, groupId, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForGroup(...)
+    end, groupId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display group text: " .. tostring(result),
+            "Failed to display group text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutTextForGroup"
         )
         return nil
@@ -16011,7 +17065,8 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
     local normalizedUnitId = TriggerInternal.normalizeUnitId(unitId)
     if not normalizedUnitId then
         _HarnessInternal.log.error(
-            "OutTextForUnit requires a positive integral unit ID: " .. tostring(unitId),
+            "OutTextForUnit requires a positive integral unit ID: "
+                .. _HarnessInternal.safeString(unitId),
             "Trigger.OutTextForUnit"
         )
         return nil
@@ -16043,11 +17098,12 @@ function OutTextForUnit(unitId, text, displayTime, clearView)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.outTextForUnit, normalizedUnitId, text, displayTime, clearView)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForUnit(...)
+    end, normalizedUnitId, text, displayTime, clearView)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to display unit text: " .. tostring(result),
+            "Failed to display unit text: " .. _HarnessInternal.safeString(result),
             "Trigger.OutTextForUnit"
         )
         return nil
@@ -16067,9 +17123,14 @@ function OutSound(soundFile, soundType)
         return nil
     end
 
-    local success, result = pcall(trigger.action.outSound, soundFile, soundType)
+    local success, result = pcall(function(...)
+        return trigger.action.outSound(...)
+    end, soundFile, soundType)
     if not success then
-        _HarnessInternal.log.error("Failed to play sound: " .. tostring(result), "Trigger.OutSound")
+        _HarnessInternal.log.error(
+            "Failed to play sound: " .. _HarnessInternal.safeString(result),
+            "Trigger.OutSound"
+        )
         return nil
     end
 
@@ -16099,11 +17160,12 @@ function OutSoundForCoalition(coalitionId, soundFile, soundType)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.outSoundForCoalition, coalitionId, soundFile, soundType)
+    local success, result = pcall(function(...)
+        return trigger.action.outSoundForCoalition(...)
+    end, coalitionId, soundFile, soundType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to play coalition sound: " .. tostring(result),
+            "Failed to play coalition sound: " .. _HarnessInternal.safeString(result),
             "Trigger.OutSoundForCoalition"
         )
         return nil
@@ -16131,10 +17193,12 @@ function Explosion(pos, power)
         return nil
     end
 
-    local success, result = pcall(trigger.action.explosion, pos, power)
+    local success, result = pcall(function(...)
+        return trigger.action.explosion(...)
+    end, pos, power)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create explosion: " .. tostring(result),
+            "Failed to create explosion: " .. _HarnessInternal.safeString(result),
             "Trigger.Explosion"
         )
         return nil
@@ -16161,9 +17225,14 @@ function Smoke(pos, smokeColor, density, name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.smoke, pos, smokeColor, density, name)
+    local success, result = pcall(function(...)
+        return trigger.action.smoke(...)
+    end, pos, smokeColor, density, name)
     if not success then
-        _HarnessInternal.log.error("Failed to create smoke: " .. tostring(result), "Trigger.Smoke")
+        _HarnessInternal.log.error(
+            "Failed to create smoke: " .. _HarnessInternal.safeString(result),
+            "Trigger.Smoke"
+        )
         return nil
     end
 
@@ -16194,10 +17263,12 @@ function EffectSmokeBig(pos, smokePreset, density, name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.effectSmokeBig, pos, smokePreset, density, name)
+    local success, result = pcall(function(...)
+        return trigger.action.effectSmokeBig(...)
+    end, pos, smokePreset, density, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create big smoke effect: " .. tostring(result),
+            "Failed to create big smoke effect: " .. _HarnessInternal.safeString(result),
             "Trigger.EffectSmokeBig"
         )
         return nil
@@ -16219,10 +17290,12 @@ function EffectSmokeStop(name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.effectSmokeStop, name)
+    local success, result = pcall(function(...)
+        return trigger.action.effectSmokeStop(...)
+    end, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to stop smoke effect: " .. tostring(result),
+            "Failed to stop smoke effect: " .. _HarnessInternal.safeString(result),
             "Trigger.EffectSmokeStop"
         )
         return nil
@@ -16249,10 +17322,12 @@ function IlluminationBomb(pos, power)
         power = 1000000
     end
 
-    local success, result = pcall(trigger.action.illuminationBomb, pos, power)
+    local success, result = pcall(function(...)
+        return trigger.action.illuminationBomb(...)
+    end, pos, power)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create illumination bomb: " .. tostring(result),
+            "Failed to create illumination bomb: " .. _HarnessInternal.safeString(result),
             "Trigger.IlluminationBomb"
         )
         return nil
@@ -16288,10 +17363,12 @@ function SignalFlare(pos, flareColor, azimuth)
         azimuth = 0
     end
 
-    local success, result = pcall(trigger.action.signalFlare, pos, flareColor, azimuth)
+    local success, result = pcall(function(...)
+        return trigger.action.signalFlare(...)
+    end, pos, flareColor, azimuth)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create signal flare: " .. tostring(result),
+            "Failed to create signal flare: " .. _HarnessInternal.safeString(result),
             "Trigger.SignalFlare"
         )
         return nil
@@ -16339,19 +17416,12 @@ function RadioTransmission(filename, pos, modulation, loop, frequency, power, na
         power = 100
     end
 
-    local success, result = pcall(
-        trigger.action.radioTransmission,
-        filename,
-        pos,
-        modulation,
-        loop,
-        frequency,
-        power,
-        name
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.radioTransmission(...)
+    end, filename, pos, modulation, loop, frequency, power, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to start radio transmission: " .. tostring(result),
+            "Failed to start radio transmission: " .. _HarnessInternal.safeString(result),
             "Trigger.RadioTransmission"
         )
         return nil
@@ -16373,10 +17443,12 @@ function StopRadioTransmission(name)
         return nil
     end
 
-    local success, result = pcall(trigger.action.stopRadioTransmission, name)
+    local success, result = pcall(function(...)
+        return trigger.action.stopRadioTransmission(...)
+    end, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to stop radio transmission: " .. tostring(result),
+            "Failed to stop radio transmission: " .. _HarnessInternal.safeString(result),
             "Trigger.StopRadioTransmission"
         )
         return nil
@@ -16407,10 +17479,12 @@ function SetMarkupRadius(markId, radius)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupRadius, markId, radius)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupRadius(...)
+    end, markId, radius)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup radius: " .. tostring(result),
+            "Failed to set markup radius: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupRadius"
         )
         return nil
@@ -16438,10 +17512,12 @@ function SetMarkupText(markId, text)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupText, markId, text)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupText(...)
+    end, markId, text)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup text: " .. tostring(result),
+            "Failed to set markup text: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupText"
         )
         return nil
@@ -16472,10 +17548,12 @@ function SetMarkupColor(markId, color)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupColor, markId, color)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupColor(...)
+    end, markId, color)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup color: " .. tostring(result),
+            "Failed to set markup color: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupColor"
         )
         return nil
@@ -16506,10 +17584,12 @@ function SetMarkupColorFill(markId, colorFill)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupColorFill, markId, colorFill)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupColorFill(...)
+    end, markId, colorFill)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup color fill: " .. tostring(result),
+            "Failed to set markup color fill: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupColorFill"
         )
         return nil
@@ -16540,10 +17620,12 @@ function SetMarkupFontSize(markId, fontSize)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setMarkupFontSize, markId, fontSize)
+    local success, result = pcall(function(...)
+        return trigger.action.setMarkupFontSize(...)
+    end, markId, fontSize)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set markup font size: " .. tostring(result),
+            "Failed to set markup font size: " .. _HarnessInternal.safeString(result),
             "Trigger.SetMarkupFontSize"
         )
         return nil
@@ -16562,10 +17644,12 @@ function RemoveMark(markId)
         return nil
     end
 
-    local success, result = pcall(trigger.action.removeMark, markId)
+    local success, result = pcall(function(...)
+        return trigger.action.removeMark(...)
+    end, markId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove mark: " .. tostring(result),
+            "Failed to remove mark: " .. _HarnessInternal.safeString(result),
             "Trigger.RemoveMark"
         )
         return nil
@@ -16600,10 +17684,12 @@ function MarkToAll(markId, text, pos, readOnly, message)
         return nil
     end
 
-    local success, result = pcall(trigger.action.markToAll, markId, text, pos, readOnly, message)
+    local success, result = pcall(function(...)
+        return trigger.action.markToAll(...)
+    end, markId, text, pos, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create mark for all: " .. tostring(result),
+            "Failed to create mark for all: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkToAll"
         )
         return nil
@@ -16650,11 +17736,12 @@ function MarkToCoalition(markId, text, pos, coalitionId, readOnly, message)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.markToCoalition, markId, text, pos, coalitionId, readOnly, message)
+    local success, result = pcall(function(...)
+        return trigger.action.markToCoalition(...)
+    end, markId, text, pos, coalitionId, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create mark for coalition: " .. tostring(result),
+            "Failed to create mark for coalition: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkToCoalition"
         )
         return nil
@@ -16695,11 +17782,12 @@ function MarkToGroup(markId, text, pos, groupId, readOnly, message)
         return nil
     end
 
-    local success, result =
-        pcall(trigger.action.markToGroup, markId, text, pos, groupId, readOnly, message)
+    local success, result = pcall(function(...)
+        return trigger.action.markToGroup(...)
+    end, markId, text, pos, groupId, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create mark for group: " .. tostring(result),
+            "Failed to create mark for group: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkToGroup"
         )
         return nil
@@ -16787,20 +17875,12 @@ function LineToAll(
 
     color = TriggerInternal.normalizeColor(color)
     local colorArr = TriggerInternal.toArrayColor(color)
-    local success, result = pcall(
-        trigger.action.lineToAll,
-        coalitionArg,
-        idArg,
-        startPos,
-        endPos,
-        colorArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.lineToAll(...)
+    end, coalitionArg, idArg, startPos, endPos, colorArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create line for all: " .. tostring(result),
+            "Failed to create line for all: " .. _HarnessInternal.safeString(result),
             "Trigger.LineToAll"
         )
         return nil
@@ -16883,21 +17963,12 @@ function CircleToAll(
     fillColor = TriggerInternal.defaultFill(color, fillColor)
     local colorArr = TriggerInternal.toArrayColor(color)
     local fillArr = TriggerInternal.toArrayColor(fillColor)
-    local success, result = pcall(
-        trigger.action.circleToAll,
-        coalitionArg,
-        idArg,
-        center,
-        radius,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.circleToAll(...)
+    end, coalitionArg, idArg, center, radius, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create circle for all: " .. tostring(result),
+            "Failed to create circle for all: " .. _HarnessInternal.safeString(result),
             "Trigger.CircleToAll"
         )
         return nil
@@ -16986,21 +18057,12 @@ function RectToAll(
 
     local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
     local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
-    local success, result = pcall(
-        trigger.action.rectToAll,
-        coalitionArg,
-        idArg,
-        startPos,
-        endPos,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.rectToAll(...)
+    end, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create rectangle for all: " .. tostring(result),
+            "Failed to create rectangle for all: " .. _HarnessInternal.safeString(result),
             "Trigger.RectToAll"
         )
         return nil
@@ -17099,23 +18161,12 @@ function QuadToAll(
 
     local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
     local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
-    local success, result = pcall(
-        trigger.action.quadToAll,
-        coalitionArg,
-        idArg,
-        p1,
-        p2,
-        p3,
-        p4,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.quadToAll(...)
+    end, coalitionArg, idArg, p1, p2, p3, p4, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create quad for all: " .. tostring(result),
+            "Failed to create quad for all: " .. _HarnessInternal.safeString(result),
             "Trigger.QuadToAll"
         )
         return nil
@@ -17199,20 +18250,12 @@ function TextToAll(
     local colorArr = TriggerInternal.toArrayColor(color)
     local fillArr = TriggerInternal.toArrayColor(fillColor)
     -- DCS expects (coalition, id, point, color, fillColor, fontSize, readOnly, text)
-    local success, result = pcall(
-        trigger.action.textToAll,
-        coalitionArg,
-        idArg,
-        pos,
-        colorArr,
-        fillArr,
-        fontSize,
-        readOnly,
-        text
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.textToAll(...)
+    end, coalitionArg, idArg, pos, colorArr, fillArr, fontSize, readOnly, text)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create text for all: " .. tostring(result),
+            "Failed to create text for all: " .. _HarnessInternal.safeString(result),
             "Trigger.TextToAll"
         )
         return nil
@@ -17301,21 +18344,12 @@ function ArrowToAll(
 
     local colorArr = TriggerInternal.toArrayColor(color or { 1, 1, 1, 1 })
     local fillArr = TriggerInternal.toArrayColor(fillColor or { 1, 1, 1, 0.25 })
-    local success, result = pcall(
-        trigger.action.arrowToAll,
-        coalitionArg,
-        idArg,
-        startPos,
-        endPos,
-        colorArr,
-        fillArr,
-        lineType,
-        readOnly,
-        message
-    )
+    local success, result = pcall(function(...)
+        return trigger.action.arrowToAll(...)
+    end, coalitionArg, idArg, startPos, endPos, colorArr, fillArr, lineType, readOnly, message)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create arrow for all: " .. tostring(result),
+            "Failed to create arrow for all: " .. _HarnessInternal.safeString(result),
             "Trigger.ArrowToAll"
         )
         return nil
@@ -17340,10 +18374,12 @@ function SetAITask(group, actionIndex)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setAITask, group, actionIndex)
+    local success, result = pcall(function(...)
+        return trigger.action.setAITask(...)
+    end, group, actionIndex)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set AI task: " .. tostring(result),
+            "Failed to set AI task: " .. _HarnessInternal.safeString(result),
             "Trigger.SetAITask"
         )
         return nil
@@ -17368,10 +18404,12 @@ function PushAITask(group, actionIndex)
         return nil
     end
 
-    local success, result = pcall(trigger.action.pushAITask, group, actionIndex)
+    local success, result = pcall(function(...)
+        return trigger.action.pushAITask(...)
+    end, group, actionIndex)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to push AI task: " .. tostring(result),
+            "Failed to push AI task: " .. _HarnessInternal.safeString(result),
             "Trigger.PushAITask"
         )
         return nil
@@ -17393,10 +18431,12 @@ function TriggerActivateGroup(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.activateGroup, group)
+    local success, result = pcall(function(...)
+        return trigger.action.activateGroup(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to activate group: " .. tostring(result),
+            "Failed to activate group: " .. _HarnessInternal.safeString(result),
             "Trigger.TriggerActivateGroup"
         )
         return nil
@@ -17418,10 +18458,12 @@ function TriggerDeactivateGroup(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.deactivateGroup, group)
+    local success, result = pcall(function(...)
+        return trigger.action.deactivateGroup(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to deactivate group: " .. tostring(result),
+            "Failed to deactivate group: " .. _HarnessInternal.safeString(result),
             "Trigger.TriggerDeactivateGroup"
         )
         return nil
@@ -17440,10 +18482,12 @@ function SetGroupAIOn(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setGroupAIOn, group)
+    local success, result = pcall(function(...)
+        return trigger.action.setGroupAIOn(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set group AI on: " .. tostring(result),
+            "Failed to set group AI on: " .. _HarnessInternal.safeString(result),
             "Trigger.SetGroupAIOn"
         )
         return nil
@@ -17462,10 +18506,12 @@ function SetGroupAIOff(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.setGroupAIOff, group)
+    local success, result = pcall(function(...)
+        return trigger.action.setGroupAIOff(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set group AI off: " .. tostring(result),
+            "Failed to set group AI off: " .. _HarnessInternal.safeString(result),
             "Trigger.SetGroupAIOff"
         )
         return nil
@@ -17487,10 +18533,12 @@ function GroupStopMoving(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.groupStopMoving, group)
+    local success, result = pcall(function(...)
+        return trigger.action.groupStopMoving(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to stop group moving: " .. tostring(result),
+            "Failed to stop group moving: " .. _HarnessInternal.safeString(result),
             "Trigger.GroupStopMoving"
         )
         return nil
@@ -17512,10 +18560,12 @@ function GroupContinueMoving(group)
         return nil
     end
 
-    local success, result = pcall(trigger.action.groupContinueMoving, group)
+    local success, result = pcall(function(...)
+        return trigger.action.groupContinueMoving(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to continue group moving: " .. tostring(result),
+            "Failed to continue group moving: " .. _HarnessInternal.safeString(result),
             "Trigger.GroupContinueMoving"
         )
         return nil
@@ -17579,7 +18629,7 @@ function MarkupToAll(shapeId, coalition, id, point1, ...)
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create markup shape: " .. tostring(result),
+            "Failed to create markup shape: " .. _HarnessInternal.safeString(result),
             "Trigger.MarkupToAll"
         )
         return nil
@@ -17615,32 +18665,12 @@ _HarnessInternal.cache.stats = _HarnessInternal.cache.stats
 
 local UnitInternal = {}
 
-function UnitInternal.isFiniteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
-
-function UnitInternal.validVector(vector)
-    return type(vector) == "table"
-        and type(vector.x) == "number"
-        and vector.x == vector.x
-        and vector.x > -math.huge
-        and vector.x < math.huge
-        and type(vector.y) == "number"
-        and vector.y == vector.y
-        and vector.y > -math.huge
-        and vector.y < math.huge
-        and type(vector.z) == "number"
-        and vector.z == vector.z
-        and vector.z > -math.huge
-        and vector.z < math.huge
-end
-
 function UnitInternal.isCompletePosition3(value)
     return type(value) == "table"
-        and UnitInternal.validVector(value.p)
-        and UnitInternal.validVector(value.x)
-        and UnitInternal.validVector(value.y)
-        and UnitInternal.validVector(value.z)
+        and IsFiniteVec3(value.p)
+        and IsFiniteVec3(value.x)
+        and IsFiniteVec3(value.y)
+        and IsFiniteVec3(value.z)
 end
 
 function UnitInternal.normalizeId(value)
@@ -17676,10 +18706,12 @@ function UnitInternal.resolve(unitOrName, requiredMethod, caller)
 end
 
 function UnitInternal.readPosition3(unit, caller)
-    local success, position3 = pcall(unit.getPosition, unit)
+    local success, position3 = pcall(function(...)
+        return unit.getPosition(...)
+    end, unit)
     if not success or not UnitInternal.isCompletePosition3(position3) then
         _HarnessInternal.log.error(
-            "Failed to get complete unit Position3: " .. tostring(position3),
+            "Failed to get complete unit Position3: " .. _HarnessInternal.safeString(position3),
             caller
         )
         return nil
@@ -17732,9 +18764,14 @@ function GetUnit(unitName)
     end
 
     -- Get from DCS API
-    local success, unit = pcall(Unit.getByName, unitName)
+    local success, unit = pcall(function(...)
+        return Unit.getByName(...)
+    end, unitName)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit: " .. tostring(unit), "GetUnit")
+        _HarnessInternal.log.error(
+            "Failed to get unit: " .. _HarnessInternal.safeString(unit),
+            "GetUnit"
+        )
         return nil
     end
 
@@ -17760,10 +18797,12 @@ function UnitExists(unitName)
         return false
     end
 
-    local success, exists = pcall(unit.isExist, unit)
+    local success, exists = pcall(function(...)
+        return unit.isExist(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check unit existence: " .. tostring(exists),
+            "Failed to check unit existence: " .. _HarnessInternal.safeString(exists),
             "UnitExists"
         )
         return false
@@ -17866,10 +18905,12 @@ function GetUnitVelocity(unitOrName)
         return nil
     end
 
-    local success, velocity = pcall(unit.getVelocity, unit)
-    if not success or not UnitInternal.validVector(velocity) then
+    local success, velocity = pcall(function(...)
+        return unit.getVelocity(...)
+    end, unit)
+    if not success or not IsFiniteVec3(velocity) then
         _HarnessInternal.log.error(
-            "Failed to get unit velocity: " .. tostring(velocity),
+            "Failed to get unit velocity: " .. _HarnessInternal.safeString(velocity),
             "GetUnitVelocity"
         )
         return nil
@@ -17956,9 +18997,14 @@ function GetUnitType(unitName)
         return nil
     end
 
-    local success, typeName = pcall(unit.getTypeName, unit)
+    local success, typeName = pcall(function(...)
+        return unit.getTypeName(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit type: " .. tostring(typeName), "GetUnitType")
+        _HarnessInternal.log.error(
+            "Failed to get unit type: " .. _HarnessInternal.safeString(typeName),
+            "GetUnitType"
+        )
         return nil
     end
 
@@ -17978,7 +19024,7 @@ function GetUnitCoalition(unitOrName)
         if not unit then
             return 0 -- Return 0 instead of nil for consistency
         end
-    elseif type(unitOrName) == "table" and unitOrName.getCoalition then
+    elseif type(unitOrName) == "table" then
         unit = unitOrName
     else
         _HarnessInternal.log.error(
@@ -17988,10 +19034,12 @@ function GetUnitCoalition(unitOrName)
         return 0
     end
 
-    local success, coalition = pcall(unit.getCoalition, unit)
+    local success, coalition = pcall(function(...)
+        return unit.getCoalition(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit coalition: " .. tostring(coalition),
+            "Failed to get unit coalition: " .. _HarnessInternal.safeString(coalition),
             "GetUnitCoalition"
         )
         return 0
@@ -18010,10 +19058,12 @@ function GetUnitCountry(unitName)
         return nil
     end
 
-    local success, country = pcall(unit.getCountry, unit)
+    local success, country = pcall(function(...)
+        return unit.getCountry(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit country: " .. tostring(country),
+            "Failed to get unit country: " .. _HarnessInternal.safeString(country),
             "GetUnitCountry"
         )
         return nil
@@ -18032,9 +19082,14 @@ function GetUnitGroup(unitName)
         return nil
     end
 
-    local success, group = pcall(unit.getGroup, unit)
+    local success, group = pcall(function(...)
+        return unit.getGroup(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit group: " .. tostring(group), "GetUnitGroup")
+        _HarnessInternal.log.error(
+            "Failed to get unit group: " .. _HarnessInternal.safeString(group),
+            "GetUnitGroup"
+        )
         return nil
     end
 
@@ -18051,10 +19106,12 @@ function GetUnitPlayerName(unitName)
         return nil
     end
 
-    local success, playerName = pcall(unit.getPlayerName, unit)
+    local success, playerName = pcall(function(...)
+        return unit.getPlayerName(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit player name: " .. tostring(playerName),
+            "Failed to get unit player name: " .. _HarnessInternal.safeString(playerName),
             "GetUnitPlayerName"
         )
         return nil
@@ -18088,7 +19145,7 @@ function GetUnitHealth(unitName)
         _HarnessInternal.log.error("Failed to get unit health", "GetUnitHealth")
         return nil
     end
-    if not UnitInternal.isFiniteNumber(currentLife) or currentLife < 0 then
+    if not IsFiniteNumber(currentLife) or currentLife < 0 then
         _HarnessInternal.log.error("Invalid unit current life", "GetUnitHealth")
         return nil
     end
@@ -18097,7 +19154,7 @@ function GetUnitHealth(unitName)
         CurrentLife = currentLife,
         IsAlive = currentLife > 0,
     }
-    if UnitInternal.isFiniteNumber(initialLife) and initialLife > 0 then
+    if IsFiniteNumber(initialLife) and initialLife > 0 then
         health.InitialLife = initialLife
         health.IsDamaged = health.IsAlive and currentLife < initialLife
     end
@@ -18114,9 +19171,14 @@ function GetUnitLife(unitName)
         return nil
     end
 
-    local success, life = pcall(unit.getLife, unit)
+    local success, life = pcall(function(...)
+        return unit.getLife(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit life: " .. tostring(life), "GetUnitLife")
+        _HarnessInternal.log.error(
+            "Failed to get unit life: " .. _HarnessInternal.safeString(life),
+            "GetUnitLife"
+        )
         return nil
     end
 
@@ -18133,10 +19195,12 @@ function GetUnitLife0(unitName)
         return nil
     end
 
-    local success, life0 = pcall(unit.getLife0, unit)
+    local success, life0 = pcall(function(...)
+        return unit.getLife0(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit max life: " .. tostring(life0),
+            "Failed to get unit max life: " .. _HarnessInternal.safeString(life0),
             "GetUnitLife0"
         )
         return nil
@@ -18155,9 +19219,14 @@ function GetUnitFuel(unitName)
         return nil
     end
 
-    local success, fuel = pcall(unit.getFuel, unit)
+    local success, fuel = pcall(function(...)
+        return unit.getFuel(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit fuel: " .. tostring(fuel), "GetUnitFuel")
+        _HarnessInternal.log.error(
+            "Failed to get unit fuel: " .. _HarnessInternal.safeString(fuel),
+            "GetUnitFuel"
+        )
         return nil
     end
 
@@ -18174,10 +19243,12 @@ function IsUnitInAir(unitName)
         return false
     end
 
-    local success, inAir = pcall(unit.inAir, unit)
+    local success, inAir = pcall(function(...)
+        return unit.inAir(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check if unit in air: " .. tostring(inAir),
+            "Failed to check if unit in air: " .. _HarnessInternal.safeString(inAir),
             "IsUnitInAir"
         )
         return false
@@ -18196,9 +19267,14 @@ function GetUnitAmmo(unitName)
         return nil
     end
 
-    local success, ammo = pcall(unit.getAmmo, unit)
+    local success, ammo = pcall(function(...)
+        return unit.getAmmo(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit ammo: " .. tostring(ammo), "GetUnitAmmo")
+        _HarnessInternal.log.error(
+            "Failed to get unit ammo: " .. _HarnessInternal.safeString(ammo),
+            "GetUnitAmmo"
+        )
         return nil
     end
 
@@ -18216,14 +19292,22 @@ function GetUnitID(unitOrName)
     if not unit then
         return nil
     end
-    local success, id = pcall(unit.getID, unit)
+    local success, id = pcall(function(...)
+        return unit.getID(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit ID: " .. tostring(id), "GetUnitID")
+        _HarnessInternal.log.error(
+            "Failed to get unit ID: " .. _HarnessInternal.safeString(id),
+            "GetUnitID"
+        )
         return nil
     end
     local normalized = UnitInternal.normalizeId(id)
     if not normalized then
-        _HarnessInternal.log.error("Invalid unit ID: " .. tostring(id), "GetUnitID")
+        _HarnessInternal.log.error(
+            "Invalid unit ID: " .. _HarnessInternal.safeString(id),
+            "GetUnitID"
+        )
         return nil
     end
     return normalized
@@ -18244,7 +19328,7 @@ function GetUnitNumber(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit number: " .. tostring(number),
+            "Failed to get unit number: " .. _HarnessInternal.safeString(number),
             "GetUnitNumber"
         )
         return nil
@@ -18268,7 +19352,7 @@ function GetUnitCallsign(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit callsign: " .. tostring(callsign),
+            "Failed to get unit callsign: " .. _HarnessInternal.safeString(callsign),
             "GetUnitCallsign"
         )
         return nil
@@ -18292,7 +19376,7 @@ function GetUnitObjectID(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit object ID: " .. tostring(objectId),
+            "Failed to get unit object ID: " .. _HarnessInternal.safeString(objectId),
             "GetUnitObjectID"
         )
         return nil
@@ -18316,7 +19400,7 @@ function GetUnitCategoryEx(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit category ex: " .. tostring(category),
+            "Failed to get unit category ex: " .. _HarnessInternal.safeString(category),
             "GetUnitCategoryEx"
         )
         return nil
@@ -18339,7 +19423,10 @@ function GetUnitDesc(unit)
         return unit:getDesc()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit desc: " .. tostring(desc), "GetUnitDesc")
+        _HarnessInternal.log.error(
+            "Failed to get unit desc: " .. _HarnessInternal.safeString(desc),
+            "GetUnitDesc"
+        )
         return nil
     end
 
@@ -18361,7 +19448,7 @@ function GetUnitForcesName(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit forces name: " .. tostring(forcesName),
+            "Failed to get unit forces name: " .. _HarnessInternal.safeString(forcesName),
             "GetUnitForcesName"
         )
         return nil
@@ -18385,7 +19472,7 @@ function IsUnitActive(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check unit active: " .. tostring(active),
+            "Failed to check unit active: " .. _HarnessInternal.safeString(active),
             "IsUnitActive"
         )
         return false
@@ -18426,7 +19513,7 @@ function GetUnitController(unit)
     end)
     if not ok_get_controller then
         _HarnessInternal.log.error(
-            "Failed to get unit controller: " .. tostring(controller),
+            "Failed to get unit controller: " .. _HarnessInternal.safeString(controller),
             "GetUnitController"
         )
         return nil
@@ -18497,6 +19584,34 @@ end
 
 -- Sensor Functions
 
+--- Read the air-detection ranges listed for one sensor.
+--- Keeps both ranges when available, so your mission can choose which to use.
+--- The result has upperHeadOn and/or maximal fields, measured in meters.
+--- Missing ranges, zero, negative values, NaN, and infinity are left out.
+---@param sensor any One sensor entry from GetUnitSensors.
+---@return table? ranges A new table of ranges, or nil if neither range is usable.
+---@usage local ranges = ReadSensorAirDetectionRanges(sensor)
+function ReadSensorAirDetectionRanges(sensor)
+    if type(sensor) ~= "table" then
+        return nil
+    end
+    local air = sensor.detectionDistanceAir
+    local upper = type(air) == "table" and air.upperHemisphere
+    local headOn = type(upper) == "table" and upper.headOn
+    local maximal = sensor.detectionDistanceMaximal
+    local ranges = {}
+    if IsFiniteNumber(headOn) and headOn > 0 then
+        ranges.upperHeadOn = headOn
+    end
+    if IsFiniteNumber(maximal) and maximal > 0 then
+        ranges.maximal = maximal
+    end
+    if next(ranges) then
+        return ranges
+    end
+    return nil
+end
+
 --- Get unit sensors
 ---@param unit table Unit object
 ---@return table? sensors Sensors table or nil on error
@@ -18512,7 +19627,7 @@ function GetUnitSensors(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit sensors: " .. tostring(sensors),
+            "Failed to get unit sensors: " .. _HarnessInternal.safeString(sensors),
             "GetUnitSensors"
         )
         return nil
@@ -18538,7 +19653,7 @@ function UnitHasSensors(unit, sensorType, subCategory)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check unit sensors: " .. tostring(hasSensors),
+            "Failed to check unit sensors: " .. _HarnessInternal.safeString(hasSensors),
             "UnitHasSensors"
         )
         return false
@@ -18562,7 +19677,10 @@ function GetUnitRadar(unit)
         return unit:getRadar()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit radar: " .. tostring(active), "GetUnitRadar")
+        _HarnessInternal.log.error(
+            "Failed to get unit radar: " .. _HarnessInternal.safeString(active),
+            "GetUnitRadar"
+        )
         return false, nil
     end
 
@@ -18593,13 +19711,16 @@ function EnableUnitEmissions(unit, enabled)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set unit emissions: " .. tostring(result),
+            "Failed to set unit emissions: " .. _HarnessInternal.safeString(result),
             "EnableUnitEmissions"
         )
         return false
     end
 
-    _HarnessInternal.log.info("Set unit emissions: " .. tostring(enabled), "EnableUnitEmissions")
+    _HarnessInternal.log.info(
+        "Set unit emissions: " .. _HarnessInternal.safeString(enabled),
+        "EnableUnitEmissions"
+    )
     return true
 end
 
@@ -18620,7 +19741,7 @@ function GetUnitNearestCargos(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get nearest cargos: " .. tostring(cargos),
+            "Failed to get nearest cargos: " .. _HarnessInternal.safeString(cargos),
             "GetUnitNearestCargos"
         )
         return {}
@@ -18644,7 +19765,7 @@ function GetUnitCargosOnBoard(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get cargos on board: " .. tostring(cargos),
+            "Failed to get cargos on board: " .. _HarnessInternal.safeString(cargos),
             "GetUnitCargosOnBoard"
         )
         return {}
@@ -18668,7 +19789,7 @@ function GetUnitDescentCapacity(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get descent capacity: " .. tostring(capacity),
+            "Failed to get descent capacity: " .. _HarnessInternal.safeString(capacity),
             "GetUnitDescentCapacity"
         )
         return nil
@@ -18692,7 +19813,7 @@ function GetUnitDescentOnBoard(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get descent on board: " .. tostring(troops),
+            "Failed to get descent on board: " .. _HarnessInternal.safeString(troops),
             "GetUnitDescentOnBoard"
         )
         return nil
@@ -18721,7 +19842,10 @@ function LoadUnitCargo(unit, cargo)
         unit:LoadOnBoard(cargo)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to load cargo: " .. tostring(result), "LoadUnitCargo")
+        _HarnessInternal.log.error(
+            "Failed to load cargo: " .. _HarnessInternal.safeString(result),
+            "LoadUnitCargo"
+        )
         return false
     end
 
@@ -18745,7 +19869,7 @@ function UnloadUnitCargo(unit, cargo)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to unload cargo: " .. tostring(result),
+            "Failed to unload cargo: " .. _HarnessInternal.safeString(result),
             "UnloadUnitCargo"
         )
         return false
@@ -18769,7 +19893,10 @@ function OpenUnitRamp(unit)
         unit:openRamp()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to open ramp: " .. tostring(result), "OpenUnitRamp")
+        _HarnessInternal.log.error(
+            "Failed to open ramp: " .. _HarnessInternal.safeString(result),
+            "OpenUnitRamp"
+        )
         return false
     end
 
@@ -18792,7 +19919,7 @@ function CheckUnitRampOpen(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check ramp: " .. tostring(isOpen),
+            "Failed to check ramp: " .. _HarnessInternal.safeString(isOpen),
             "CheckUnitRampOpen"
         )
         return nil
@@ -18815,7 +19942,10 @@ function DisembarkUnit(unit)
         unit:disembarking()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to disembark: " .. tostring(result), "DisembarkUnit")
+        _HarnessInternal.log.error(
+            "Failed to disembark: " .. _HarnessInternal.safeString(result),
+            "DisembarkUnit"
+        )
         return false
     end
 
@@ -18841,7 +19971,7 @@ function MarkUnitDisembarkingTask(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to mark disembarking: " .. tostring(result),
+            "Failed to mark disembarking: " .. _HarnessInternal.safeString(result),
             "MarkUnitDisembarkingTask"
         )
         return false
@@ -18865,7 +19995,7 @@ function IsUnitEmbarking(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check embarking: " .. tostring(embarking),
+            "Failed to check embarking: " .. _HarnessInternal.safeString(embarking),
             "IsUnitEmbarking"
         )
         return nil
@@ -18891,7 +20021,7 @@ function GetUnitAirbase(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit airbase: " .. tostring(airbase),
+            "Failed to get unit airbase: " .. _HarnessInternal.safeString(airbase),
             "GetUnitAirbase"
         )
         return nil
@@ -18915,7 +20045,7 @@ function UnitCanShipLanding(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check ship landing: " .. tostring(canLand),
+            "Failed to check ship landing: " .. _HarnessInternal.safeString(canLand),
             "UnitCanShipLanding"
         )
         return nil
@@ -18939,7 +20069,7 @@ function UnitHasCarrier(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check carrier: " .. tostring(hasCarrier),
+            "Failed to check carrier: " .. _HarnessInternal.safeString(hasCarrier),
             "UnitHasCarrier"
         )
         return nil
@@ -18995,7 +20125,7 @@ function GetUnitNearestCargosForAircraft(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get aircraft cargos: " .. tostring(cargos),
+            "Failed to get aircraft cargos: " .. _HarnessInternal.safeString(cargos),
             "GetUnitNearestCargosForAircraft"
         )
         return {}
@@ -19019,7 +20149,7 @@ function GetUnitFuelLowState(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get fuel low state: " .. tostring(threshold),
+            "Failed to get fuel low state: " .. _HarnessInternal.safeString(threshold),
             "GetUnitFuelLowState"
         )
         return nil
@@ -19043,7 +20173,7 @@ function ShowUnitCarrierMenu(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to show carrier menu: " .. tostring(result),
+            "Failed to show carrier menu: " .. _HarnessInternal.safeString(result),
             "ShowUnitCarrierMenu"
         )
         return false
@@ -19062,7 +20192,7 @@ end
 function GetUnitDrawArgument(unitOrName, arg)
     if type(arg) ~= "number" or arg ~= arg or arg < 0 or arg >= math.huge or arg % 1 ~= 0 then
         _HarnessInternal.log.error(
-            "Invalid draw argument ID: " .. tostring(arg),
+            "Invalid draw argument ID: " .. _HarnessInternal.safeString(arg),
             "GetUnitDrawArgument"
         )
         return nil
@@ -19114,7 +20244,7 @@ function GetUnitDrawArguments(unitOrName, argumentIds)
             or argumentId % 1 ~= 0
         then
             _HarnessInternal.log.error(
-                "Invalid draw argument ID: " .. tostring(argumentId),
+                "Invalid draw argument ID: " .. _HarnessInternal.safeString(argumentId),
                 "GetUnitDrawArguments"
             )
             return nil, false
@@ -19124,19 +20254,18 @@ function GetUnitDrawArguments(unitOrName, argumentIds)
     local values = {}
     local complete = true
     for _, argumentId in ipairs(argumentIds) do
-        local success, value = pcall(unit.getDrawArgumentValue, unit, argumentId)
-        if
-            success
-            and type(value) == "number"
-            and value == value
-            and value > -math.huge
-            and value < math.huge
-        then
+        local success, value = pcall(function(...)
+            return unit.getDrawArgumentValue(...)
+        end, unit, argumentId)
+        if success and IsFiniteNumber(value) then
             values[argumentId] = value
         else
             complete = false
             _HarnessInternal.log.error(
-                "Failed draw argument " .. tostring(argumentId) .. ": " .. tostring(value),
+                "Failed draw argument "
+                    .. _HarnessInternal.safeString(argumentId)
+                    .. ": "
+                    .. _HarnessInternal.safeString(value),
                 "GetUnitDrawArguments"
             )
         end
@@ -19159,7 +20288,7 @@ function GetUnitCommunicator(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get communicator: " .. tostring(communicator),
+            "Failed to get communicator: " .. _HarnessInternal.safeString(communicator),
             "GetUnitCommunicator"
         )
         return nil
@@ -19182,7 +20311,10 @@ function GetUnitSeats(unit)
         return unit:getSeats()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get seats: " .. tostring(seats), "GetUnitSeats")
+        _HarnessInternal.log.error(
+            "Failed to get seats: " .. _HarnessInternal.safeString(seats),
+            "GetUnitSeats"
+        )
         return nil
     end
 
@@ -19811,10 +20943,12 @@ function GetWeaponTypeName(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getTypeName, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getTypeName(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon type name: " .. tostring(result),
+            "Failed to get weapon type name: " .. _HarnessInternal.safeString(result),
             "Weapon.GetTypeName"
         )
         return nil
@@ -19833,10 +20967,12 @@ function GetWeaponDesc(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getDesc, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getDesc(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon description: " .. tostring(result),
+            "Failed to get weapon description: " .. _HarnessInternal.safeString(result),
             "Weapon.GetDesc"
         )
         return nil
@@ -19855,10 +20991,12 @@ function GetWeaponLauncher(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getLauncher, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getLauncher(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon launcher: " .. tostring(result),
+            "Failed to get weapon launcher: " .. _HarnessInternal.safeString(result),
             "Weapon.GetLauncher"
         )
         return nil
@@ -19877,10 +21015,12 @@ function GetWeaponTarget(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getTarget, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getTarget(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon target: " .. tostring(result),
+            "Failed to get weapon target: " .. _HarnessInternal.safeString(result),
             "Weapon.GetTarget"
         )
         return nil
@@ -19899,10 +21039,12 @@ function GetWeaponCategory(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getCategory, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getCategory(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon category: " .. tostring(result),
+            "Failed to get weapon category: " .. _HarnessInternal.safeString(result),
             "Weapon.GetCategory"
         )
         return nil
@@ -19921,10 +21063,12 @@ function IsWeaponExist(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.isExist, weapon)
+    local success, result = pcall(function(...)
+        return weapon.isExist(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check weapon existence: " .. tostring(result),
+            "Failed to check weapon existence: " .. _HarnessInternal.safeString(result),
             "Weapon.IsExist"
         )
         return nil
@@ -19946,10 +21090,12 @@ function GetWeaponCoalition(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getCoalition, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getCoalition(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon coalition: " .. tostring(result),
+            "Failed to get weapon coalition: " .. _HarnessInternal.safeString(result),
             "Weapon.GetCoalition"
         )
         return nil
@@ -19968,10 +21114,12 @@ function GetWeaponCountry(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getCountry, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getCountry(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon country: " .. tostring(result),
+            "Failed to get weapon country: " .. _HarnessInternal.safeString(result),
             "Weapon.GetCountry"
         )
         return nil
@@ -19990,10 +21138,12 @@ function GetWeaponPoint(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getPoint, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getPoint(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon point: " .. tostring(result),
+            "Failed to get weapon point: " .. _HarnessInternal.safeString(result),
             "Weapon.GetPoint"
         )
         return nil
@@ -20012,10 +21162,12 @@ function GetWeaponPosition(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getPosition, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getPosition(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon position: " .. tostring(result),
+            "Failed to get weapon position: " .. _HarnessInternal.safeString(result),
             "Weapon.GetPosition"
         )
         return nil
@@ -20034,10 +21186,12 @@ function GetWeaponVelocity(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getVelocity, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getVelocity(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon velocity: " .. tostring(result),
+            "Failed to get weapon velocity: " .. _HarnessInternal.safeString(result),
             "Weapon.GetVelocity"
         )
         return nil
@@ -20056,10 +21210,12 @@ function GetWeaponName(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getName, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getName(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon name: " .. tostring(result),
+            "Failed to get weapon name: " .. _HarnessInternal.safeString(result),
             "Weapon.GetName"
         )
         return nil
@@ -20078,10 +21234,12 @@ function DestroyWeapon(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.destroy, weapon)
+    local success, result = pcall(function(...)
+        return weapon.destroy(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to destroy weapon: " .. tostring(result),
+            "Failed to destroy weapon: " .. _HarnessInternal.safeString(result),
             "Weapon.Destroy"
         )
         return nil
@@ -20103,10 +21261,12 @@ function GetWeaponCategoryName(weapon)
         return nil
     end
 
-    local success, result = pcall(weapon.getCategoryName, weapon)
+    local success, result = pcall(function(...)
+        return weapon.getCategoryName(...)
+    end, weapon)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get weapon category name: " .. tostring(result),
+            "Failed to get weapon category name: " .. _HarnessInternal.safeString(result),
             "Weapon.GetCategoryName"
         )
         return nil
@@ -20127,11 +21287,21 @@ function IsWeaponActive(weapon)
 
     -- Some DCS builds do not expose weapon.isActive; prefer it when present,
     -- otherwise fall back to existence as a proxy for activity to avoid errors.
-    if type(weapon.isActive) == "function" then
-        local success, result = pcall(weapon.isActive, weapon)
+    local lookupOk, isActive = pcall(function()
+        return weapon.isActive
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve weapon activity: " .. _HarnessInternal.safeString(isActive),
+            "Weapon.IsActive"
+        )
+        return nil
+    end
+    if type(isActive) == "function" then
+        local success, result = pcall(isActive, weapon)
         if not success then
             _HarnessInternal.log.error(
-                "Failed to check if weapon is active: " .. tostring(result),
+                "Failed to check if weapon is active: " .. _HarnessInternal.safeString(result),
                 "Weapon.IsActive"
             )
             return nil
@@ -20139,10 +21309,13 @@ function IsWeaponActive(weapon)
         return result
     end
 
-    local okExist, exists = pcall(weapon.isExist, weapon)
+    local okExist, exists = pcall(function(...)
+        return weapon.isExist(...)
+    end, weapon)
     if not okExist then
         _HarnessInternal.log.error(
-            "Failed to check weapon existence as activity proxy: " .. tostring(exists),
+            "Failed to check weapon existence as activity proxy: "
+                .. _HarnessInternal.safeString(exists),
             "Weapon.IsActive"
         )
         return nil
@@ -20182,10 +21355,12 @@ function AddWorldEventHandler(handler)
         return nil
     end
 
-    local success, result = pcall(world.addEventHandler, handler)
+    local success, result = pcall(function(...)
+        return world.addEventHandler(...)
+    end, handler)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add event handler: " .. tostring(result),
+            "Failed to add event handler: " .. _HarnessInternal.safeString(result),
             "World.AddEventHandler"
         )
         return nil
@@ -20207,10 +21382,12 @@ function RemoveWorldEventHandler(handler)
         return nil
     end
 
-    local success, result = pcall(world.removeEventHandler, handler)
+    local success, result = pcall(function(...)
+        return world.removeEventHandler(...)
+    end, handler)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove event handler: " .. tostring(result),
+            "Failed to remove event handler: " .. _HarnessInternal.safeString(result),
             "World.RemoveEventHandler"
         )
         return nil
@@ -20223,9 +21400,14 @@ end
 ---@return table? player The player unit object or nil if not found
 ---@usage local player = GetWorldPlayer()
 function GetWorldPlayer()
-    local success, result = pcall(world.getPlayer)
+    local success, result = pcall(function()
+        return world.getPlayer()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get player: " .. tostring(result), "World.GetPlayer")
+        _HarnessInternal.log.error(
+            "Failed to get player: " .. _HarnessInternal.safeString(result),
+            "World.GetPlayer"
+        )
         return nil
     end
 
@@ -20236,10 +21418,12 @@ end
 ---@return table? airbases Array of airbase objects or nil on error
 ---@usage local airbases = GetWorldAirbases()
 function GetWorldAirbases()
-    local success, result = pcall(world.getAirbases)
+    local success, result = pcall(function()
+        return world.getAirbases()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get world airbases: " .. tostring(result),
+            "Failed to get world airbases: " .. _HarnessInternal.safeString(result),
             "World.GetAirbases"
         )
         return nil
@@ -20273,9 +21457,9 @@ function GetWorldEventUnit(event)
             end
             _HarnessInternal.log.error(
                 "Failed to resolve event unit candidate "
-                    .. tostring(index)
+                    .. _HarnessInternal.safeString(index)
                     .. ": "
-                    .. tostring(name),
+                    .. _HarnessInternal.safeString(name),
                 "World.GetWorldEventUnit"
             )
         end
@@ -20306,10 +21490,12 @@ function SearchWorldObjects(category, volume, objectFilter)
         return nil
     end
 
-    local success, result = pcall(world.searchObjects, category, volume, objectFilter)
+    local success, result = pcall(function(...)
+        return world.searchObjects(...)
+    end, category, volume, objectFilter)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to search world objects: " .. tostring(result),
+            "Failed to search world objects: " .. _HarnessInternal.safeString(result),
             "World.SearchObjects"
         )
         return nil
@@ -20322,10 +21508,12 @@ end
 ---@return table? panels Array of mark panel objects or nil on error
 ---@usage local panels = getMarkPanels()
 function GetMarkPanels()
-    local success, result = pcall(world.getMarkPanels)
+    local success, result = pcall(function()
+        return world.getMarkPanels()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get mark panels: " .. tostring(result),
+            "Failed to get mark panels: " .. _HarnessInternal.safeString(result),
             "World.GetMarkPanels"
         )
         return nil
@@ -20344,10 +21532,12 @@ function OnWorldEvent(event)
         return nil
     end
 
-    local success, result = pcall(world.onEvent, event)
+    local success, result = pcall(function(...)
+        return world.onEvent(...)
+    end, event)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to process world event: " .. tostring(result),
+            "Failed to process world event: " .. _HarnessInternal.safeString(result),
             "World.OnEvent"
         )
         return nil
@@ -20360,7 +21550,10 @@ end
 ---@return table? weather Table with fog fields if available { fogThickness, fogVisibilityDistance, fogAnimationEnabled }
 ---@usage local weather = GetWorldWeather()
 function GetWorldWeather()
-    if not world or not world.weather then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "World.weather is not available in this DCS version",
             "World.GetWeather"
@@ -20368,28 +21561,52 @@ function GetWorldWeather()
         return nil
     end
 
-    local data = {}
+    local readOk, weatherData = pcall(function()
+        local data = {}
 
-    if world.weather.getFogThickness then
-        local ok, v = pcall(world.weather.getFogThickness)
-        if ok then
-            data.fogThickness = v
+        if world.weather.getFogThickness then
+            local ok, v = pcall(function()
+                return world.weather.getFogThickness()
+            end)
+            if ok then
+                data.fogThickness = v
+            else
+                _HarnessInternal.log.error(
+                    "Failed to read fog thickness: " .. _HarnessInternal.safeString(v),
+                    "World.GetWeather"
+                )
+            end
         end
-    end
 
-    if world.weather.getFogVisibilityDistance then
-        local ok, v = pcall(world.weather.getFogVisibilityDistance)
-        if ok then
-            data.fogVisibilityDistance = v
+        if world.weather.getFogVisibilityDistance then
+            local ok, v = pcall(function()
+                return world.weather.getFogVisibilityDistance()
+            end)
+            if ok then
+                data.fogVisibilityDistance = v
+            else
+                _HarnessInternal.log.error(
+                    "Failed to read fog visibility: " .. _HarnessInternal.safeString(v),
+                    "World.GetWeather"
+                )
+            end
         end
-    end
 
-    if world.weather.setFogAnimation and world.weather.getFogVisibilityDistance then
-        -- No getter for animation; absent in API. Expose presence of setter as capability flag.
-        data.fogAnimationEnabled = nil
-    end
+        if world.weather.setFogAnimation and world.weather.getFogVisibilityDistance then
+            -- No getter for animation; absent in API. Expose presence of setter as capability flag.
+            data.fogAnimationEnabled = nil
+        end
 
-    return data
+        return data
+    end)
+    if not readOk then
+        _HarnessInternal.log.error(
+            "Failed to read world weather: " .. _HarnessInternal.safeString(weatherData),
+            "World.GetWeather"
+        )
+        return nil
+    end
+    return weatherData
 end
 
 -- Fog control (DCS 2.9.10+)
@@ -20398,17 +21615,22 @@ end
 ---@return number? thickness Fog thickness in meters or nil if unsupported/error
 ---@usage local t = GetFogThickness()
 function GetFogThickness()
-    if not world or not world.weather or type(world.weather.getFogThickness) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather or type(world.weather.getFogThickness) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.getFogThickness not available",
             "World.GetFogThickness"
         )
         return nil
     end
-    local ok, v = pcall(world.weather.getFogThickness)
+    local ok, v = pcall(function()
+        return world.weather.getFogThickness()
+    end)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to get fog thickness: " .. tostring(v),
+            "Failed to get fog thickness: " .. _HarnessInternal.safeString(v),
             "World.GetFogThickness"
         )
         return nil
@@ -20421,7 +21643,10 @@ end
 ---@return boolean? success True on success, nil on error
 ---@usage SetFogThickness(300)
 function SetFogThickness(thickness)
-    if not world or not world.weather or type(world.weather.setFogThickness) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather or type(world.weather.setFogThickness) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.setFogThickness not available",
             "World.SetFogThickness"
@@ -20435,10 +21660,12 @@ function SetFogThickness(thickness)
         )
         return nil
     end
-    local ok, err = pcall(world.weather.setFogThickness, thickness)
+    local ok, err = pcall(function(...)
+        return world.weather.setFogThickness(...)
+    end, thickness)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to set fog thickness: " .. tostring(err),
+            "Failed to set fog thickness: " .. _HarnessInternal.safeString(err),
             "World.SetFogThickness"
         )
         return nil
@@ -20450,21 +21677,24 @@ end
 ---@return number? distance Visibility distance in meters or nil if unsupported/error
 ---@usage local d = GetFogVisibilityDistance()
 function GetFogVisibilityDistance()
-    if
-        not world
-        or not world.weather
-        or type(world.weather.getFogVisibilityDistance) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return not world
+            or not world.weather
+            or type(world.weather.getFogVisibilityDistance) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.getFogVisibilityDistance not available",
             "World.GetFogVisibilityDistance"
         )
         return nil
     end
-    local ok, v = pcall(world.weather.getFogVisibilityDistance)
+    local ok, v = pcall(function()
+        return world.weather.getFogVisibilityDistance()
+    end)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to get fog visibility distance: " .. tostring(v),
+            "Failed to get fog visibility distance: " .. _HarnessInternal.safeString(v),
             "World.GetFogVisibilityDistance"
         )
         return nil
@@ -20477,11 +21707,12 @@ end
 ---@return boolean? success True on success, nil on error
 ---@usage SetFogVisibilityDistance(800)
 function SetFogVisibilityDistance(distance)
-    if
-        not world
-        or not world.weather
-        or type(world.weather.setFogVisibilityDistance) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return not world
+            or not world.weather
+            or type(world.weather.setFogVisibilityDistance) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.setFogVisibilityDistance not available",
             "World.SetFogVisibilityDistance"
@@ -20495,10 +21726,12 @@ function SetFogVisibilityDistance(distance)
         )
         return nil
     end
-    local ok, err = pcall(world.weather.setFogVisibilityDistance, distance)
+    local ok, err = pcall(function(...)
+        return world.weather.setFogVisibilityDistance(...)
+    end, distance)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to set fog visibility distance: " .. tostring(err),
+            "Failed to set fog visibility distance: " .. _HarnessInternal.safeString(err),
             "World.SetFogVisibilityDistance"
         )
         return nil
@@ -20511,7 +21744,10 @@ end
 ---@return boolean? success True on success, nil on error
 ---@usage SetFogAnimation(true)
 function SetFogAnimation(enabled)
-    if not world or not world.weather or type(world.weather.setFogAnimation) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather or type(world.weather.setFogAnimation) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.setFogAnimation not available",
             "World.SetFogAnimation"
@@ -20525,10 +21761,12 @@ function SetFogAnimation(enabled)
         )
         return nil
     end
-    local ok, err = pcall(world.weather.setFogAnimation, enabled)
+    local ok, err = pcall(function(...)
+        return world.weather.setFogAnimation(...)
+    end, enabled)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to set fog animation: " .. tostring(err),
+            "Failed to set fog animation: " .. _HarnessInternal.safeString(err),
             "World.SetFogAnimation"
         )
         return nil
@@ -20549,10 +21787,12 @@ function RemoveWorldJunk(searchVolume)
         return nil
     end
 
-    local success, result = pcall(world.removeJunk, searchVolume)
+    local success, result = pcall(function(...)
+        return world.removeJunk(...)
+    end, searchVolume)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove world junk: " .. tostring(result),
+            "Failed to remove world junk: " .. _HarnessInternal.safeString(result),
             "World.RemoveJunk"
         )
         return nil
@@ -20593,7 +21833,10 @@ function CreateWorldEventHandler(handlers)
             local success, result = pcall(handlers[eventName], event)
             if not success then
                 _HarnessInternal.log.error(
-                    "Event handler error for " .. eventName .. ": " .. tostring(result),
+                    "Event handler error for "
+                        .. eventName
+                        .. ": "
+                        .. _HarnessInternal.safeString(result),
                     "World.EventHandler"
                 )
             end
@@ -20613,7 +21856,7 @@ function GetWorldEventTypes()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get world event types: " .. tostring(result),
+            "Failed to get world event types: " .. _HarnessInternal.safeString(result),
             "World.GetEventTypes"
         )
         return nil
@@ -20632,7 +21875,7 @@ function GetWorldVolumeTypes()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get world volume types: " .. tostring(result),
+            "Failed to get world volume types: " .. _HarnessInternal.safeString(result),
             "World.GetVolumeTypes"
         )
         return nil
@@ -20901,7 +22144,7 @@ function GetDrawings()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get drawings: " .. tostring(result),
+            "Failed to get drawings: " .. _HarnessInternal.safeString(result),
             "Drawing.GetDrawings"
         )
         return nil
@@ -21360,6 +22603,220 @@ function ClearDrawingCache()
 end
 -- ==== END: src/drawing.lua ====
 
+-- ==== BEGIN: src/eventbus.lua ====
+--[[
+    EventBus Module - minimal pub/sub for events
+
+    - Subscribe by arbitrary topic key (number/string/any non-nil)
+    - Optional predicate(event) -> boolean filters deliveries
+    - Delivery enqueues the event table directly into the provided Queue
+    - Supports multiple subscribers per event ID
+    - Key selection is customizable; defaults to `event.id`
+    - HarnessWorldEventBus integrates with `world.addEventHandler` lazily
+]]
+
+-- Single-handler approach: one handler instance per mission
+local ACTIVE_HANDLER = nil
+
+---@class EventBus
+---@field _subscribers table<any, table> Map of topicKey -> array of subscriber records
+---@field _nextSubId number
+---@field _keySelector fun(event: table): any
+---@field subscribe fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
+---@field unsubscribe fun(self: EventBus, subscriptionId: number): boolean
+---@field sub fun(self: EventBus, topicKey: any, queue: table, predicate?: fun(event: table): boolean): number?
+---@field unsub fun(self: EventBus, subscriptionId: number): boolean
+---@field publish fun(self: EventBus, event: table)
+---@param keySelector function?
+---@return EventBus
+function EventBus(keySelector)
+    local selector = nil
+    if type(keySelector) == "function" then
+        selector = keySelector
+    else
+        selector = function(event)
+            return event and event.id
+        end
+    end
+
+    local bus = { _subscribers = {}, _nextSubId = 1, _keySelector = selector }
+
+    --- Subscribe to a topic key with optional predicate and a target queue
+    ---@param topicKey any topic key to route on (must be non-nil)
+    ---@param queue table Queue() instance receiving DTOs via :enqueue
+    ---@param predicate fun(event: table): boolean Optional predicate to filter deliveries
+    ---@return number? subscriptionId Returns an id to later unsubscribe, or nil on error
+    function bus:subscribe(topicKey, queue, predicate)
+        if topicKey == nil then
+            return nil
+        end
+        if type(queue) ~= "table" or type(queue.enqueue) ~= "function" then
+            return nil
+        end
+        if predicate ~= nil and type(predicate) ~= "function" then
+            return nil
+        end
+
+        if not self._subscribers[topicKey] then
+            self._subscribers[topicKey] = {}
+        end
+
+        local id = self._nextSubId
+        self._nextSubId = self._nextSubId + 1
+
+        table.insert(self._subscribers[topicKey], {
+            id = id,
+            queue = queue,
+            predicate = predicate,
+        })
+        return id
+    end
+
+    --- Unsubscribe a previously created subscription id
+    ---@param subscriptionId number
+    ---@return boolean removed True if removed
+    function bus:unsubscribe(subscriptionId)
+        if type(subscriptionId) ~= "number" then
+            return false
+        end
+        for eventId, list in pairs(self._subscribers) do
+            for i = #list, 1, -1 do
+                if list[i].id == subscriptionId then
+                    table.remove(list, i)
+                    if #list == 0 then
+                        self._subscribers[eventId] = nil
+                    end
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    -- Idiomatic aliases
+    function bus:sub(topicKey, queue, predicate)
+        return self:subscribe(topicKey, queue, predicate)
+    end
+    function bus:unsub(subscriptionId)
+        return self:unsubscribe(subscriptionId)
+    end
+
+    --- Publish an event to subscribers of its derived topic key
+    ---@param event table Event payload
+    function bus:publish(event)
+        if type(event) ~= "table" then
+            return
+        end
+        local key = self._keySelector(event)
+        if key == nil then
+            return
+        end
+        local list = self._subscribers[key]
+        if not list or #list == 0 then
+            return
+        end
+
+        for i = 1, #list do
+            local sub = list[i]
+            local deliver = true
+            if sub.predicate ~= nil then
+                local ok, result = pcall(sub.predicate, event)
+                deliver = ok and result == true
+            end
+            if deliver then
+                pcall(sub.queue.enqueue, sub.queue, event)
+            end
+        end
+    end
+
+    return bus
+end
+
+---@class HarnessWorldEventBus : EventBus
+---@field _handler table
+---@field dispose fun(self: HarnessWorldEventBus)
+---@return HarnessWorldEventBus
+function CreateHarnessWorldEventBus()
+    local bus = EventBus()
+    bus._registered = false
+    bus._totalSubs = 0
+
+    bus._handler = {
+        onEvent = function(self, event)
+            bus:publish(event)
+        end,
+    }
+
+    local baseSubscribe = bus.subscribe
+    function bus:subscribe(eventId, queue, predicate)
+        local id = baseSubscribe(self, eventId, queue, predicate)
+        if id then
+            self._totalSubs = self._totalSubs + 1
+            if (not self._registered) and AddWorldEventHandler(self._handler) then
+                self._registered = true
+                ACTIVE_HANDLER = self._handler
+            end
+        end
+        return id
+    end
+
+    local baseUnsubscribe = bus.unsubscribe
+    function bus:unsubscribe(subscriptionId)
+        local removed = baseUnsubscribe(self, subscriptionId)
+        if removed then
+            self._totalSubs = self._totalSubs - 1
+            if self._totalSubs < 0 then
+                self._totalSubs = 0
+            end
+            if self._registered and self._totalSubs == 0 then
+                if ACTIVE_HANDLER == self._handler then
+                    if not RemoveWorldEventHandler(self._handler) then
+                        return removed
+                    end
+                    ACTIVE_HANDLER = nil
+                end
+                self._registered = false
+            end
+        end
+        return removed
+    end
+
+    function bus:dispose()
+        if self._registered then
+            if ACTIVE_HANDLER == self._handler then
+                if RemoveWorldEventHandler(self._handler) then
+                    ACTIVE_HANDLER = nil
+                end
+            end
+        end
+        self._registered = false
+        self._totalSubs = 0
+    end
+
+    return bus
+end
+
+-- Provide a globally accessible singleton for harness initialization if desired
+---@type HarnessWorldEventBus?
+HarnessWorldEventBus = nil
+-- Back-compat alias
+---@type HarnessWorldEventBus?
+HarnessWorldEventBusInstance = nil
+
+--- Initialize global HarnessWorldEventBus if not already created
+---@return HarnessWorldEventBus
+function InitHarnessWorldEventBus()
+    if not HarnessWorldEventBus then
+        HarnessWorldEventBus = CreateHarnessWorldEventBus()
+        HarnessWorldEventBusInstance = HarnessWorldEventBus
+    end
+    return HarnessWorldEventBus
+end
+
+-- Lazy init only creates the instance; it will not register with world
+InitHarnessWorldEventBus()
+-- ==== END: src/eventbus.lua ====
+
 -- ==== BEGIN: src/zone.lua ====
 --[[
 ==================================================================================================
@@ -21407,9 +22864,14 @@ function GetZone(zoneName)
     end
 
     -- Fall back to API call
-    local success, zone = pcall(trigger.misc.getZone, zoneName)
+    local success, zone = pcall(function(...)
+        return trigger.misc.getZone(...)
+    end, zoneName)
     if not success then
-        _HarnessInternal.log.error("Failed to get zone: " .. tostring(zone), "GetZone")
+        _HarnessInternal.log.error(
+            "Failed to get zone: " .. _HarnessInternal.safeString(zone),
+            "GetZone"
+        )
         return nil
     end
 
@@ -21505,7 +22967,9 @@ function IsGroupInZone(groupName, zoneName)
     end
 
     for _, unit in ipairs(units) do
-        local success, unitName = pcall(unit.getName, unit)
+        local success, unitName = pcall(function(...)
+            return unit.getName(...)
+        end, unit)
         if success and unitName then
             if IsUnitInZone(unitName, zoneName) then
                 return true
@@ -21528,7 +22992,9 @@ function IsGroupCompletelyInZone(groupName, zoneName)
     end
 
     for _, unit in ipairs(units) do
-        local success, unitName = pcall(unit.getName, unit)
+        local success, unitName = pcall(function(...)
+            return unit.getName(...)
+        end, unit)
         if success and unitName then
             if not IsUnitInZone(unitName, zoneName) then
                 return false
@@ -21686,7 +23152,9 @@ function GetGroupsInZone(zoneName, coalitionId)
             local groups = GetCoalitionGroups(coal, category)
 
             for _, group in ipairs(groups) do
-                local success, groupName = pcall(group.getName, group)
+                local success, groupName = pcall(function(...)
+                    return group.getName(...)
+                end, group)
                 if success and groupName and not groupsAdded[groupName] then
                     if IsGroupInZone(groupName, zoneName) then
                         table.insert(groupsInZone, group)
@@ -21777,7 +23245,7 @@ function GetMissionZones()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get mission zones: " .. tostring(result),
+            "Failed to get mission zones: " .. _HarnessInternal.safeString(result),
             "Zone.GetMissionZones"
         )
         return nil

@@ -23,8 +23,8 @@ tasks:
     dir: '{{.TEST_DIR}}'
     cmds:
       - lua test_runner.lua
-      - python -m unittest test_export_harness_selene.py
-      - python -m unittest test_export_harness_luals.py
+      - task: test:exports
+      - task: test:files
     sources:
       - '{{.SRC_DIR}}/**/*.lua'
       - '{{.TEST_DIR}}/**/*.lua'
@@ -37,6 +37,20 @@ tasks:
       - lua {{.CLI_ARGS}}
     requires:
       vars: [CLI_ARGS]
+
+  test:files:
+    desc: Test mission file replacement with real native file I/O and rename
+    dir: '{{.TEST_DIR}}'
+    cmds:
+      - python -m unittest test_missionfile_real.py
+
+  test:exports:
+    desc: Test the Selene and LuaLS API definitions
+    dir: '{{.TEST_DIR}}'
+    deps: [tools:prepare]
+    cmds:
+      - python -m unittest test_export_harness_selene.py
+      - python -m unittest test_export_harness_luals.py
 
   test:watch:
     desc: Watch files and run tests on changes

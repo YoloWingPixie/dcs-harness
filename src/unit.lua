@@ -29,32 +29,12 @@ _HarnessInternal.cache.stats = _HarnessInternal.cache.stats
 
 local UnitInternal = {}
 
-function UnitInternal.isFiniteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
-
-function UnitInternal.validVector(vector)
-    return type(vector) == "table"
-        and type(vector.x) == "number"
-        and vector.x == vector.x
-        and vector.x > -math.huge
-        and vector.x < math.huge
-        and type(vector.y) == "number"
-        and vector.y == vector.y
-        and vector.y > -math.huge
-        and vector.y < math.huge
-        and type(vector.z) == "number"
-        and vector.z == vector.z
-        and vector.z > -math.huge
-        and vector.z < math.huge
-end
-
 function UnitInternal.isCompletePosition3(value)
     return type(value) == "table"
-        and UnitInternal.validVector(value.p)
-        and UnitInternal.validVector(value.x)
-        and UnitInternal.validVector(value.y)
-        and UnitInternal.validVector(value.z)
+        and IsFiniteVec3(value.p)
+        and IsFiniteVec3(value.x)
+        and IsFiniteVec3(value.y)
+        and IsFiniteVec3(value.z)
 end
 
 function UnitInternal.normalizeId(value)
@@ -90,10 +70,12 @@ function UnitInternal.resolve(unitOrName, requiredMethod, caller)
 end
 
 function UnitInternal.readPosition3(unit, caller)
-    local success, position3 = pcall(unit.getPosition, unit)
+    local success, position3 = pcall(function(...)
+        return unit.getPosition(...)
+    end, unit)
     if not success or not UnitInternal.isCompletePosition3(position3) then
         _HarnessInternal.log.error(
-            "Failed to get complete unit Position3: " .. tostring(position3),
+            "Failed to get complete unit Position3: " .. _HarnessInternal.safeString(position3),
             caller
         )
         return nil
@@ -146,9 +128,14 @@ function GetUnit(unitName)
     end
 
     -- Get from DCS API
-    local success, unit = pcall(Unit.getByName, unitName)
+    local success, unit = pcall(function(...)
+        return Unit.getByName(...)
+    end, unitName)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit: " .. tostring(unit), "GetUnit")
+        _HarnessInternal.log.error(
+            "Failed to get unit: " .. _HarnessInternal.safeString(unit),
+            "GetUnit"
+        )
         return nil
     end
 
@@ -174,10 +161,12 @@ function UnitExists(unitName)
         return false
     end
 
-    local success, exists = pcall(unit.isExist, unit)
+    local success, exists = pcall(function(...)
+        return unit.isExist(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check unit existence: " .. tostring(exists),
+            "Failed to check unit existence: " .. _HarnessInternal.safeString(exists),
             "UnitExists"
         )
         return false
@@ -280,10 +269,12 @@ function GetUnitVelocity(unitOrName)
         return nil
     end
 
-    local success, velocity = pcall(unit.getVelocity, unit)
-    if not success or not UnitInternal.validVector(velocity) then
+    local success, velocity = pcall(function(...)
+        return unit.getVelocity(...)
+    end, unit)
+    if not success or not IsFiniteVec3(velocity) then
         _HarnessInternal.log.error(
-            "Failed to get unit velocity: " .. tostring(velocity),
+            "Failed to get unit velocity: " .. _HarnessInternal.safeString(velocity),
             "GetUnitVelocity"
         )
         return nil
@@ -370,9 +361,14 @@ function GetUnitType(unitName)
         return nil
     end
 
-    local success, typeName = pcall(unit.getTypeName, unit)
+    local success, typeName = pcall(function(...)
+        return unit.getTypeName(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit type: " .. tostring(typeName), "GetUnitType")
+        _HarnessInternal.log.error(
+            "Failed to get unit type: " .. _HarnessInternal.safeString(typeName),
+            "GetUnitType"
+        )
         return nil
     end
 
@@ -392,7 +388,7 @@ function GetUnitCoalition(unitOrName)
         if not unit then
             return 0 -- Return 0 instead of nil for consistency
         end
-    elseif type(unitOrName) == "table" and unitOrName.getCoalition then
+    elseif type(unitOrName) == "table" then
         unit = unitOrName
     else
         _HarnessInternal.log.error(
@@ -402,10 +398,12 @@ function GetUnitCoalition(unitOrName)
         return 0
     end
 
-    local success, coalition = pcall(unit.getCoalition, unit)
+    local success, coalition = pcall(function(...)
+        return unit.getCoalition(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit coalition: " .. tostring(coalition),
+            "Failed to get unit coalition: " .. _HarnessInternal.safeString(coalition),
             "GetUnitCoalition"
         )
         return 0
@@ -424,10 +422,12 @@ function GetUnitCountry(unitName)
         return nil
     end
 
-    local success, country = pcall(unit.getCountry, unit)
+    local success, country = pcall(function(...)
+        return unit.getCountry(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit country: " .. tostring(country),
+            "Failed to get unit country: " .. _HarnessInternal.safeString(country),
             "GetUnitCountry"
         )
         return nil
@@ -446,9 +446,14 @@ function GetUnitGroup(unitName)
         return nil
     end
 
-    local success, group = pcall(unit.getGroup, unit)
+    local success, group = pcall(function(...)
+        return unit.getGroup(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit group: " .. tostring(group), "GetUnitGroup")
+        _HarnessInternal.log.error(
+            "Failed to get unit group: " .. _HarnessInternal.safeString(group),
+            "GetUnitGroup"
+        )
         return nil
     end
 
@@ -465,10 +470,12 @@ function GetUnitPlayerName(unitName)
         return nil
     end
 
-    local success, playerName = pcall(unit.getPlayerName, unit)
+    local success, playerName = pcall(function(...)
+        return unit.getPlayerName(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit player name: " .. tostring(playerName),
+            "Failed to get unit player name: " .. _HarnessInternal.safeString(playerName),
             "GetUnitPlayerName"
         )
         return nil
@@ -502,7 +509,7 @@ function GetUnitHealth(unitName)
         _HarnessInternal.log.error("Failed to get unit health", "GetUnitHealth")
         return nil
     end
-    if not UnitInternal.isFiniteNumber(currentLife) or currentLife < 0 then
+    if not IsFiniteNumber(currentLife) or currentLife < 0 then
         _HarnessInternal.log.error("Invalid unit current life", "GetUnitHealth")
         return nil
     end
@@ -511,7 +518,7 @@ function GetUnitHealth(unitName)
         CurrentLife = currentLife,
         IsAlive = currentLife > 0,
     }
-    if UnitInternal.isFiniteNumber(initialLife) and initialLife > 0 then
+    if IsFiniteNumber(initialLife) and initialLife > 0 then
         health.InitialLife = initialLife
         health.IsDamaged = health.IsAlive and currentLife < initialLife
     end
@@ -528,9 +535,14 @@ function GetUnitLife(unitName)
         return nil
     end
 
-    local success, life = pcall(unit.getLife, unit)
+    local success, life = pcall(function(...)
+        return unit.getLife(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit life: " .. tostring(life), "GetUnitLife")
+        _HarnessInternal.log.error(
+            "Failed to get unit life: " .. _HarnessInternal.safeString(life),
+            "GetUnitLife"
+        )
         return nil
     end
 
@@ -547,10 +559,12 @@ function GetUnitLife0(unitName)
         return nil
     end
 
-    local success, life0 = pcall(unit.getLife0, unit)
+    local success, life0 = pcall(function(...)
+        return unit.getLife0(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit max life: " .. tostring(life0),
+            "Failed to get unit max life: " .. _HarnessInternal.safeString(life0),
             "GetUnitLife0"
         )
         return nil
@@ -569,9 +583,14 @@ function GetUnitFuel(unitName)
         return nil
     end
 
-    local success, fuel = pcall(unit.getFuel, unit)
+    local success, fuel = pcall(function(...)
+        return unit.getFuel(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit fuel: " .. tostring(fuel), "GetUnitFuel")
+        _HarnessInternal.log.error(
+            "Failed to get unit fuel: " .. _HarnessInternal.safeString(fuel),
+            "GetUnitFuel"
+        )
         return nil
     end
 
@@ -588,10 +607,12 @@ function IsUnitInAir(unitName)
         return false
     end
 
-    local success, inAir = pcall(unit.inAir, unit)
+    local success, inAir = pcall(function(...)
+        return unit.inAir(...)
+    end, unit)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check if unit in air: " .. tostring(inAir),
+            "Failed to check if unit in air: " .. _HarnessInternal.safeString(inAir),
             "IsUnitInAir"
         )
         return false
@@ -610,9 +631,14 @@ function GetUnitAmmo(unitName)
         return nil
     end
 
-    local success, ammo = pcall(unit.getAmmo, unit)
+    local success, ammo = pcall(function(...)
+        return unit.getAmmo(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit ammo: " .. tostring(ammo), "GetUnitAmmo")
+        _HarnessInternal.log.error(
+            "Failed to get unit ammo: " .. _HarnessInternal.safeString(ammo),
+            "GetUnitAmmo"
+        )
         return nil
     end
 
@@ -630,14 +656,22 @@ function GetUnitID(unitOrName)
     if not unit then
         return nil
     end
-    local success, id = pcall(unit.getID, unit)
+    local success, id = pcall(function(...)
+        return unit.getID(...)
+    end, unit)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit ID: " .. tostring(id), "GetUnitID")
+        _HarnessInternal.log.error(
+            "Failed to get unit ID: " .. _HarnessInternal.safeString(id),
+            "GetUnitID"
+        )
         return nil
     end
     local normalized = UnitInternal.normalizeId(id)
     if not normalized then
-        _HarnessInternal.log.error("Invalid unit ID: " .. tostring(id), "GetUnitID")
+        _HarnessInternal.log.error(
+            "Invalid unit ID: " .. _HarnessInternal.safeString(id),
+            "GetUnitID"
+        )
         return nil
     end
     return normalized
@@ -658,7 +692,7 @@ function GetUnitNumber(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit number: " .. tostring(number),
+            "Failed to get unit number: " .. _HarnessInternal.safeString(number),
             "GetUnitNumber"
         )
         return nil
@@ -682,7 +716,7 @@ function GetUnitCallsign(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit callsign: " .. tostring(callsign),
+            "Failed to get unit callsign: " .. _HarnessInternal.safeString(callsign),
             "GetUnitCallsign"
         )
         return nil
@@ -706,7 +740,7 @@ function GetUnitObjectID(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit object ID: " .. tostring(objectId),
+            "Failed to get unit object ID: " .. _HarnessInternal.safeString(objectId),
             "GetUnitObjectID"
         )
         return nil
@@ -730,7 +764,7 @@ function GetUnitCategoryEx(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit category ex: " .. tostring(category),
+            "Failed to get unit category ex: " .. _HarnessInternal.safeString(category),
             "GetUnitCategoryEx"
         )
         return nil
@@ -753,7 +787,10 @@ function GetUnitDesc(unit)
         return unit:getDesc()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit desc: " .. tostring(desc), "GetUnitDesc")
+        _HarnessInternal.log.error(
+            "Failed to get unit desc: " .. _HarnessInternal.safeString(desc),
+            "GetUnitDesc"
+        )
         return nil
     end
 
@@ -775,7 +812,7 @@ function GetUnitForcesName(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit forces name: " .. tostring(forcesName),
+            "Failed to get unit forces name: " .. _HarnessInternal.safeString(forcesName),
             "GetUnitForcesName"
         )
         return nil
@@ -799,7 +836,7 @@ function IsUnitActive(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check unit active: " .. tostring(active),
+            "Failed to check unit active: " .. _HarnessInternal.safeString(active),
             "IsUnitActive"
         )
         return false
@@ -840,7 +877,7 @@ function GetUnitController(unit)
     end)
     if not ok_get_controller then
         _HarnessInternal.log.error(
-            "Failed to get unit controller: " .. tostring(controller),
+            "Failed to get unit controller: " .. _HarnessInternal.safeString(controller),
             "GetUnitController"
         )
         return nil
@@ -911,6 +948,34 @@ end
 
 -- Sensor Functions
 
+--- Read the air-detection ranges listed for one sensor.
+--- Keeps both ranges when available, so your mission can choose which to use.
+--- The result has upperHeadOn and/or maximal fields, measured in meters.
+--- Missing ranges, zero, negative values, NaN, and infinity are left out.
+---@param sensor any One sensor entry from GetUnitSensors.
+---@return table? ranges A new table of ranges, or nil if neither range is usable.
+---@usage local ranges = ReadSensorAirDetectionRanges(sensor)
+function ReadSensorAirDetectionRanges(sensor)
+    if type(sensor) ~= "table" then
+        return nil
+    end
+    local air = sensor.detectionDistanceAir
+    local upper = type(air) == "table" and air.upperHemisphere
+    local headOn = type(upper) == "table" and upper.headOn
+    local maximal = sensor.detectionDistanceMaximal
+    local ranges = {}
+    if IsFiniteNumber(headOn) and headOn > 0 then
+        ranges.upperHeadOn = headOn
+    end
+    if IsFiniteNumber(maximal) and maximal > 0 then
+        ranges.maximal = maximal
+    end
+    if next(ranges) then
+        return ranges
+    end
+    return nil
+end
+
 --- Get unit sensors
 ---@param unit table Unit object
 ---@return table? sensors Sensors table or nil on error
@@ -926,7 +991,7 @@ function GetUnitSensors(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit sensors: " .. tostring(sensors),
+            "Failed to get unit sensors: " .. _HarnessInternal.safeString(sensors),
             "GetUnitSensors"
         )
         return nil
@@ -952,7 +1017,7 @@ function UnitHasSensors(unit, sensorType, subCategory)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check unit sensors: " .. tostring(hasSensors),
+            "Failed to check unit sensors: " .. _HarnessInternal.safeString(hasSensors),
             "UnitHasSensors"
         )
         return false
@@ -976,7 +1041,10 @@ function GetUnitRadar(unit)
         return unit:getRadar()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get unit radar: " .. tostring(active), "GetUnitRadar")
+        _HarnessInternal.log.error(
+            "Failed to get unit radar: " .. _HarnessInternal.safeString(active),
+            "GetUnitRadar"
+        )
         return false, nil
     end
 
@@ -1007,13 +1075,16 @@ function EnableUnitEmissions(unit, enabled)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set unit emissions: " .. tostring(result),
+            "Failed to set unit emissions: " .. _HarnessInternal.safeString(result),
             "EnableUnitEmissions"
         )
         return false
     end
 
-    _HarnessInternal.log.info("Set unit emissions: " .. tostring(enabled), "EnableUnitEmissions")
+    _HarnessInternal.log.info(
+        "Set unit emissions: " .. _HarnessInternal.safeString(enabled),
+        "EnableUnitEmissions"
+    )
     return true
 end
 
@@ -1034,7 +1105,7 @@ function GetUnitNearestCargos(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get nearest cargos: " .. tostring(cargos),
+            "Failed to get nearest cargos: " .. _HarnessInternal.safeString(cargos),
             "GetUnitNearestCargos"
         )
         return {}
@@ -1058,7 +1129,7 @@ function GetUnitCargosOnBoard(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get cargos on board: " .. tostring(cargos),
+            "Failed to get cargos on board: " .. _HarnessInternal.safeString(cargos),
             "GetUnitCargosOnBoard"
         )
         return {}
@@ -1082,7 +1153,7 @@ function GetUnitDescentCapacity(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get descent capacity: " .. tostring(capacity),
+            "Failed to get descent capacity: " .. _HarnessInternal.safeString(capacity),
             "GetUnitDescentCapacity"
         )
         return nil
@@ -1106,7 +1177,7 @@ function GetUnitDescentOnBoard(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get descent on board: " .. tostring(troops),
+            "Failed to get descent on board: " .. _HarnessInternal.safeString(troops),
             "GetUnitDescentOnBoard"
         )
         return nil
@@ -1135,7 +1206,10 @@ function LoadUnitCargo(unit, cargo)
         unit:LoadOnBoard(cargo)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to load cargo: " .. tostring(result), "LoadUnitCargo")
+        _HarnessInternal.log.error(
+            "Failed to load cargo: " .. _HarnessInternal.safeString(result),
+            "LoadUnitCargo"
+        )
         return false
     end
 
@@ -1159,7 +1233,7 @@ function UnloadUnitCargo(unit, cargo)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to unload cargo: " .. tostring(result),
+            "Failed to unload cargo: " .. _HarnessInternal.safeString(result),
             "UnloadUnitCargo"
         )
         return false
@@ -1183,7 +1257,10 @@ function OpenUnitRamp(unit)
         unit:openRamp()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to open ramp: " .. tostring(result), "OpenUnitRamp")
+        _HarnessInternal.log.error(
+            "Failed to open ramp: " .. _HarnessInternal.safeString(result),
+            "OpenUnitRamp"
+        )
         return false
     end
 
@@ -1206,7 +1283,7 @@ function CheckUnitRampOpen(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check ramp: " .. tostring(isOpen),
+            "Failed to check ramp: " .. _HarnessInternal.safeString(isOpen),
             "CheckUnitRampOpen"
         )
         return nil
@@ -1229,7 +1306,10 @@ function DisembarkUnit(unit)
         unit:disembarking()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to disembark: " .. tostring(result), "DisembarkUnit")
+        _HarnessInternal.log.error(
+            "Failed to disembark: " .. _HarnessInternal.safeString(result),
+            "DisembarkUnit"
+        )
         return false
     end
 
@@ -1255,7 +1335,7 @@ function MarkUnitDisembarkingTask(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to mark disembarking: " .. tostring(result),
+            "Failed to mark disembarking: " .. _HarnessInternal.safeString(result),
             "MarkUnitDisembarkingTask"
         )
         return false
@@ -1279,7 +1359,7 @@ function IsUnitEmbarking(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check embarking: " .. tostring(embarking),
+            "Failed to check embarking: " .. _HarnessInternal.safeString(embarking),
             "IsUnitEmbarking"
         )
         return nil
@@ -1305,7 +1385,7 @@ function GetUnitAirbase(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit airbase: " .. tostring(airbase),
+            "Failed to get unit airbase: " .. _HarnessInternal.safeString(airbase),
             "GetUnitAirbase"
         )
         return nil
@@ -1329,7 +1409,7 @@ function UnitCanShipLanding(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check ship landing: " .. tostring(canLand),
+            "Failed to check ship landing: " .. _HarnessInternal.safeString(canLand),
             "UnitCanShipLanding"
         )
         return nil
@@ -1353,7 +1433,7 @@ function UnitHasCarrier(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check carrier: " .. tostring(hasCarrier),
+            "Failed to check carrier: " .. _HarnessInternal.safeString(hasCarrier),
             "UnitHasCarrier"
         )
         return nil
@@ -1409,7 +1489,7 @@ function GetUnitNearestCargosForAircraft(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get aircraft cargos: " .. tostring(cargos),
+            "Failed to get aircraft cargos: " .. _HarnessInternal.safeString(cargos),
             "GetUnitNearestCargosForAircraft"
         )
         return {}
@@ -1433,7 +1513,7 @@ function GetUnitFuelLowState(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get fuel low state: " .. tostring(threshold),
+            "Failed to get fuel low state: " .. _HarnessInternal.safeString(threshold),
             "GetUnitFuelLowState"
         )
         return nil
@@ -1457,7 +1537,7 @@ function ShowUnitCarrierMenu(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to show carrier menu: " .. tostring(result),
+            "Failed to show carrier menu: " .. _HarnessInternal.safeString(result),
             "ShowUnitCarrierMenu"
         )
         return false
@@ -1476,7 +1556,7 @@ end
 function GetUnitDrawArgument(unitOrName, arg)
     if type(arg) ~= "number" or arg ~= arg or arg < 0 or arg >= math.huge or arg % 1 ~= 0 then
         _HarnessInternal.log.error(
-            "Invalid draw argument ID: " .. tostring(arg),
+            "Invalid draw argument ID: " .. _HarnessInternal.safeString(arg),
             "GetUnitDrawArgument"
         )
         return nil
@@ -1528,7 +1608,7 @@ function GetUnitDrawArguments(unitOrName, argumentIds)
             or argumentId % 1 ~= 0
         then
             _HarnessInternal.log.error(
-                "Invalid draw argument ID: " .. tostring(argumentId),
+                "Invalid draw argument ID: " .. _HarnessInternal.safeString(argumentId),
                 "GetUnitDrawArguments"
             )
             return nil, false
@@ -1538,19 +1618,18 @@ function GetUnitDrawArguments(unitOrName, argumentIds)
     local values = {}
     local complete = true
     for _, argumentId in ipairs(argumentIds) do
-        local success, value = pcall(unit.getDrawArgumentValue, unit, argumentId)
-        if
-            success
-            and type(value) == "number"
-            and value == value
-            and value > -math.huge
-            and value < math.huge
-        then
+        local success, value = pcall(function(...)
+            return unit.getDrawArgumentValue(...)
+        end, unit, argumentId)
+        if success and IsFiniteNumber(value) then
             values[argumentId] = value
         else
             complete = false
             _HarnessInternal.log.error(
-                "Failed draw argument " .. tostring(argumentId) .. ": " .. tostring(value),
+                "Failed draw argument "
+                    .. _HarnessInternal.safeString(argumentId)
+                    .. ": "
+                    .. _HarnessInternal.safeString(value),
                 "GetUnitDrawArguments"
             )
         end
@@ -1573,7 +1652,7 @@ function GetUnitCommunicator(unit)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get communicator: " .. tostring(communicator),
+            "Failed to get communicator: " .. _HarnessInternal.safeString(communicator),
             "GetUnitCommunicator"
         )
         return nil
@@ -1596,7 +1675,10 @@ function GetUnitSeats(unit)
         return unit:getSeats()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get seats: " .. tostring(seats), "GetUnitSeats")
+        _HarnessInternal.log.error(
+            "Failed to get seats: " .. _HarnessInternal.safeString(seats),
+            "GetUnitSeats"
+        )
         return nil
     end
 

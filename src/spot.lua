@@ -40,10 +40,12 @@ function CreateLaserSpot(source, target, localRef, code)
         return nil
     end
 
-    local success, spot = pcall(Spot.createLaser, source, localRef, target, code)
+    local success, spot = pcall(function(...)
+        return Spot.createLaser(...)
+    end, source, localRef, target, code)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to create laser spot: " .. tostring(spot),
+            "Failed to create laser spot: " .. _HarnessInternal.safeString(spot),
             "CreateLaserSpot"
         )
         return nil
@@ -73,9 +75,14 @@ function CreateIRSpot(source, target, localRef)
         return nil
     end
 
-    local success, spot = pcall(Spot.createInfraRed, source, localRef, target)
+    local success, spot = pcall(function(...)
+        return Spot.createInfraRed(...)
+    end, source, localRef, target)
     if not success then
-        _HarnessInternal.log.error("Failed to create IR spot: " .. tostring(spot), "CreateIRSpot")
+        _HarnessInternal.log.error(
+            "Failed to create IR spot: " .. _HarnessInternal.safeString(spot),
+            "CreateIRSpot"
+        )
         return nil
     end
 
@@ -97,7 +104,10 @@ function DestroySpot(spot)
         spot:destroy()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy spot: " .. tostring(result), "DestroySpot")
+        _HarnessInternal.log.error(
+            "Failed to destroy spot: " .. _HarnessInternal.safeString(result),
+            "DestroySpot"
+        )
         return false
     end
 
@@ -119,7 +129,10 @@ function GetSpotPoint(spot)
         return spot:getPoint()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get spot point: " .. tostring(point), "GetSpotPoint")
+        _HarnessInternal.log.error(
+            "Failed to get spot point: " .. _HarnessInternal.safeString(point),
+            "GetSpotPoint"
+        )
         return nil
     end
 
@@ -149,7 +162,10 @@ function SetSpotPoint(spot, point)
         spot:setPoint(point)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to set spot point: " .. tostring(result), "SetSpotPoint")
+        _HarnessInternal.log.error(
+            "Failed to set spot point: " .. _HarnessInternal.safeString(result),
+            "SetSpotPoint"
+        )
         return false
     end
 
@@ -170,7 +186,10 @@ function GetLaserCode(spot)
         return spot:getCode()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get laser code: " .. tostring(code), "GetLaserCode")
+        _HarnessInternal.log.error(
+            "Failed to get laser code: " .. _HarnessInternal.safeString(code),
+            "GetLaserCode"
+        )
         return nil
     end
 
@@ -205,7 +224,10 @@ function SetLaserCode(spot, code)
         spot:setCode(code)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to set laser code: " .. tostring(result), "SetLaserCode")
+        _HarnessInternal.log.error(
+            "Failed to set laser code: " .. _HarnessInternal.safeString(result),
+            "SetLaserCode"
+        )
         return false
     end
 
@@ -245,7 +267,7 @@ function GetSpotCategory(spot)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get spot category: " .. tostring(category),
+            "Failed to get spot category: " .. _HarnessInternal.safeString(category),
             "GetSpotCategory"
         )
         return nil

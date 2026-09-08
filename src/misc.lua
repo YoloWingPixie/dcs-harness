@@ -5,6 +5,15 @@
 ==================================================================================================
 ]]
 require("logger")
+
+--- Check that a value is a number that is neither NaN nor infinity.
+---@param value any Value to check.
+---@return boolean valid True for ordinary numbers, including zero and negative numbers.
+---@usage if IsFiniteNumber(range) then ... end
+function IsFiniteNumber(value)
+    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
 --- Deep copy a table
 ---@param original any Value to copy (tables are copied recursively)
 ---@return any copy Deep copy of the original
@@ -554,13 +563,25 @@ end
 ---@usage local s = EncodeJson({a=1})
 function EncodeJson(value)
     -- Prefer DCS-provided implementation if available
-    if net and type(net.lua2json) == "function" then
-        local ok, res = pcall(net.lua2json, value)
+    local lookupOk, available = pcall(function()
+        return net and type(net.lua2json) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve net.lua2json: " .. _HarnessInternal.safeString(available),
+            "EncodeJson"
+        )
+        return nil
+    end
+    if available then
+        local ok, res = pcall(function(...)
+            return net.lua2json(...)
+        end, value)
         if ok then
             return res
         end
         _HarnessInternal.log.error(
-            "EncodeJson failed via net.lua2json: " .. tostring(res),
+            "EncodeJson failed via net.lua2json: " .. _HarnessInternal.safeString(res),
             "EncodeJson"
         )
         return nil
@@ -624,13 +645,25 @@ function DecodeJson(json)
     end
 
     -- Prefer DCS-provided implementation if available
-    if net and type(net.json2lua) == "function" then
-        local ok, res = pcall(net.json2lua, json)
+    local lookupOk, available = pcall(function()
+        return net and type(net.json2lua) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve net.json2lua: " .. _HarnessInternal.safeString(available),
+            "DecodeJson"
+        )
+        return nil
+    end
+    if available then
+        local ok, res = pcall(function(...)
+            return net.json2lua(...)
+        end, json)
         if ok then
             return res
         end
         _HarnessInternal.log.error(
-            "DecodeJson failed via net.json2lua: " .. tostring(res),
+            "DecodeJson failed via net.json2lua: " .. _HarnessInternal.safeString(res),
             "DecodeJson"
         )
         return nil
@@ -779,9 +812,9 @@ function Retry(func, options)
                 if attempt >= maxRetries then
                     _HarnessInternal.log.error(
                         "Retry exhausted after "
-                            .. tostring(attempt)
+                            .. _HarnessInternal.safeString(attempt)
                             .. " attempts: "
-                            .. tostring(err),
+                            .. _HarnessInternal.safeString(err),
                         "Retry"
                     )
                     return nil
@@ -791,7 +824,10 @@ function Retry(func, options)
                     pcall(onRetry, attempt, err)
                 end
                 _HarnessInternal.log.warn(
-                    "Retry attempt " .. tostring(attempt) .. " after error: " .. tostring(err),
+                    "Retry attempt "
+                        .. _HarnessInternal.safeString(attempt)
+                        .. " after error: "
+                        .. _HarnessInternal.safeString(err),
                     "Retry"
                 )
                 -- loop to retry
@@ -893,9 +929,9 @@ function CircuitBreaker(func, options)
             state.consecutiveFailures = state.consecutiveFailures + 1
             _HarnessInternal.log.warn(
                 "Function error (failure "
-                    .. tostring(state.consecutiveFailures)
+                    .. _HarnessInternal.safeString(state.consecutiveFailures)
                     .. "): "
-                    .. tostring(err),
+                    .. _HarnessInternal.safeString(err),
                 "CircuitBreaker"
             )
             if trial or state.consecutiveFailures >= failureThreshold then

@@ -29,10 +29,12 @@ function AddWorldEventHandler(handler)
         return nil
     end
 
-    local success, result = pcall(world.addEventHandler, handler)
+    local success, result = pcall(function(...)
+        return world.addEventHandler(...)
+    end, handler)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add event handler: " .. tostring(result),
+            "Failed to add event handler: " .. _HarnessInternal.safeString(result),
             "World.AddEventHandler"
         )
         return nil
@@ -54,10 +56,12 @@ function RemoveWorldEventHandler(handler)
         return nil
     end
 
-    local success, result = pcall(world.removeEventHandler, handler)
+    local success, result = pcall(function(...)
+        return world.removeEventHandler(...)
+    end, handler)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove event handler: " .. tostring(result),
+            "Failed to remove event handler: " .. _HarnessInternal.safeString(result),
             "World.RemoveEventHandler"
         )
         return nil
@@ -70,9 +74,14 @@ end
 ---@return table? player The player unit object or nil if not found
 ---@usage local player = GetWorldPlayer()
 function GetWorldPlayer()
-    local success, result = pcall(world.getPlayer)
+    local success, result = pcall(function()
+        return world.getPlayer()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get player: " .. tostring(result), "World.GetPlayer")
+        _HarnessInternal.log.error(
+            "Failed to get player: " .. _HarnessInternal.safeString(result),
+            "World.GetPlayer"
+        )
         return nil
     end
 
@@ -83,10 +92,12 @@ end
 ---@return table? airbases Array of airbase objects or nil on error
 ---@usage local airbases = GetWorldAirbases()
 function GetWorldAirbases()
-    local success, result = pcall(world.getAirbases)
+    local success, result = pcall(function()
+        return world.getAirbases()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get world airbases: " .. tostring(result),
+            "Failed to get world airbases: " .. _HarnessInternal.safeString(result),
             "World.GetAirbases"
         )
         return nil
@@ -120,9 +131,9 @@ function GetWorldEventUnit(event)
             end
             _HarnessInternal.log.error(
                 "Failed to resolve event unit candidate "
-                    .. tostring(index)
+                    .. _HarnessInternal.safeString(index)
                     .. ": "
-                    .. tostring(name),
+                    .. _HarnessInternal.safeString(name),
                 "World.GetWorldEventUnit"
             )
         end
@@ -153,10 +164,12 @@ function SearchWorldObjects(category, volume, objectFilter)
         return nil
     end
 
-    local success, result = pcall(world.searchObjects, category, volume, objectFilter)
+    local success, result = pcall(function(...)
+        return world.searchObjects(...)
+    end, category, volume, objectFilter)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to search world objects: " .. tostring(result),
+            "Failed to search world objects: " .. _HarnessInternal.safeString(result),
             "World.SearchObjects"
         )
         return nil
@@ -169,10 +182,12 @@ end
 ---@return table? panels Array of mark panel objects or nil on error
 ---@usage local panels = getMarkPanels()
 function GetMarkPanels()
-    local success, result = pcall(world.getMarkPanels)
+    local success, result = pcall(function()
+        return world.getMarkPanels()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get mark panels: " .. tostring(result),
+            "Failed to get mark panels: " .. _HarnessInternal.safeString(result),
             "World.GetMarkPanels"
         )
         return nil
@@ -191,10 +206,12 @@ function OnWorldEvent(event)
         return nil
     end
 
-    local success, result = pcall(world.onEvent, event)
+    local success, result = pcall(function(...)
+        return world.onEvent(...)
+    end, event)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to process world event: " .. tostring(result),
+            "Failed to process world event: " .. _HarnessInternal.safeString(result),
             "World.OnEvent"
         )
         return nil
@@ -207,7 +224,10 @@ end
 ---@return table? weather Table with fog fields if available { fogThickness, fogVisibilityDistance, fogAnimationEnabled }
 ---@usage local weather = GetWorldWeather()
 function GetWorldWeather()
-    if not world or not world.weather then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "World.weather is not available in this DCS version",
             "World.GetWeather"
@@ -215,28 +235,52 @@ function GetWorldWeather()
         return nil
     end
 
-    local data = {}
+    local readOk, weatherData = pcall(function()
+        local data = {}
 
-    if world.weather.getFogThickness then
-        local ok, v = pcall(world.weather.getFogThickness)
-        if ok then
-            data.fogThickness = v
+        if world.weather.getFogThickness then
+            local ok, v = pcall(function()
+                return world.weather.getFogThickness()
+            end)
+            if ok then
+                data.fogThickness = v
+            else
+                _HarnessInternal.log.error(
+                    "Failed to read fog thickness: " .. _HarnessInternal.safeString(v),
+                    "World.GetWeather"
+                )
+            end
         end
-    end
 
-    if world.weather.getFogVisibilityDistance then
-        local ok, v = pcall(world.weather.getFogVisibilityDistance)
-        if ok then
-            data.fogVisibilityDistance = v
+        if world.weather.getFogVisibilityDistance then
+            local ok, v = pcall(function()
+                return world.weather.getFogVisibilityDistance()
+            end)
+            if ok then
+                data.fogVisibilityDistance = v
+            else
+                _HarnessInternal.log.error(
+                    "Failed to read fog visibility: " .. _HarnessInternal.safeString(v),
+                    "World.GetWeather"
+                )
+            end
         end
-    end
 
-    if world.weather.setFogAnimation and world.weather.getFogVisibilityDistance then
-        -- No getter for animation; absent in API. Expose presence of setter as capability flag.
-        data.fogAnimationEnabled = nil
-    end
+        if world.weather.setFogAnimation and world.weather.getFogVisibilityDistance then
+            -- No getter for animation; absent in API. Expose presence of setter as capability flag.
+            data.fogAnimationEnabled = nil
+        end
 
-    return data
+        return data
+    end)
+    if not readOk then
+        _HarnessInternal.log.error(
+            "Failed to read world weather: " .. _HarnessInternal.safeString(weatherData),
+            "World.GetWeather"
+        )
+        return nil
+    end
+    return weatherData
 end
 
 -- Fog control (DCS 2.9.10+)
@@ -245,17 +289,22 @@ end
 ---@return number? thickness Fog thickness in meters or nil if unsupported/error
 ---@usage local t = GetFogThickness()
 function GetFogThickness()
-    if not world or not world.weather or type(world.weather.getFogThickness) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather or type(world.weather.getFogThickness) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.getFogThickness not available",
             "World.GetFogThickness"
         )
         return nil
     end
-    local ok, v = pcall(world.weather.getFogThickness)
+    local ok, v = pcall(function()
+        return world.weather.getFogThickness()
+    end)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to get fog thickness: " .. tostring(v),
+            "Failed to get fog thickness: " .. _HarnessInternal.safeString(v),
             "World.GetFogThickness"
         )
         return nil
@@ -268,7 +317,10 @@ end
 ---@return boolean? success True on success, nil on error
 ---@usage SetFogThickness(300)
 function SetFogThickness(thickness)
-    if not world or not world.weather or type(world.weather.setFogThickness) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather or type(world.weather.setFogThickness) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.setFogThickness not available",
             "World.SetFogThickness"
@@ -282,10 +334,12 @@ function SetFogThickness(thickness)
         )
         return nil
     end
-    local ok, err = pcall(world.weather.setFogThickness, thickness)
+    local ok, err = pcall(function(...)
+        return world.weather.setFogThickness(...)
+    end, thickness)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to set fog thickness: " .. tostring(err),
+            "Failed to set fog thickness: " .. _HarnessInternal.safeString(err),
             "World.SetFogThickness"
         )
         return nil
@@ -297,21 +351,24 @@ end
 ---@return number? distance Visibility distance in meters or nil if unsupported/error
 ---@usage local d = GetFogVisibilityDistance()
 function GetFogVisibilityDistance()
-    if
-        not world
-        or not world.weather
-        or type(world.weather.getFogVisibilityDistance) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return not world
+            or not world.weather
+            or type(world.weather.getFogVisibilityDistance) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.getFogVisibilityDistance not available",
             "World.GetFogVisibilityDistance"
         )
         return nil
     end
-    local ok, v = pcall(world.weather.getFogVisibilityDistance)
+    local ok, v = pcall(function()
+        return world.weather.getFogVisibilityDistance()
+    end)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to get fog visibility distance: " .. tostring(v),
+            "Failed to get fog visibility distance: " .. _HarnessInternal.safeString(v),
             "World.GetFogVisibilityDistance"
         )
         return nil
@@ -324,11 +381,12 @@ end
 ---@return boolean? success True on success, nil on error
 ---@usage SetFogVisibilityDistance(800)
 function SetFogVisibilityDistance(distance)
-    if
-        not world
-        or not world.weather
-        or type(world.weather.setFogVisibilityDistance) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return not world
+            or not world.weather
+            or type(world.weather.setFogVisibilityDistance) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.setFogVisibilityDistance not available",
             "World.SetFogVisibilityDistance"
@@ -342,10 +400,12 @@ function SetFogVisibilityDistance(distance)
         )
         return nil
     end
-    local ok, err = pcall(world.weather.setFogVisibilityDistance, distance)
+    local ok, err = pcall(function(...)
+        return world.weather.setFogVisibilityDistance(...)
+    end, distance)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to set fog visibility distance: " .. tostring(err),
+            "Failed to set fog visibility distance: " .. _HarnessInternal.safeString(err),
             "World.SetFogVisibilityDistance"
         )
         return nil
@@ -358,7 +418,10 @@ end
 ---@return boolean? success True on success, nil on error
 ---@usage SetFogAnimation(true)
 function SetFogAnimation(enabled)
-    if not world or not world.weather or type(world.weather.setFogAnimation) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return not world or not world.weather or type(world.weather.setFogAnimation) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "world.weather.setFogAnimation not available",
             "World.SetFogAnimation"
@@ -372,10 +435,12 @@ function SetFogAnimation(enabled)
         )
         return nil
     end
-    local ok, err = pcall(world.weather.setFogAnimation, enabled)
+    local ok, err = pcall(function(...)
+        return world.weather.setFogAnimation(...)
+    end, enabled)
     if not ok then
         _HarnessInternal.log.error(
-            "Failed to set fog animation: " .. tostring(err),
+            "Failed to set fog animation: " .. _HarnessInternal.safeString(err),
             "World.SetFogAnimation"
         )
         return nil
@@ -396,10 +461,12 @@ function RemoveWorldJunk(searchVolume)
         return nil
     end
 
-    local success, result = pcall(world.removeJunk, searchVolume)
+    local success, result = pcall(function(...)
+        return world.removeJunk(...)
+    end, searchVolume)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove world junk: " .. tostring(result),
+            "Failed to remove world junk: " .. _HarnessInternal.safeString(result),
             "World.RemoveJunk"
         )
         return nil
@@ -440,7 +507,10 @@ function CreateWorldEventHandler(handlers)
             local success, result = pcall(handlers[eventName], event)
             if not success then
                 _HarnessInternal.log.error(
-                    "Event handler error for " .. eventName .. ": " .. tostring(result),
+                    "Event handler error for "
+                        .. eventName
+                        .. ": "
+                        .. _HarnessInternal.safeString(result),
                     "World.EventHandler"
                 )
             end
@@ -460,7 +530,7 @@ function GetWorldEventTypes()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get world event types: " .. tostring(result),
+            "Failed to get world event types: " .. _HarnessInternal.safeString(result),
             "World.GetEventTypes"
         )
         return nil
@@ -479,7 +549,7 @@ function GetWorldVolumeTypes()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get world volume types: " .. tostring(result),
+            "Failed to get world volume types: " .. _HarnessInternal.safeString(result),
             "World.GetVolumeTypes"
         )
         return nil

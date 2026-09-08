@@ -9,9 +9,14 @@ require("logger")
 ---@return number time Current mission time in seconds
 ---@usage local time = GetTime()
 function GetTime()
-    local success, time = pcall(timer.getTime)
+    local success, time = pcall(function()
+        return timer.getTime()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get mission time: " .. tostring(time), "GetTime")
+        _HarnessInternal.log.error(
+            "Failed to get mission time: " .. _HarnessInternal.safeString(time),
+            "GetTime"
+        )
         return 0
     end
 
@@ -22,9 +27,14 @@ end
 ---@return number time Absolute time in seconds since midnight
 ---@usage local absTime = GetAbsTime()
 function GetAbsTime()
-    local success, time = pcall(timer.getAbsTime)
+    local success, time = pcall(function()
+        return timer.getAbsTime()
+    end)
     if not success then
-        _HarnessInternal.log.error("Failed to get absolute time: " .. tostring(time), "GetAbsTime")
+        _HarnessInternal.log.error(
+            "Failed to get absolute time: " .. _HarnessInternal.safeString(time),
+            "GetAbsTime"
+        )
         return 0
     end
 
@@ -35,10 +45,12 @@ end
 ---@return number time Mission start time in seconds
 ---@usage local startTime = GetTime0()
 function GetTime0()
-    local success, time = pcall(timer.getTime0)
+    local success, time = pcall(function()
+        return timer.getTime0()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get mission start time: " .. tostring(time),
+            "Failed to get mission start time: " .. _HarnessInternal.safeString(time),
             "GetTime0"
         )
         return 0
@@ -123,10 +135,12 @@ function ScheduleOnce(func, args, delay)
     delay = delay or 0
     local time = GetTime() + delay
 
-    local success, timerId = pcall(timer.scheduleFunction, func, args, time)
+    local success, timerId = pcall(function(...)
+        return timer.scheduleFunction(...)
+    end, func, args, time)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to schedule function: " .. tostring(timerId),
+            "Failed to schedule function: " .. _HarnessInternal.safeString(timerId),
             "ScheduleOnce"
         )
         return nil
@@ -144,10 +158,12 @@ function CancelSchedule(timerId)
         return false
     end
 
-    local success, result = pcall(timer.removeFunction, timerId)
+    local success, result = pcall(function(...)
+        return timer.removeFunction(...)
+    end, timerId)
     if not success then
         _HarnessInternal.log.warn(
-            "Failed to cancel scheduled function: " .. tostring(result),
+            "Failed to cancel scheduled function: " .. _HarnessInternal.safeString(result),
             "CancelSchedule"
         )
         return false
@@ -170,10 +186,12 @@ function RescheduleFunction(timerId, newTime)
         return false
     end
 
-    local success, result = pcall(timer.setFunctionTime, timerId, newTime)
+    local success, result = pcall(function(...)
+        return timer.setFunctionTime(...)
+    end, timerId, newTime)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to reschedule function: " .. tostring(result),
+            "Failed to reschedule function: " .. _HarnessInternal.safeString(result),
             "RescheduleFunction"
         )
         return false

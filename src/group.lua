@@ -36,9 +36,14 @@ function GetGroup(groupName)
     end
 
     -- Get from DCS API
-    local success, group = pcall(Group.getByName, groupName)
+    local success, group = pcall(function(...)
+        return Group.getByName(...)
+    end, groupName)
     if not success then
-        _HarnessInternal.log.error("Failed to get group: " .. tostring(group), "GetGroup")
+        _HarnessInternal.log.error(
+            "Failed to get group: " .. _HarnessInternal.safeString(group),
+            "GetGroup"
+        )
         return nil
     end
 
@@ -61,10 +66,12 @@ function GroupExists(groupName)
         return false
     end
 
-    local success, exists = pcall(group.isExist, group)
+    local success, exists = pcall(function(...)
+        return group.isExist(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check group existence: " .. tostring(exists),
+            "Failed to check group existence: " .. _HarnessInternal.safeString(exists),
             "GroupExists"
         )
         return false
@@ -83,10 +90,12 @@ function GetGroupUnits(groupName)
         return nil
     end
 
-    local success, units = pcall(group.getUnits, group)
+    local success, units = pcall(function(...)
+        return group.getUnits(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group units: " .. tostring(units),
+            "Failed to get group units: " .. _HarnessInternal.safeString(units),
             "GetGroupUnits"
         )
         return nil
@@ -105,9 +114,14 @@ function GetGroupSize(groupName)
         return 0
     end
 
-    local success, size = pcall(group.getSize, group)
+    local success, size = pcall(function(...)
+        return group.getSize(...)
+    end, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group size: " .. tostring(size), "GetGroupSize")
+        _HarnessInternal.log.error(
+            "Failed to get group size: " .. _HarnessInternal.safeString(size),
+            "GetGroupSize"
+        )
         return 0
     end
 
@@ -124,10 +138,12 @@ function GetGroupInitialSize(groupName)
         return 0
     end
 
-    local success, size = pcall(group.getInitialSize, group)
+    local success, size = pcall(function(...)
+        return group.getInitialSize(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group initial size: " .. tostring(size),
+            "Failed to get group initial size: " .. _HarnessInternal.safeString(size),
             "GetGroupInitialSize"
         )
         return 0
@@ -146,10 +162,12 @@ function GetGroupCoalition(groupName)
         return nil
     end
 
-    local success, coalition = pcall(group.getCoalition, group)
+    local success, coalition = pcall(function(...)
+        return group.getCoalition(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group coalition: " .. tostring(coalition),
+            "Failed to get group coalition: " .. _HarnessInternal.safeString(coalition),
             "GetGroupCoalition"
         )
         return nil
@@ -168,10 +186,12 @@ function GetGroupCategory(groupName)
         return nil
     end
 
-    local success, category = pcall(group.getCategory, group)
+    local success, category = pcall(function(...)
+        return group.getCategory(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group category: " .. tostring(category),
+            "Failed to get group category: " .. _HarnessInternal.safeString(category),
             "GetGroupCategory"
         )
         return nil
@@ -190,9 +210,14 @@ function GetGroupID(groupName)
         return nil
     end
 
-    local success, id = pcall(group.getID, group)
+    local success, id = pcall(function(...)
+        return group.getID(...)
+    end, group)
     if not success then
-        _HarnessInternal.log.error("Failed to get group ID: " .. tostring(id), "GetGroupID")
+        _HarnessInternal.log.error(
+            "Failed to get group ID: " .. _HarnessInternal.safeString(id),
+            "GetGroupID"
+        )
         return nil
     end
 
@@ -216,10 +241,12 @@ function GetGroupController(groupName)
         return nil
     end
 
-    local success, controller = pcall(group.getController, group)
+    local success, controller = pcall(function(...)
+        return group.getController(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group controller: " .. tostring(controller),
+            "Failed to get group controller: " .. _HarnessInternal.safeString(controller),
             "GetGroupController"
         )
         return nil
@@ -286,10 +313,16 @@ function MessageToGroup(groupId, message, duration)
 
     duration = duration or 20
 
-    local success, result = pcall(trigger.action.outTextForGroup, groupId, message, duration, false)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForGroup(...)
+    end, groupId, message, duration, false)
     if not success then
         _HarnessInternal.log.error(
-            string.format("Failed to send message to group %d: %s", groupId, tostring(result)),
+            string.format(
+                "Failed to send message to group %d: %s",
+                groupId,
+                _HarnessInternal.safeString(result)
+            ),
             "MessageToGroup"
         )
         return false
@@ -323,14 +356,15 @@ function MessageToCoalition(coalitionId, message, duration)
 
     duration = duration or 20
 
-    local success, result =
-        pcall(trigger.action.outTextForCoalition, coalitionId, message, duration)
+    local success, result = pcall(function(...)
+        return trigger.action.outTextForCoalition(...)
+    end, coalitionId, message, duration)
     if not success then
         _HarnessInternal.log.error(
             string.format(
                 "Failed to send message to coalition %d: %s",
                 coalitionId,
-                tostring(result)
+                _HarnessInternal.safeString(result)
             ),
             "MessageToCoalition"
         )
@@ -353,10 +387,12 @@ function MessageToAll(message, duration)
 
     duration = duration or 20
 
-    local success, result = pcall(trigger.action.outText, message, duration)
+    local success, result = pcall(function(...)
+        return trigger.action.outText(...)
+    end, message, duration)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to send message to all: " .. tostring(result),
+            "Failed to send message to all: " .. _HarnessInternal.safeString(result),
             "MessageToAll"
         )
         return false
@@ -375,10 +411,12 @@ function ActivateGroup(groupName)
         return false
     end
 
-    local success, result = pcall(group.activate, group)
+    local success, result = pcall(function(...)
+        return group.activate(...)
+    end, group)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to activate group: " .. tostring(result),
+            "Failed to activate group: " .. _HarnessInternal.safeString(result),
             "ActivateGroup"
         )
         return false
@@ -403,7 +441,10 @@ function GetGroupName(group)
         return group:getName()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to get group name: " .. tostring(name), "GetGroupName")
+        _HarnessInternal.log.error(
+            "Failed to get group name: " .. _HarnessInternal.safeString(name),
+            "GetGroupName"
+        )
         return nil
     end
 
@@ -431,7 +472,7 @@ function GetGroupUnit(group, index)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get unit by index: " .. tostring(unit),
+            "Failed to get unit by index: " .. _HarnessInternal.safeString(unit),
             "GetGroupUnit"
         )
         return nil
@@ -455,7 +496,7 @@ function GetGroupCategoryEx(group)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get group category ex: " .. tostring(category),
+            "Failed to get group category ex: " .. _HarnessInternal.safeString(category),
             "GetGroupCategoryEx"
         )
         return nil
@@ -488,13 +529,16 @@ function EnableGroupEmissions(group, enabled)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set group emissions: " .. tostring(result),
+            "Failed to set group emissions: " .. _HarnessInternal.safeString(result),
             "EnableGroupEmissions"
         )
         return false
     end
 
-    _HarnessInternal.log.info("Set group emissions: " .. tostring(enabled), "EnableGroupEmissions")
+    _HarnessInternal.log.info(
+        "Set group emissions: " .. _HarnessInternal.safeString(enabled),
+        "EnableGroupEmissions"
+    )
     return true
 end
 
@@ -512,7 +556,10 @@ function DestroyGroup(group)
         group:destroy()
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to destroy group: " .. tostring(result), "DestroyGroup")
+        _HarnessInternal.log.error(
+            "Failed to destroy group: " .. _HarnessInternal.safeString(result),
+            "DestroyGroup"
+        )
         return false
     end
 
@@ -535,7 +582,7 @@ function IsGroupEmbarking(group)
     end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check group embarking: " .. tostring(embarking),
+            "Failed to check group embarking: " .. _HarnessInternal.safeString(embarking),
             "IsGroupEmbarking"
         )
         return nil
@@ -570,7 +617,10 @@ function MarkGroup(group, point, text)
         group:markGroup(point, text)
     end)
     if not success then
-        _HarnessInternal.log.error("Failed to mark group: " .. tostring(result), "MarkGroup")
+        _HarnessInternal.log.error(
+            "Failed to mark group: " .. _HarnessInternal.safeString(result),
+            "MarkGroup"
+        )
         return false
     end
 

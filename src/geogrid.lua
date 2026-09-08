@@ -11,9 +11,13 @@
 ---@field type string
 ---@field bucket string
 ---@field p { x: number, y: number, z: number }
+---@field id any
+---@field previous GeoGridLocation?
+---@field next GeoGridLocation?
+---@field chain table?
 
 ---@class GeoGrid
----@field grid table<integer, table<integer, table<string, table<any, boolean>>>>
+---@field grid table Grid data. Use the search methods to find entries.
 ---@field idx table<any, GeoGridLocation>
 ---@field cell number
 ---@field types table<string, boolean>
@@ -29,6 +33,9 @@
 ---@field move fun(self: GeoGrid, entityId: any, pos: { x: number, y: number|nil, z: number }): boolean, table|nil, table|nil
 ---@field changeType fun(self: GeoGrid, entityId: any, newType: string): boolean
 ---@field queryRadius fun(self: GeoGrid, pos: { x: number, y: number|nil, z: number }, radius: number, types: string[]): table<string, table<any, boolean>>
+---@field beginRadiusQuery fun(self: GeoGrid, position: Vec3, radius: number, types: string[], maxResults: integer): GeoGridRadiusQuery?, string?
+---@field continueRadiusQuery fun(self: GeoGrid, cursor: GeoGridRadiusQuery, workBudget: integer, output: any[]): integer, integer, GeoGridQueryStatus
+---@field closeRadiusQuery fun(self: GeoGrid, cursor: GeoGridRadiusQuery)
 ---@field clear fun(self: GeoGrid)
 ---@field size fun(self: GeoGrid): integer
 ---@field has fun(self: GeoGrid, id: any): boolean
@@ -37,6 +44,25 @@
 
 require("logger")
 require("misc")
+require("vector")
+
+---@alias GeoGridQueryStatus 'MORE'|'DONE'|'LIMIT'|'CLOSED'|'INVALID'
+---@class GeoGridQueryStatusConstants
+---@field MORE 'MORE'
+---@field DONE 'DONE'
+---@field LIMIT 'LIMIT'
+---@field CLOSED 'CLOSED'
+---@field INVALID 'INVALID'
+
+---@type GeoGridQueryStatusConstants
+GeoGridQueryStatus =
+    { MORE = "MORE", DONE = "DONE", LIMIT = "LIMIT", CLOSED = "CLOSED", INVALID = "INVALID" }
+
+---@class GeoGridRadiusQuery
+
+local GeoGridInternal = {
+    phase = { CELL = "cell", BUCKET = "bucket", ENTRY = "entry" },
+}
 
 local floor = math.floor
 
@@ -51,6 +77,44 @@ local function norm_type(t)
 end
 
 local GeoGridProto = {}
+
+function GeoGridProto:_attach(loc)
+    local cell = self:_ensure_cell(loc.cx, loc.cz)
+    local chain = cell[loc.bucket]
+    if not chain then
+        chain = { ids = {} }
+        cell[loc.bucket] = chain
+    end
+    chain.ids[loc.id] = true
+    loc.chain, loc.previous, loc.next = chain, chain.last, nil
+    if chain.last then
+        chain.last.next = loc
+    else
+        chain.first = loc
+    end
+    chain.last = loc
+end
+
+function GeoGridProto:_detach(loc)
+    for _, state in pairs(self._queries) do
+        if state.nextEntry == loc then
+            state.nextEntry = loc.next
+        end
+    end
+    local chain = loc.chain
+    if loc.previous then
+        loc.previous.next = loc.next
+    else
+        chain.first = loc.next
+    end
+    if loc.next then
+        loc.next.previous = loc.previous
+    else
+        chain.last = loc.previous
+    end
+    chain.ids[loc.id] = nil
+    loc.chain, loc.previous, loc.next = nil, nil, nil
+end
 
 --- Compute integer cell coordinates for a position
 ---@param p { x: number|nil, y: number|nil, z: number|nil }
@@ -122,20 +186,18 @@ function GeoGridProto:add(entityType, entityId, pos)
     end
 
     local cx, cz = self:_cell_coords(pos)
-    local cell = self:_ensure_cell(cx, cz)
     local bucket = et .. "Ids"
-    cell[bucket] = cell[bucket] or {}
-    if not cell[bucket][entityId] then
-        cell[bucket][entityId] = true
-        self.count = self.count + 1
-    end
-    self.idx[entityId] = {
+    loc = {
+        id = entityId,
         cx = cx,
         cz = cz,
         type = et,
         bucket = bucket,
         p = { x = pos.x, y = pos.y or 0, z = pos.z },
     }
+    self:_attach(loc)
+    self.idx[entityId] = loc
+    self.count = self.count + 1
     return true
 end
 
@@ -147,12 +209,8 @@ function GeoGridProto:remove(entityId)
     if not loc then
         return false
     end
-    local col = self.grid[loc.cx]
-    local cell = col and col[loc.cz]
-    if cell and cell[loc.bucket] and cell[loc.bucket][entityId] then
-        cell[loc.bucket][entityId] = nil
-        self.count = self.count - 1
-    end
+    self:_detach(loc)
+    self.count = self.count - 1
     self.idx[entityId] = nil
     return true
 end
@@ -177,16 +235,9 @@ function GeoGridProto:updatePosition(entityId, pos, defaultType)
         return true
     end
 
-    local ocol = self.grid[loc.cx]
-    local ocell = ocol and ocol[loc.cz]
-    if ocell and ocell[loc.bucket] then
-        ocell[loc.bucket][entityId] = nil
-    end
-
-    local ncell = self:_ensure_cell(ncx, ncz)
-    ncell[loc.bucket] = ncell[loc.bucket] or {}
-    ncell[loc.bucket][entityId] = true
+    self:_detach(loc)
     loc.cx, loc.cz = ncx, ncz
+    self:_attach(loc)
     return true
 end
 
@@ -230,13 +281,10 @@ function GeoGridProto:changeType(entityId, newType)
         return false
     end
 
-    if cell[loc.bucket] then
-        cell[loc.bucket][entityId] = nil
-    end
+    self:_detach(loc)
     local nb = et .. "Ids"
-    cell[nb] = cell[nb] or {}
-    cell[nb][entityId] = true
     loc.type, loc.bucket = et, nb
+    self:_attach(loc)
     return true
 end
 
@@ -277,7 +325,7 @@ function GeoGridProto:queryRadius(pos, radius, types)
                     for k = 1, #keys do
                         local b = cell[keys[k]]
                         if b then
-                            for id in pairs(b) do
+                            for id in pairs(b.ids) do
                                 local loc = self.idx[id]
                                 local lp = loc and loc.p
                                 if lp then
@@ -296,9 +344,245 @@ function GeoGridProto:queryRadius(pos, radius, types)
     return out
 end
 
+function GeoGridInternal.finishQuery(state, status)
+    for key in pairs(state) do
+        state[key] = nil
+    end
+    state.status = status
+end
+
+function GeoGridInternal.copyQueryTypes(grid, types)
+    if type(types) ~= "table" then
+        return nil
+    end
+    local count = 0
+    for key in pairs(types) do
+        if not IsFiniteNumber(key) or key < 1 or key % 1 ~= 0 then
+            return nil
+        end
+        count = count + 1
+    end
+    if count ~= #types then
+        return nil
+    end
+    local keys, seen = {}, {}
+    for _, value in ipairs(types) do
+        local entityType = norm_type(value)
+        if not entityType or not grid.types[entityType] then
+            return nil
+        end
+        if not seen[entityType] then
+            keys[#keys + 1] = entityType .. "Ids"
+            seen[entityType] = true
+        end
+    end
+    return keys
+end
+
+function GeoGridInternal.cellBound(value, cellSize)
+    local bound = floor(value / cellSize)
+    if not IsFiniteNumber(bound) or (bound + 1) - bound ~= 1 then
+        return nil
+    end
+    return bound
+end
+
+--- Start a radius search that you can finish over several calls.
+--- Searches distance along the ground. The search remembers its center and type list.
+---@param position Vec3 Center of the search. All three coordinates must be valid numbers.
+---@param radius number Search radius in meters; zero is allowed.
+---@param types string[] Types registered with this grid, such as {"Unit"}. Use a list without gaps.
+---@param maxResults integer Stop after returning this many IDs across all calls. Must be positive.
+---@return GeoGridRadiusQuery? cursor Pass this search to continueRadiusQuery; nil if it cannot start.
+---@return string? reason Why the search could not start.
+---@usage local search, reason = grid:beginRadiusQuery(center, 5000, {"Unit"}, 100)
+function GeoGridProto:beginRadiusQuery(position, radius, types, maxResults)
+    if not IsFiniteVec3(position) then
+        return nil, "search center needs numeric x, y, z coordinates without NaN or infinity"
+    end
+    if not IsFiniteNumber(radius) or radius < 0 then
+        return nil, "search radius must be zero or greater, without NaN or infinity"
+    end
+    if not IsFiniteNumber(maxResults) or maxResults <= 0 or maxResults % 1 ~= 0 then
+        return nil, "maxResults must be a positive finite integer"
+    end
+    if not IsFiniteNumber(self.cell) or self.cell <= 0 then
+        return nil, "grid cell size must be finite and positive"
+    end
+    local keys = GeoGridInternal.copyQueryTypes(self, types)
+    if not keys then
+        return nil, "types must be a list of registered grid types, with no gaps"
+    end
+    local minX = GeoGridInternal.cellBound(position.x - radius, self.cell)
+    local maxX = GeoGridInternal.cellBound(position.x + radius, self.cell)
+    local minZ = GeoGridInternal.cellBound(position.z - radius, self.cell)
+    local maxZ = GeoGridInternal.cellBound(position.z + radius, self.cell)
+    if not minX or not maxX or not minZ or not maxZ then
+        return nil, "search coordinates are too large for this grid's cell size"
+    end
+    local cursor = {}
+    local state = {
+        status = GeoGridQueryStatus.MORE,
+        phase = GeoGridInternal.phase.CELL,
+        position = { x = position.x, y = position.y, z = position.z },
+        radius = radius,
+        keys = keys,
+        maxResults = maxResults,
+        emitted = 0,
+        seen = {},
+        cx = minX,
+        cz = minZ,
+        minZ = minZ,
+        maxX = maxX,
+        maxZ = maxZ,
+    }
+    if #keys == 0 then
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.DONE)
+    end
+    self._queries[cursor] = state
+    return cursor, nil
+end
+
+function GeoGridInternal.nextQueryCell(state)
+    state.cell, state.chain, state.nextEntry = nil, nil, nil
+    if state.cz == state.maxZ then
+        if state.cx == state.maxX then
+            GeoGridInternal.finishQuery(state, GeoGridQueryStatus.DONE)
+            return
+        end
+        state.cx, state.cz = state.cx + 1, state.minZ
+    else
+        state.cz = state.cz + 1
+    end
+    state.phase = GeoGridInternal.phase.CELL
+end
+
+function GeoGridInternal.nextQueryBucket(state)
+    state.chain, state.nextEntry = nil, nil
+    state.typeIndex = state.typeIndex + 1
+    if state.typeIndex > #state.keys then
+        GeoGridInternal.nextQueryCell(state)
+    else
+        state.phase = GeoGridInternal.phase.BUCKET
+    end
+end
+
+function GeoGridInternal.queryMatches(state, loc)
+    local dx, dz = loc.p.x - state.position.x, loc.p.z - state.position.z
+    if not IsFiniteNumber(dx) or not IsFiniteNumber(dz) then
+        return false
+    end
+    if state.radius == 0 then
+        return dx == 0 and dz == 0
+    end
+    if math.abs(dx) > state.radius or math.abs(dz) > state.radius then
+        return false
+    end
+    return (dx / state.radius) ^ 2 + (dz / state.radius) ^ 2 <= 1
+end
+
+function GeoGridInternal.inspectQueryEntry(grid, state)
+    local loc = state.nextEntry
+    local id = nil
+    if loc then
+        state.nextEntry = loc.next
+        if
+            grid.idx[loc.id] == loc
+            and loc.chain == state.chain
+            and not state.seen[loc.id]
+            and GeoGridInternal.queryMatches(state, loc)
+        then
+            id = loc.id
+            state.seen[id] = true
+            state.emitted = state.emitted + 1
+        end
+    end
+    if state.emitted >= state.maxResults then
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.LIMIT)
+    elseif not state.nextEntry then
+        GeoGridInternal.nextQueryBucket(state)
+    end
+    return id
+end
+
+function GeoGridInternal.inspectQuery(grid, state)
+    if state.phase == GeoGridInternal.phase.CELL then
+        local column = grid.grid[state.cx]
+        state.cell = column and column[state.cz]
+        if state.cell then
+            state.typeIndex, state.phase = 1, GeoGridInternal.phase.BUCKET
+        else
+            GeoGridInternal.nextQueryCell(state)
+        end
+    elseif state.phase == GeoGridInternal.phase.BUCKET then
+        state.chain = state.cell[state.keys[state.typeIndex]]
+        state.nextEntry = state.chain and state.chain.first
+        if state.nextEntry then
+            state.phase = GeoGridInternal.phase.ENTRY
+        else
+            GeoGridInternal.nextQueryBucket(state)
+        end
+    else
+        return GeoGridInternal.inspectQueryEntry(grid, state)
+    end
+    return nil
+end
+
+--- Continue a radius search and fill output with this call's matching IDs.
+--- Process the IDs before calling again: each call clears the previous output.
+--- Objects can move between calls. Each returned ID matches when it is checked.
+--- Keep calling while status is MORE. DONE means the search finished.
+--- LIMIT means maxResults was reached; other matches may still exist.
+--- CLOSED means the search was stopped. INVALID means check the arguments.
+---@param cursor GeoGridRadiusQuery A search started by this grid.
+---@param workBudget integer Maximum search steps this call. Zero pauses the search.
+---@param output any[] Your result list. The same table is reused and cleared even if the call fails.
+---@return integer written Number of IDs added to output.
+---@return integer workUsed Steps used to check grid squares, object types, and entries. Never exceeds workBudget.
+---@return GeoGridQueryStatus status Whether to continue, stop, or check the arguments.
+---@usage local found, work, status = grid:continueRadiusQuery(search, 50, matches)
+function GeoGridProto:continueRadiusQuery(cursor, workBudget, output)
+    if type(output) ~= "table" then
+        return 0, 0, GeoGridQueryStatus.INVALID
+    end
+    for key in pairs(output) do
+        if type(key) == "number" and key >= 1 and key % 1 == 0 then
+            output[key] = nil
+        end
+    end
+    local state = type(cursor) == "table" and self._queries[cursor]
+    if not state or not IsFiniteNumber(workBudget) or workBudget < 0 or workBudget % 1 ~= 0 then
+        return 0, 0, GeoGridQueryStatus.INVALID
+    end
+    local written, used = 0, 0
+    while state.status == GeoGridQueryStatus.MORE and used < workBudget do
+        local id = GeoGridInternal.inspectQuery(self, state)
+        used = used + 1
+        if id ~= nil then
+            written = written + 1
+            output[written] = id
+        end
+    end
+    return written, used, state.status
+end
+
+--- Stop a radius search and release the memory it uses.
+--- Leaves grid entries unchanged. Calling it again is harmless.
+---@param cursor GeoGridRadiusQuery The search to stop. Searches from other grids are ignored.
+---@usage grid:closeRadiusQuery(search)
+function GeoGridProto:closeRadiusQuery(cursor)
+    local state = type(cursor) == "table" and self._queries[cursor]
+    if state then
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.CLOSED)
+    end
+end
+
 --- Reset grid state
 ---@return nil
 function GeoGridProto:clear()
+    for _, state in pairs(self._queries) do
+        GeoGridInternal.finishQuery(state, GeoGridQueryStatus.CLOSED)
+    end
     self.grid, self.idx, self.count, self.has_bounds = {}, {}, 0, false
     self.minX, self.minZ, self.maxX, self.maxZ = 0, 0, 0, 0
 end
@@ -385,5 +669,6 @@ function GeoGrid(cellSizeMeters, allowedTypes)
         maxZ = 0,
         count = 0,
         has_bounds = false,
+        _queries = setmetatable({}, { __mode = "k" }),
     }, { __index = GeoGridProto })
 end

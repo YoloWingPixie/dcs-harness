@@ -163,10 +163,12 @@ function GetCoalitionByCountry(countryId)
         return nil
     end
 
-    local success, result = pcall(coalition.getCountryCoalition, countryId)
+    local success, result = pcall(function(...)
+        return coalition.getCountryCoalition(...)
+    end, countryId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition for country: " .. tostring(result),
+            "Failed to get coalition for country: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionByCountry"
         )
         return nil
@@ -188,10 +190,12 @@ function GetCoalitionPlayers(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getPlayers, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getPlayers(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition players: " .. tostring(result),
+            "Failed to get coalition players: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionPlayers"
         )
         return nil
@@ -203,11 +207,12 @@ end
 --- Enumerate all player-controlled units without scanning groups
 ---@return table? units Name-sorted player unit handles, or nil when any coalition query fails
 function GetAllPlayerUnits()
-    if
-        type(coalition) ~= "table"
-        or type(coalition.side) ~= "table"
-        or type(coalition.getPlayers) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(coalition) ~= "table"
+            or type(coalition.side) ~= "table"
+            or type(coalition.getPlayers) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "coalition.getPlayers is unavailable",
             "Coalition.GetAllPlayerUnits"
@@ -216,8 +221,10 @@ function GetAllPlayerUnits()
     end
 
     local byName = {}
-    local sides = { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
-    if sides[1] == nil or sides[2] == nil or sides[3] == nil then
+    local sidesOk, sides = pcall(function()
+        return { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
+    end)
+    if not sidesOk or sides[1] == nil or sides[2] == nil or sides[3] == nil then
         _HarnessInternal.log.error(
             "coalition side constants are unavailable",
             "Coalition.GetAllPlayerUnits"
@@ -226,13 +233,15 @@ function GetAllPlayerUnits()
     end
 
     for _, side in ipairs(sides) do
-        local success, players = pcall(coalition.getPlayers, side)
+        local success, players = pcall(function(...)
+            return coalition.getPlayers(...)
+        end, side)
         if not success or type(players) ~= "table" then
             _HarnessInternal.log.error(
                 "coalition.getPlayers failed for side "
-                    .. tostring(side)
+                    .. _HarnessInternal.safeString(side)
                     .. ": "
-                    .. tostring(players),
+                    .. _HarnessInternal.safeString(players),
                 "Coalition.GetAllPlayerUnits"
             )
             return nil
@@ -302,10 +311,12 @@ function GetCoalitionGroups(coalitionId, categoryId)
         return {}
     end
 
-    local success, result = pcall(coalition.getGroups, coalitionId, categoryId)
+    local success, result = pcall(function(...)
+        return coalition.getGroups(...)
+    end, coalitionId, categoryId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition groups: " .. tostring(result),
+            "Failed to get coalition groups: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionGroups"
         )
         return {}
@@ -327,10 +338,12 @@ function GetCoalitionAirbases(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getAirbases, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getAirbases(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition airbases: " .. tostring(result),
+            "Failed to get coalition airbases: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionAirbases"
         )
         return nil
@@ -359,7 +372,9 @@ function GetCoalitionCountries(coalitionId)
     end
     for _, id in pairs(country.id) do
         if type(id) == "number" then
-            local ok, side = pcall(coalition.getCountryCoalition, id)
+            local ok, side = pcall(function(...)
+                return coalition.getCountryCoalition(...)
+            end, id)
             if ok and side == coalitionId then
                 table.insert(countries, id)
             end
@@ -381,10 +396,12 @@ function GetCoalitionStaticObjects(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getStaticObjects, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getStaticObjects(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition static objects: " .. tostring(result),
+            "Failed to get coalition static objects: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionStaticObjects"
         )
         return nil
@@ -424,10 +441,12 @@ function AddCoalitionGroup(countryId, categoryId, groupData)
         return nil
     end
 
-    local success, result = pcall(coalition.addGroup, countryId, categoryId, groupData)
+    local success, result = pcall(function(...)
+        return coalition.addGroup(...)
+    end, countryId, categoryId, groupData)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition group: " .. tostring(result),
+            "Failed to add coalition group: " .. _HarnessInternal.safeString(result),
             "Coalition.AddGroup"
         )
         return nil
@@ -458,10 +477,12 @@ function AddCoalitionStaticObject(countryId, staticData)
         return nil
     end
 
-    local success, result = pcall(coalition.addStaticObject, countryId, staticData)
+    local success, result = pcall(function(...)
+        return coalition.addStaticObject(...)
+    end, countryId, staticData)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition static object: " .. tostring(result),
+            "Failed to add coalition static object: " .. _HarnessInternal.safeString(result),
             "Coalition.AddStaticObject"
         )
         return nil
@@ -483,10 +504,12 @@ function GetCoalitionRefPoints(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getRefPoints, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getRefPoints(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition reference points: " .. tostring(result),
+            "Failed to get coalition reference points: " .. _HarnessInternal.safeString(result),
             "Coalition.GetRefPoints"
         )
         return nil
@@ -508,10 +531,12 @@ function GetCoalitionMainRefPoint(coalitionId)
         return nil
     end
 
-    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getMainRefPoint(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition main reference point: " .. tostring(result),
+            "Failed to get coalition main reference point: " .. _HarnessInternal.safeString(result),
             "Coalition.GetMainRefPoint"
         )
         return nil
@@ -534,10 +559,12 @@ function GetCoalitionBullseye(coalitionId)
     end
 
     -- Authoritative API name is getMainRefPoint (bullseye)
-    local success, result = pcall(coalition.getMainRefPoint, coalitionId)
+    local success, result = pcall(function(...)
+        return coalition.getMainRefPoint(...)
+    end, coalitionId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition bullseye: " .. tostring(result),
+            "Failed to get coalition bullseye: " .. _HarnessInternal.safeString(result),
             "Coalition.GetCoalitionBullseye"
         )
         return nil
@@ -568,10 +595,12 @@ function AddCoalitionRefPoint(coalitionId, refPointData)
         return nil
     end
 
-    local success, result = pcall(coalition.addRefPoint, coalitionId, refPointData)
+    local success, result = pcall(function(...)
+        return coalition.addRefPoint(...)
+    end, coalitionId, refPointData)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition reference point: " .. tostring(result),
+            "Failed to add coalition reference point: " .. _HarnessInternal.safeString(result),
             "Coalition.AddRefPoint"
         )
         return nil
@@ -602,8 +631,10 @@ function RemoveCoalitionRefPoint(coalitionId, refPointId)
         return nil
     end
 
-    local remover = rawget(coalition, "removeRefPoint")
-    if type(remover) ~= "function" then
+    local lookupOk, remover = pcall(function()
+        return rawget(coalition, "removeRefPoint")
+    end)
+    if not lookupOk or type(remover) ~= "function" then
         _HarnessInternal.log.error(
             "coalition.removeRefPoint not available",
             "Coalition.RemoveRefPoint"
@@ -614,7 +645,7 @@ function RemoveCoalitionRefPoint(coalitionId, refPointId)
     local success, result = pcall(remover, coalitionId, refPointId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove coalition reference point: " .. tostring(result),
+            "Failed to remove coalition reference point: " .. _HarnessInternal.safeString(result),
             "Coalition.RemoveRefPoint"
         )
         return nil
@@ -645,10 +676,12 @@ function GetCoalitionServiceProviders(coalitionId, serviceType)
         return nil
     end
 
-    local success, result = pcall(coalition.getServiceProviders, coalitionId, serviceType)
+    local success, result = pcall(function(...)
+        return coalition.getServiceProviders(...)
+    end, coalitionId, serviceType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get coalition service providers: " .. tostring(result),
+            "Failed to get coalition service providers: " .. _HarnessInternal.safeString(result),
             "Coalition.GetServiceProviders"
         )
         return nil
@@ -777,7 +810,7 @@ function GoRoute(groupName, waypoints)
     end)
     if not success or not controller then
         _HarnessInternal.log.error(
-            "GoRoute failed to get controller: " .. tostring(controller),
+            "GoRoute failed to get controller: " .. _HarnessInternal.safeString(controller),
             "Coalition.GoRoute"
         )
         return false
@@ -792,10 +825,12 @@ function GoRoute(groupName, waypoints)
         },
     }
 
-    local ok, err = pcall(controller.setTask, controller, route)
+    local ok, err = pcall(function(...)
+        return controller.setTask(...)
+    end, controller, route)
     if not ok then
         _HarnessInternal.log.error(
-            "GoRoute failed to set route: " .. tostring(err),
+            "GoRoute failed to set route: " .. _HarnessInternal.safeString(err),
             "Coalition.GoRoute"
         )
         return false

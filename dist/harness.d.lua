@@ -7,6 +7,7 @@
 ---@alias ReactionOnThreat "NO_REACTION"|"PASSIVE_DEFENCE"|"EVADE_FIRE"|"BYPASS_AND_ESCAPE"|"ALLOW_ABORT_MISSION"
 ---@alias MissileAttackMode "MAX_RANGE"|"NEZ_RANGE"|"HALF_WAY_RMAX_NEZ"|"TARGET_THREAT_EST"|"RANDOM_RANGE"
 ---@alias AlarmState "AUTO"|"GREEN"|"RED"
+---@alias GeoGridQueryStatus 'MORE'|'DONE'|'LIMIT'|'CLOSED'|'INVALID'
 
 ---@class HarnessConstants
 ---@field NM_TO_METERS number
@@ -54,10 +55,14 @@ local __HarnessLuaLsType3 = {}
 ---@field type string
 ---@field bucket string
 ---@field p { x: number, y: number, z: number }
+---@field id any
+---@field previous GeoGridLocation?
+---@field next GeoGridLocation?
+---@field chain table?
 local __HarnessLuaLsType4 = {}
 
 ---@class GeoGrid
----@field grid table<integer, table<integer, table<string, table<any, boolean>>>>
+---@field grid table Grid data. Use the search methods to find entries.
 ---@field idx table<any, GeoGridLocation>
 ---@field cell number
 ---@field types table<string, boolean>
@@ -73,6 +78,9 @@ local __HarnessLuaLsType4 = {}
 ---@field move fun(self: GeoGrid, entityId: any, pos: { x: number, y: number|nil, z: number }): boolean, table|nil, table|nil
 ---@field changeType fun(self: GeoGrid, entityId: any, newType: string): boolean
 ---@field queryRadius fun(self: GeoGrid, pos: { x: number, y: number|nil, z: number }, radius: number, types: string[]): table<string, table<any, boolean>>
+---@field beginRadiusQuery fun(self: GeoGrid, position: Vec3, radius: number, types: string[], maxResults: integer): GeoGridRadiusQuery?, string?
+---@field continueRadiusQuery fun(self: GeoGrid, cursor: GeoGridRadiusQuery, workBudget: integer, output: any[]): integer, integer, GeoGridQueryStatus
+---@field closeRadiusQuery fun(self: GeoGrid, cursor: GeoGridRadiusQuery)
 ---@field clear fun(self: GeoGrid)
 ---@field size fun(self: GeoGrid): integer
 ---@field has fun(self: GeoGrid, id: any): boolean
@@ -80,10 +88,21 @@ local __HarnessLuaLsType4 = {}
 ---@field fromTable fun(self: GeoGrid, t: table): boolean
 local __HarnessLuaLsType5 = {}
 
+---@class GeoGridQueryStatusConstants
+---@field MORE 'MORE'
+---@field DONE 'DONE'
+---@field LIMIT 'LIMIT'
+---@field CLOSED 'CLOSED'
+---@field INVALID 'INVALID'
+local __HarnessLuaLsType6 = {}
+
+---@class GeoGridRadiusQuery
+local __HarnessLuaLsType7 = {}
+
 ---@class Circle2D
 ---@field center Vec2 Horizontal circle center.
 ---@field radius number Positive circle radius.
-local __HarnessLuaLsType6 = {}
+local __HarnessLuaLsType8 = {}
 
 ---@class Logger
 ---@field namespace string
@@ -91,14 +110,28 @@ local __HarnessLuaLsType6 = {}
 ---@field warn fun(message: string, caller?: string)
 ---@field error fun(message: string, caller?: string)
 ---@field debug fun(message: string, caller?: string)
-local __HarnessLuaLsType7 = {}
+local __HarnessLuaLsType9 = {}
+
+---@class MissionUnitRecord
+---@field name string
+---@field unitId number?
+---@field typeName string?
+---@field skill string?
+---@field category string?
+---@field countryId number?
+---@field coalition string?
+local __HarnessLuaLsType10 = {}
+
+---@class MissionUnitIndex
+---@field get fun(self: MissionUnitIndex, unitName: any): MissionUnitRecord?
+local __HarnessLuaLsType11 = {}
 
 ---@class UnitHealthSnapshot
 ---@field CurrentLife number
 ---@field InitialLife number?
 ---@field IsAlive boolean
 ---@field IsDamaged boolean?
-local __HarnessLuaLsType8 = {}
+local __HarnessLuaLsType12 = {}
 
 ---@class Vec2
 ---@field x number DCS world X coordinate
@@ -113,7 +146,7 @@ local __HarnessLuaLsType8 = {}
 ---@field midpointTo fun(self: Vec2, other: Vec2): Vec2
 ---@field angleTo fun(self: Vec2, other: Vec2): number
 ---@field rotate fun(self: Vec2, angleDeg: number): Vec2
-local __HarnessLuaLsType9 = {}
+local __HarnessLuaLsType13 = {}
 
 ---@class Vec3
 ---@field x number DCS world X coordinate
@@ -132,7 +165,7 @@ local __HarnessLuaLsType9 = {}
 ---@field displace2D fun(self: Vec3, bearingDeg: number, distance: number): Vec3?
 ---@field midpointTo fun(self: Vec3, other: Vec3): Vec3
 ---@field angleTo fun(self: Vec3, other: Vec3): number
-local __HarnessLuaLsType10 = {}
+local __HarnessLuaLsType14 = {}
 
 ---@type string
 HARNESS_VERSION = nil
@@ -145,6 +178,9 @@ HarnessWorldEventBus = nil
 
 ---@type HarnessWorldEventBus?
 HarnessWorldEventBusInstance = nil
+
+---@type GeoGridQueryStatusConstants
+GeoGridQueryStatus = nil
 
 --- Get airbase by name
 ---@param airbaseName string? Name of the airbase
@@ -1685,11 +1721,30 @@ function CircleLineIntersection2D(circleCenter, radius, lineStart, lineEnd) end
 ---@return number? area Union area, or nil when the input or result is invalid.
 function CircleUnionArea2D(circles) end
 
+--- Measure how much of a circular area is covered by other circles.
+--- Overlapping circles count only once. Circle centers use {x, y} on the ground.
+---@param envelope Circle2D The area to measure: {center = {x, y}, radius = meters}.
+---@param providers Circle2D[] The circles covering that area, in a list without gaps. Inputs are left unchanged.
+---@return number? area Covered area in square meters, or nil if the circles are invalid or the calculation fails.
+--- Usage: local coveredArea = CircleCoveredArea2D(zoneCircle, radarCircles)
+function CircleCoveredArea2D(envelope, providers) end
+
 function PolygonArea2D(polygon) end
 
 function PolygonCentroid2D(polygon) end
 
 function ConvexHull2D(points) end
+
+--- Find when a moving object will get closest to a fixed point.
+--- Includes altitude and assumes the object keeps its current velocity.
+--- If it is moving away or slower than 0.001 m/s, use its current distance.
+---@param position Vec3 The object's position in meters.
+---@param velocity Vec3 The object's velocity in meters per second.
+---@param target Vec3 The fixed point in meters. Inputs are left unchanged.
+---@return number? seconds Seconds until closest approach, or nil if the inputs or result are invalid.
+---@return number? distance Closest distance in meters, or nil on failure.
+--- Usage: local seconds, distance = EstimateCPAToPoint3D(position, velocity, defendedPoint)
+function EstimateCPAToPoint3D(position, velocity, target) end
 
 --- Estimate time of closest approach between a moving point and a fixed point (2D)
 ---@param pos table Vec3 current position
@@ -1899,6 +1954,12 @@ function NewULID() end
 --- Usage: local myLogger = HarnessLogger("MyMod")
 --- Usage: myLogger.info("Starting up")
 function HarnessLogger(namespace) end
+
+--- Check that a value is a number that is neither NaN nor infinity.
+---@param value any Value to check.
+---@return boolean valid True for ordinary numbers, including zero and negative numbers.
+--- Usage: if IsFiniteNumber(range) then ... end
+function IsFiniteNumber(value) end
 
 --- Deep copy a table
 ---@param original any Value to copy (tables are copied recursively)
@@ -2138,6 +2199,15 @@ function Retry(func, options) end
 --- local result = safe(10)
 function CircuitBreaker(func, options) end
 
+--- Build a name lookup for units placed in the Mission Editor.
+--- Build it during setup. Later spawns and mission changes do not update it.
+--- Skill stays as the editor text, including Random, Player, and Client.
+---@param mission table? Mission data to read. Leave out to use env.mission.
+---@return MissionUnitIndex? index Use index:get(unitName) to read a unit's settings.
+---@return string? reason Why the lookup could not be built, such as missing mission data or duplicate names.
+--- Usage: local units, reason = MissionUnitIndex()
+function MissionUnitIndex(mission) end
+
 --- Adds a command to the F10 radio menu
 --- @param path table? Native parent Path, or nil for root
 --- @param menuItem table Menu item definition with name, enabled, and removable fields
@@ -2256,6 +2326,17 @@ function WriteMissionTextFile(relativePath, contents) end
 ---@return string? reason Failure reason
 function WriteUniqueMissionTextFile(relativePath, contents, maxSuffix) end
 
+--- Save new contents over a mission text file in the DCS Saved Games directory.
+--- If saving fails, keep the old file or return the path where it can be recovered.
+--- Requires the mission's file-access libraries to be available.
+---@param relativePath string File path such as "Reports/status.txt". Use / between folders; missing folders are created.
+---@param contents string Text to save exactly as provided. No newline is added.
+---@return string? absolutePath The saved file's full path, or nil if saving failed.
+---@return string? reason Why the file could not be saved.
+---@return string? recoveryPath Where the old file remains if it could not be put back.
+--- Usage: local path, reason, recovery = ReplaceMissionTextFile("Reports/status.txt", reportText)
+function ReplaceMissionTextFile(relativePath, contents) end
+
 --- Send chat message to all players or coalition
 ---@param message string Message text to send
 ---@param all boolean True to send to all, false for coalition only
@@ -2333,6 +2414,32 @@ function GetMissionName() end
 ---@return boolean success True if slot change was initiated
 --- Usage: ForcePlayerSlot(2, 2, "blue_f16_pilot")
 function ForcePlayerSlot(playerId, side, slotId) end
+
+--- Get the ID carried by a detected unit or weapon.
+---@param object table|userdata The detected unit or weapon object.
+---@return number|string? id The object's id_ value, or nil if it cannot be read or is invalid.
+--- Usage: local id = GetObjectID(detection.object)
+function GetObjectID(object) end
+
+--- Get the DCS object category of a unit or weapon.
+---@param object table|userdata The unit or weapon object.
+---@return number? category An Object.Category value, or nil if it cannot be read.
+--- Usage: local category = GetObjectCategory(detection.object)
+function GetObjectCategory(object) end
+
+--- Get the position of a unit or weapon.
+--- The result is a new {x, y, z} table in meters. Y is altitude.
+---@param object table|userdata The unit or weapon object.
+---@return Vec3? point Position, or nil if it cannot be read or has invalid numbers.
+--- Usage: local position = GetObjectPoint(detection.object)
+function GetObjectPoint(object) end
+
+--- Get the velocity of a unit or weapon.
+--- The result is a new {x, y, z} table in meters per second.
+---@param object table|userdata The unit or weapon object.
+---@return Vec3? velocity Velocity, or nil if it cannot be read or has invalid numbers.
+--- Usage: local velocity = GetObjectVelocity(detection.object)
+function GetObjectVelocity(object) end
 
 --- Initialize all shape caches (drawings and trigger zones)
 ---@return boolean success True if all caches initialized successfully
@@ -3410,6 +3517,15 @@ function IsUnitActive(unit) end
 ---@return table? controller Unit controller or nil on error
 --- Usage: local controller = GetUnitController(unit)
 function GetUnitController(unit) end
+
+--- Read the air-detection ranges listed for one sensor.
+--- Keeps both ranges when available, so your mission can choose which to use.
+--- The result has upperHeadOn and/or maximal fields, measured in meters.
+--- Missing ranges, zero, negative values, NaN, and infinity are left out.
+---@param sensor any One sensor entry from GetUnitSensors.
+---@return table? ranges A new table of ranges, or nil if neither range is usable.
+--- Usage: local ranges = ReadSensorAirDetectionRanges(sensor)
+function ReadSensorAirDetectionRanges(sensor) end
 
 --- Get unit sensors
 ---@param unit table Unit object

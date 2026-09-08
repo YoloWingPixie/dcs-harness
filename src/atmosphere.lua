@@ -21,14 +21,22 @@ function GetWind(point)
         )
         return nil
     end
-    if type(atmosphere) ~= "table" or type(atmosphere.getWind) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(atmosphere) ~= "table" or type(atmosphere.getWind) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("atmosphere.getWind is unavailable", "Atmosphere.GetWind")
         return nil
     end
 
-    local success, result = pcall(atmosphere.getWind, point)
+    local success, result = pcall(function(...)
+        return atmosphere.getWind(...)
+    end, point)
     if not success then
-        _HarnessInternal.log.error("Failed to get wind: " .. tostring(result), "Atmosphere.GetWind")
+        _HarnessInternal.log.error(
+            "Failed to get wind: " .. _HarnessInternal.safeString(result),
+            "Atmosphere.GetWind"
+        )
         return nil
     end
 
@@ -52,17 +60,22 @@ function GetWindWithTurbulence(point)
         return nil
     end
 
-    if type(atmosphere) ~= "table" or type(atmosphere.getWindWithTurbulence) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(atmosphere) ~= "table" or type(atmosphere.getWindWithTurbulence) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "atmosphere.getWindWithTurbulence is unavailable",
             "Atmosphere.GetWindWithTurbulence"
         )
         return nil
     end
-    local success, result = pcall(atmosphere.getWindWithTurbulence, point)
+    local success, result = pcall(function(...)
+        return atmosphere.getWindWithTurbulence(...)
+    end, point)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get wind with turbulence: " .. tostring(result),
+            "Failed to get wind with turbulence: " .. _HarnessInternal.safeString(result),
             "Atmosphere.GetWindWithTurbulence"
         )
         return nil
@@ -95,7 +108,11 @@ function GetTemperatureAndPressure(point)
         )
         return nil
     end
-    if type(atmosphere) ~= "table" or type(atmosphere.getTemperatureAndPressure) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(atmosphere) ~= "table"
+            or type(atmosphere.getTemperatureAndPressure) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "atmosphere.getTemperatureAndPressure is unavailable",
             "Atmosphere.GetTemperatureAndPressure"
@@ -104,10 +121,12 @@ function GetTemperatureAndPressure(point)
     end
 
     -- DCS returns two numbers (temperature in Kelvin, pressure in Pascals)
-    local success, temperatureK, pressurePa = pcall(atmosphere.getTemperatureAndPressure, point)
+    local success, temperatureK, pressurePa = pcall(function(...)
+        return atmosphere.getTemperatureAndPressure(...)
+    end, point)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get temperature and pressure: " .. tostring(temperatureK),
+            "Failed to get temperature and pressure: " .. _HarnessInternal.safeString(temperatureK),
             "Atmosphere.GetTemperatureAndPressure"
         )
         return nil

@@ -52,9 +52,14 @@ function GetZone(zoneName)
     end
 
     -- Fall back to API call
-    local success, zone = pcall(trigger.misc.getZone, zoneName)
+    local success, zone = pcall(function(...)
+        return trigger.misc.getZone(...)
+    end, zoneName)
     if not success then
-        _HarnessInternal.log.error("Failed to get zone: " .. tostring(zone), "GetZone")
+        _HarnessInternal.log.error(
+            "Failed to get zone: " .. _HarnessInternal.safeString(zone),
+            "GetZone"
+        )
         return nil
     end
 
@@ -150,7 +155,9 @@ function IsGroupInZone(groupName, zoneName)
     end
 
     for _, unit in ipairs(units) do
-        local success, unitName = pcall(unit.getName, unit)
+        local success, unitName = pcall(function(...)
+            return unit.getName(...)
+        end, unit)
         if success and unitName then
             if IsUnitInZone(unitName, zoneName) then
                 return true
@@ -173,7 +180,9 @@ function IsGroupCompletelyInZone(groupName, zoneName)
     end
 
     for _, unit in ipairs(units) do
-        local success, unitName = pcall(unit.getName, unit)
+        local success, unitName = pcall(function(...)
+            return unit.getName(...)
+        end, unit)
         if success and unitName then
             if not IsUnitInZone(unitName, zoneName) then
                 return false
@@ -331,7 +340,9 @@ function GetGroupsInZone(zoneName, coalitionId)
             local groups = GetCoalitionGroups(coal, category)
 
             for _, group in ipairs(groups) do
-                local success, groupName = pcall(group.getName, group)
+                local success, groupName = pcall(function(...)
+                    return group.getName(...)
+                end, group)
                 if success and groupName and not groupsAdded[groupName] then
                     if IsGroupInZone(groupName, zoneName) then
                         table.insert(groupsInZone, group)
@@ -422,7 +433,7 @@ function GetMissionZones()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get mission zones: " .. tostring(result),
+            "Failed to get mission zones: " .. _HarnessInternal.safeString(result),
             "Zone.GetMissionZones"
         )
         return nil

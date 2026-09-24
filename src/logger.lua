@@ -21,6 +21,18 @@ _HarnessInternal = _HarnessInternal or {}
 _HarnessInternal.loggers = _HarnessInternal.loggers or {}
 _HarnessInternal.defaultNamespace = _HarnessInternal.defaultNamespace or "Harness"
 
+local LoggerInternal = {}
+
+function LoggerInternal.safeString(value)
+    local ok, result = pcall(tostring, value)
+    if ok then
+        return result
+    end
+    return "<unprintable " .. type(value) .. ">"
+end
+
+_HarnessInternal.safeString = LoggerInternal.safeString
+
 --- Internal function to format messages
 ---@param namespace string The namespace for the log message
 ---@param message string The message to log
@@ -39,6 +51,7 @@ end
 ---@usage local myLogger = HarnessLogger("MyMod")
 ---@usage myLogger.info("Starting up")
 function HarnessLogger(namespace)
+    _HarnessInternal.safeString = LoggerInternal.safeString
     if not namespace or type(namespace) ~= "string" then
         namespace = _HarnessInternal.defaultNamespace
     end
@@ -57,28 +70,36 @@ function HarnessLogger(namespace)
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.info(message, caller)
-        env.info(formatMessage(namespace, message, caller))
+        pcall(function()
+            env.info(formatMessage(namespace, message, caller))
+        end)
     end
 
     --- Log a warning message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.warn(message, caller)
-        env.warning(formatMessage(namespace, message, caller))
+        pcall(function()
+            env.warning(formatMessage(namespace, message, caller))
+        end)
     end
 
     --- Log an error message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.error(message, caller)
-        env.error(formatMessage(namespace, message, caller))
+        pcall(function()
+            env.error(formatMessage(namespace, message, caller))
+        end)
     end
 
     --- Log a debug message
     ---@param message string The message to log
     ---@param caller string? Optional caller identifier
     function logger.debug(message, caller)
-        env.info(formatMessage(namespace .. " : DEBUG", message, caller))
+        pcall(function()
+            env.info(formatMessage(namespace .. " : DEBUG", message, caller))
+        end)
     end
 
     _HarnessInternal.loggers[namespace] = logger

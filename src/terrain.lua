@@ -18,15 +18,20 @@ function GetTerrainHeight(position)
         _HarnessInternal.log.error("GetTerrainHeight requires Vec2 or Vec3", "GetTerrainHeight")
         return 0
     end
-    if type(land) ~= "table" or type(land.getHeight) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.getHeight) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("land.getHeight is unavailable", "GetTerrainHeight")
         return 0
     end
 
-    local success, height = pcall(land.getHeight, position2)
+    local success, height = pcall(function(...)
+        return land.getHeight(...)
+    end, position2)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get terrain height: " .. tostring(height),
+            "Failed to get terrain height: " .. _HarnessInternal.safeString(height),
             "GetTerrainHeight"
         )
         return 0
@@ -75,9 +80,14 @@ function HasLOS(from, to)
         return false
     end
 
-    local success, visible = pcall(land.isVisible, from, to)
+    local success, visible = pcall(function(...)
+        return land.isVisible(...)
+    end, from, to)
     if not success then
-        _HarnessInternal.log.error("Failed to check LOS: " .. tostring(visible), "HasLOS")
+        _HarnessInternal.log.error(
+            "Failed to check LOS: " .. _HarnessInternal.safeString(visible),
+            "HasLOS"
+        )
         return false
     end
 
@@ -138,15 +148,20 @@ function GetSurfaceType(position)
         _HarnessInternal.log.error("GetSurfaceType requires Vec2 or Vec3", "GetSurfaceType")
         return nil
     end
-    if type(land) ~= "table" or type(land.getSurfaceType) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.getSurfaceType) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("land.getSurfaceType is unavailable", "GetSurfaceType")
         return nil
     end
 
-    local success, surfaceType = pcall(land.getSurfaceType, position2)
+    local success, surfaceType = pcall(function(...)
+        return land.getSurfaceType(...)
+    end, position2)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get surface type: " .. tostring(surfaceType),
+            "Failed to get surface type: " .. _HarnessInternal.safeString(surfaceType),
             "GetSurfaceType"
         )
         return nil
@@ -198,10 +213,12 @@ function GetTerrainIntersection(origin, direction, maxDistance)
         return nil
     end
 
-    local success, intersection = pcall(land.getIP, origin, direction, maxDistance)
+    local success, intersection = pcall(function(...)
+        return land.getIP(...)
+    end, origin, direction, maxDistance)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get terrain intersection: " .. tostring(intersection),
+            "Failed to get terrain intersection: " .. _HarnessInternal.safeString(intersection),
             "GetTerrainIntersection"
         )
         return nil
@@ -221,10 +238,12 @@ function GetTerrainProfile(from, to)
         return {}
     end
 
-    local success, profile = pcall(land.profile, from, to)
+    local success, profile = pcall(function(...)
+        return land.profile(...)
+    end, from, to)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get terrain profile: " .. tostring(profile),
+            "Failed to get terrain profile: " .. _HarnessInternal.safeString(profile),
             "GetTerrainProfile"
         )
         return {}
@@ -254,7 +273,10 @@ function GetClosestRoadPoint(position, roadType)
         roadType = "railroads"
     end
 
-    if type(land) ~= "table" or type(land.getClosestPointOnRoads) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.getClosestPointOnRoads) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "land.getClosestPointOnRoads is unavailable",
             "GetClosestRoadPoint"
@@ -262,10 +284,12 @@ function GetClosestRoadPoint(position, roadType)
         return nil
     end
 
-    local success, r1, r2 = pcall(land.getClosestPointOnRoads, roadType, position2.x, position2.y)
+    local success, r1, r2 = pcall(function(...)
+        return land.getClosestPointOnRoads(...)
+    end, roadType, position2.x, position2.y)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get closest road point: " .. tostring(r1),
+            "Failed to get closest road point: " .. _HarnessInternal.safeString(r1),
             "GetClosestRoadPoint"
         )
         return nil
@@ -301,15 +325,22 @@ function FindRoadPath(from, to, roadType)
         roadType = "rails"
     end
 
-    if type(land) ~= "table" or type(land.findPathOnRoads) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(land) ~= "table" or type(land.findPathOnRoads) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("land.findPathOnRoads is unavailable", "FindRoadPath")
         return {}
     end
 
-    local success, path =
-        pcall(land.findPathOnRoads, roadType, fromVec2.x, fromVec2.y, toVec2.x, toVec2.y)
+    local success, path = pcall(function(...)
+        return land.findPathOnRoads(...)
+    end, roadType, fromVec2.x, fromVec2.y, toVec2.x, toVec2.y)
     if not success then
-        _HarnessInternal.log.error("Failed to find road path: " .. tostring(path), "FindRoadPath")
+        _HarnessInternal.log.error(
+            "Failed to find road path: " .. _HarnessInternal.safeString(path),
+            "FindRoadPath"
+        )
         return {}
     end
 
@@ -328,7 +359,7 @@ function FindRoadPath(from, to, roadType)
             result[#result + 1] = pathPoint
         else
             _HarnessInternal.log.error(
-                "Road path point " .. tostring(index) .. " was invalid",
+                "Road path point " .. _HarnessInternal.safeString(index) .. " was invalid",
                 "FindRoadPath"
             )
         end

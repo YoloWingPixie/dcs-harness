@@ -5,6 +5,8 @@
 ==================================================================================================
 ]]
 
+require("misc")
+
 -- Vec2 Type Definition with metatables for operator overloading
 ---@class Vec2
 ---@field x number DCS world X coordinate
@@ -24,15 +26,11 @@ Vec2_mt.__index = Vec2_mt
 
 local VectorInternal = {}
 
-function VectorInternal.isFiniteNumber(value)
-    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
-end
-
 function VectorInternal.groundEast(value)
-    if IsVec3(value) and VectorInternal.isFiniteNumber(value.z) then
+    if IsVec3(value) and IsFiniteNumber(value.z) then
         return value.z
     end
-    if IsVec2(value) and VectorInternal.isFiniteNumber(value.y) then
+    if IsVec2(value) and IsFiniteNumber(value.y) then
         return value.y
     end
     return nil
@@ -165,29 +163,13 @@ function ToVec2(t)
         return nil
     end
 
-    if
-        getmetatable(t) == Vec2_mt
-        and VectorInternal.isFiniteNumber(t.x)
-        and VectorInternal.isFiniteNumber(t.y)
-    then
+    if getmetatable(t) == Vec2_mt and IsFiniteNumber(t.x) and IsFiniteNumber(t.y) then
         return t
-    elseif
-        IsVec3(t)
-        and VectorInternal.isFiniteNumber(t.x)
-        and VectorInternal.isFiniteNumber(t.z)
-    then
+    elseif IsVec3(t) and IsFiniteNumber(t.x) and IsFiniteNumber(t.z) then
         return Vec2(t.x, t.z)
-    elseif
-        IsVec2(t)
-        and VectorInternal.isFiniteNumber(t.x)
-        and VectorInternal.isFiniteNumber(t.y)
-    then
+    elseif IsVec2(t) and IsFiniteNumber(t.x) and IsFiniteNumber(t.y) then
         return Vec2(t.x, t.y)
-    elseif
-        type(t) == "table"
-        and VectorInternal.isFiniteNumber(t[1])
-        and VectorInternal.isFiniteNumber(t[2])
-    then
+    elseif type(t) == "table" and IsFiniteNumber(t[1]) and IsFiniteNumber(t[2]) then
         return Vec2(t[1], t[2])
     end
 
@@ -327,7 +309,7 @@ function VecLength2D(vec)
     end
 
     local east = VectorInternal.groundEast(vec)
-    if not VectorInternal.isFiniteNumber(vec.x) or east == nil then
+    if not IsFiniteNumber(vec.x) or east == nil then
         _HarnessInternal.log.error("VecLength2D requires valid vector", "Vector.VecLength2D")
         return 0
     end
@@ -427,12 +409,7 @@ function Distance2D(a, b)
 
     local aEast = VectorInternal.groundEast(a)
     local bEast = VectorInternal.groundEast(b)
-    if
-        not VectorInternal.isFiniteNumber(a.x)
-        or not VectorInternal.isFiniteNumber(b.x)
-        or aEast == nil
-        or bEast == nil
-    then
+    if not IsFiniteNumber(a.x) or not IsFiniteNumber(b.x) or aEast == nil or bEast == nil then
         _HarnessInternal.log.error("Distance2D requires two valid positions", "Vector.Distance2D")
         return 0
     end
@@ -478,12 +455,7 @@ function Distance2DSquared(a, b)
 
     local aEast = VectorInternal.groundEast(a)
     local bEast = VectorInternal.groundEast(b)
-    if
-        not VectorInternal.isFiniteNumber(a.x)
-        or not VectorInternal.isFiniteNumber(b.x)
-        or aEast == nil
-        or bEast == nil
-    then
+    if not IsFiniteNumber(a.x) or not IsFiniteNumber(b.x) or aEast == nil or bEast == nil then
         _HarnessInternal.log.error(
             "Distance2DSquared requires two valid positions",
             "Vector.Distance2DSquared"
@@ -507,8 +479,8 @@ function Bearing(from, to)
     if
         type(from) ~= "table"
         or type(to) ~= "table"
-        or not VectorInternal.isFiniteNumber(from.x)
-        or not VectorInternal.isFiniteNumber(to.x)
+        or not IsFiniteNumber(from.x)
+        or not IsFiniteNumber(to.x)
         or fromEast == nil
         or toEast == nil
     then
@@ -531,10 +503,10 @@ function FromBearingDistance(origin, bearing, distance)
     local originEast = VectorInternal.groundEast(origin)
     if
         type(origin) ~= "table"
-        or not VectorInternal.isFiniteNumber(origin.x)
+        or not IsFiniteNumber(origin.x)
         or originEast == nil
-        or not VectorInternal.isFiniteNumber(bearing)
-        or not VectorInternal.isFiniteNumber(distance)
+        or not IsFiniteNumber(bearing)
+        or not IsFiniteNumber(distance)
     then
         _HarnessInternal.log.error(
             "FromBearingDistance requires origin, bearing, and distance",

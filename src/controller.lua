@@ -74,10 +74,12 @@ function SetControllerTask(controller, task)
         return nil
     end
 
-    local success, result = pcall(controller.setTask, controller, task)
+    local success, result = pcall(function(...)
+        return controller.setTask(...)
+    end, controller, task)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller task: " .. tostring(result),
+            "Failed to set controller task: " .. _HarnessInternal.safeString(result),
             "Controller.SetTask"
         )
         return nil
@@ -99,10 +101,12 @@ function ResetControllerTask(controller)
         return nil
     end
 
-    local success, result = pcall(controller.resetTask, controller)
+    local success, result = pcall(function(...)
+        return controller.resetTask(...)
+    end, controller)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to reset controller task: " .. tostring(result),
+            "Failed to reset controller task: " .. _HarnessInternal.safeString(result),
             "Controller.ResetTask"
         )
         return nil
@@ -133,10 +137,12 @@ function PushControllerTask(controller, task)
         return nil
     end
 
-    local success, result = pcall(controller.pushTask, controller, task)
+    local success, result = pcall(function(...)
+        return controller.pushTask(...)
+    end, controller, task)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to push controller task: " .. tostring(result),
+            "Failed to push controller task: " .. _HarnessInternal.safeString(result),
             "Controller.PushTask"
         )
         return nil
@@ -158,10 +164,12 @@ function PopControllerTask(controller)
         return nil
     end
 
-    local success, result = pcall(controller.popTask, controller)
+    local success, result = pcall(function(...)
+        return controller.popTask(...)
+    end, controller)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to pop controller task: " .. tostring(result),
+            "Failed to pop controller task: " .. _HarnessInternal.safeString(result),
             "Controller.PopTask"
         )
         return nil
@@ -183,10 +191,12 @@ function HasControllerTask(controller)
         return nil
     end
 
-    local success, result = pcall(controller.hasTask, controller)
+    local success, result = pcall(function(...)
+        return controller.hasTask(...)
+    end, controller)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check controller task: " .. tostring(result),
+            "Failed to check controller task: " .. _HarnessInternal.safeString(result),
             "Controller.HasTask"
         )
         return nil
@@ -217,10 +227,12 @@ function SetControllerCommand(controller, command)
         return nil
     end
 
-    local success, result = pcall(controller.setCommand, controller, command)
+    local success, result = pcall(function(...)
+        return controller.setCommand(...)
+    end, controller, command)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller command: " .. tostring(result),
+            "Failed to set controller command: " .. _HarnessInternal.safeString(result),
             "Controller.SetCommand"
         )
         return nil
@@ -251,10 +263,12 @@ function SetControllerOnOff(controller, onOff)
         return nil
     end
 
-    local success, result = pcall(controller.setOnOff, controller, onOff)
+    local success, result = pcall(function(...)
+        return controller.setOnOff(...)
+    end, controller, onOff)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller on/off: " .. tostring(result),
+            "Failed to set controller on/off: " .. _HarnessInternal.safeString(result),
             "Controller.SetOnOff"
         )
         return nil
@@ -287,10 +301,12 @@ function SetControllerAltitude(controller, altitude, keep, altType)
         return nil
     end
 
-    local success, result = pcall(controller.setAltitude, controller, altitude, keep, altType)
+    local success, result = pcall(function(...)
+        return controller.setAltitude(...)
+    end, controller, altitude, keep, altType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller altitude: " .. tostring(result),
+            "Failed to set controller altitude: " .. _HarnessInternal.safeString(result),
             "Controller.SetAltitude"
         )
         return nil
@@ -319,10 +335,12 @@ function SetControllerSpeed(controller, speed, keep)
         return nil
     end
 
-    local success, result = pcall(controller.setSpeed, controller, speed, keep)
+    local success, result = pcall(function(...)
+        return controller.setSpeed(...)
+    end, controller, speed, keep)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller speed: " .. tostring(result),
+            "Failed to set controller speed: " .. _HarnessInternal.safeString(result),
             "Controller.SetSpeed"
         )
         return nil
@@ -354,10 +372,12 @@ function SetControllerOption(controller, optionId, optionValue)
         return nil
     end
 
-    local success, result = pcall(controller.setOption, controller, optionId, optionValue)
+    local success, result = pcall(function(...)
+        return controller.setOption(...)
+    end, controller, optionId, optionValue)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to set controller option: " .. tostring(result),
+            "Failed to set controller option: " .. _HarnessInternal.safeString(result),
             "Controller.SetOption"
         )
         return nil
@@ -791,11 +811,12 @@ function GetControllerDetectedTargets(controller, detectionType, categoryFilter)
         return nil
     end
 
-    local success, result =
-        pcall(controller.getDetectedTargets, controller, detectionType, categoryFilter)
+    local success, result = pcall(function(...)
+        return controller.getDetectedTargets(...)
+    end, controller, detectionType, categoryFilter)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get detected targets: " .. tostring(result),
+            "Failed to get detected targets: " .. _HarnessInternal.safeString(result),
             "Controller.GetDetectedTargets"
         )
         return nil
@@ -828,11 +849,12 @@ function KnowControllerTarget(controller, target, typeKnown, distanceKnown)
         return nil
     end
 
-    local success, result =
-        pcall(controller.knowTarget, controller, target, typeKnown, distanceKnown)
+    local success, result = pcall(function(...)
+        return controller.knowTarget(...)
+    end, controller, target, typeKnown, distanceKnown)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to know target: " .. tostring(result),
+            "Failed to know target: " .. _HarnessInternal.safeString(result),
             "Controller.KnowTarget"
         )
         return nil
@@ -864,10 +886,12 @@ function IsControllerTargetDetected(controller, target, detectionType)
         return nil
     end
 
-    local success, result = pcall(controller.isTargetDetected, controller, target, detectionType)
+    local success, result = pcall(function(...)
+        return controller.isTargetDetected(...)
+    end, controller, target, detectionType)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check target detection: " .. tostring(result),
+            "Failed to check target detection: " .. _HarnessInternal.safeString(result),
             "Controller.IsTargetDetected"
         )
         return nil

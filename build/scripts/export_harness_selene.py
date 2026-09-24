@@ -57,6 +57,8 @@ PRIMITIVE_TYPE_MAP: Dict[str, str] = {
 EXTRA_GLOBALS: Dict[str, Dict[str, Any]] = {
     "HarnessWorldEventBus": {"property": "new-fields"},
     "HarnessConstants": {"property": "read-only"},
+    "GeoGridQueryStatus": {"property": "read-only"},
+    "GeoGridQueryStatus.*": {"property": "read-only"},
 }
 
 

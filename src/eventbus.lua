@@ -9,6 +9,8 @@
     - HarnessWorldEventBus integrates with `world.addEventHandler` lazily
 ]]
 
+require("world")
+
 -- Single-handler approach: one handler instance per mission
 local ACTIVE_HANDLER = nil
 
@@ -146,8 +148,7 @@ function CreateHarnessWorldEventBus()
         local id = baseSubscribe(self, eventId, queue, predicate)
         if id then
             self._totalSubs = self._totalSubs + 1
-            if (not self._registered) and world and type(world.addEventHandler) == "function" then
-                world.addEventHandler(self._handler)
+            if (not self._registered) and AddWorldEventHandler(self._handler) then
                 self._registered = true
                 ACTIVE_HANDLER = self._handler
             end
@@ -163,14 +164,11 @@ function CreateHarnessWorldEventBus()
             if self._totalSubs < 0 then
                 self._totalSubs = 0
             end
-            if
-                self._registered
-                and self._totalSubs == 0
-                and world
-                and type(world.removeEventHandler) == "function"
-            then
+            if self._registered and self._totalSubs == 0 then
                 if ACTIVE_HANDLER == self._handler then
-                    world.removeEventHandler(self._handler)
+                    if not RemoveWorldEventHandler(self._handler) then
+                        return removed
+                    end
                     ACTIVE_HANDLER = nil
                 end
                 self._registered = false
@@ -180,10 +178,11 @@ function CreateHarnessWorldEventBus()
     end
 
     function bus:dispose()
-        if self._registered and world and type(world.removeEventHandler) == "function" then
+        if self._registered then
             if ACTIVE_HANDLER == self._handler then
-                world.removeEventHandler(self._handler)
-                ACTIVE_HANDLER = nil
+                if RemoveWorldEventHandler(self._handler) then
+                    ACTIVE_HANDLER = nil
+                end
             end
         end
         self._registered = false

@@ -21,9 +21,14 @@ function SendChat(message, all)
         return false
     end
 
-    local success, result = pcall(net.send_chat, message, all)
+    local success, result = pcall(function(...)
+        return net.send_chat(...)
+    end, message, all)
     if not success then
-        _HarnessInternal.log.error("Failed to send chat: " .. tostring(result), "SendChat")
+        _HarnessInternal.log.error(
+            "Failed to send chat: " .. _HarnessInternal.safeString(result),
+            "SendChat"
+        )
         return false
     end
 
@@ -53,10 +58,12 @@ function SendChatTo(message, playerId, fromId)
         return false
     end
 
-    local success, result = pcall(net.send_chat_to, message, playerId, fromId)
+    local success, result = pcall(function(...)
+        return net.send_chat_to(...)
+    end, message, playerId, fromId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to send chat to player: " .. tostring(result),
+            "Failed to send chat to player: " .. _HarnessInternal.safeString(result),
             "SendChatTo"
         )
         return false
@@ -69,14 +76,19 @@ end
 --- Get connected network player IDs
 ---@return table? playerIds Array of player IDs, or nil when unavailable
 function GetPlayerIds()
-    if type(net) ~= "table" or type(net.get_player_list) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(net) ~= "table" or type(net.get_player_list) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("net.get_player_list is unavailable", "GetPlayerIds")
         return nil
     end
-    local success, playerIds = pcall(net.get_player_list)
+    local success, playerIds = pcall(function()
+        return net.get_player_list()
+    end)
     if not success or type(playerIds) ~= "table" then
         _HarnessInternal.log.error(
-            "Failed to get player ID list: " .. tostring(playerIds),
+            "Failed to get player ID list: " .. _HarnessInternal.safeString(playerIds),
             "GetPlayerIds"
         )
         return nil
@@ -91,19 +103,27 @@ function GetPlayerInfos()
     if not playerIds then
         return nil
     end
-    if type(net) ~= "table" or type(net.get_player_info) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(net) ~= "table" or type(net.get_player_info) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("net.get_player_info is unavailable", "GetPlayerInfos")
         return nil
     end
 
     local playerInfos = {}
     for _, playerId in ipairs(playerIds) do
-        local success, info = pcall(net.get_player_info, playerId)
+        local success, info = pcall(function(...)
+            return net.get_player_info(...)
+        end, playerId)
         if success and type(info) == "table" then
             playerInfos[#playerInfos + 1] = info
         else
             _HarnessInternal.log.error(
-                "Failed to get player info for ID " .. tostring(playerId) .. ": " .. tostring(info),
+                "Failed to get player info for ID "
+                    .. _HarnessInternal.safeString(playerId)
+                    .. ": "
+                    .. _HarnessInternal.safeString(info),
                 "GetPlayerInfos"
             )
         end
@@ -155,13 +175,21 @@ function GetPlayerInfo(playerId)
         return nil
     end
 
-    if type(net) ~= "table" or type(net.get_player_info) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(net) ~= "table" or type(net.get_player_info) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error("net.get_player_info is unavailable", "GetPlayerInfo")
         return nil
     end
-    local success, info = pcall(net.get_player_info, playerId)
+    local success, info = pcall(function(...)
+        return net.get_player_info(...)
+    end, playerId)
     if not success then
-        _HarnessInternal.log.error("Failed to get player info: " .. tostring(info), "GetPlayerInfo")
+        _HarnessInternal.log.error(
+            "Failed to get player info: " .. _HarnessInternal.safeString(info),
+            "GetPlayerInfo"
+        )
         return nil
     end
 
@@ -181,9 +209,14 @@ function KickPlayer(playerId, reason)
 
     reason = reason or "Kicked by server"
 
-    local success, result = pcall(net.kick, playerId, reason)
+    local success, result = pcall(function(...)
+        return net.kick(...)
+    end, playerId, reason)
     if not success then
-        _HarnessInternal.log.error("Failed to kick player: " .. tostring(result), "KickPlayer")
+        _HarnessInternal.log.error(
+            "Failed to kick player: " .. _HarnessInternal.safeString(result),
+            "KickPlayer"
+        )
         return false
     end
 
@@ -207,10 +240,12 @@ function GetPlayerStat(playerId, statId)
         return nil
     end
 
-    local success, value = pcall(net.get_stat, playerId, statId)
+    local success, value = pcall(function(...)
+        return net.get_stat(...)
+    end, playerId, statId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get player stat: " .. tostring(value),
+            "Failed to get player stat: " .. _HarnessInternal.safeString(value),
             "GetPlayerStat"
         )
         return nil
@@ -224,11 +259,24 @@ end
 ---@usage if IsServer() then ... end
 function IsServer()
     -- Prefer the official DCS API when available
-    if DCS and type(DCS.isServer) == "function" then
-        local successDcs, resultDcs = pcall(DCS.isServer)
+    local lookupOk, available = pcall(function()
+        return DCS and type(DCS.isServer) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve DCS.isServer: " .. _HarnessInternal.safeString(available),
+            "IsServer"
+        )
+        return false
+    end
+    if available then
+        local successDcs, resultDcs = pcall(function()
+            return DCS.isServer()
+        end)
         if not successDcs then
             _HarnessInternal.log.error(
-                "Failed to check server status via DCS.isServer: " .. tostring(resultDcs),
+                "Failed to check server status via DCS.isServer: "
+                    .. _HarnessInternal.safeString(resultDcs),
                 "IsServer"
             )
             return false
@@ -248,9 +296,14 @@ function LoadMission(missionPath)
         return false
     end
 
-    local success, result = pcall(net.load_mission, missionPath)
+    local success, result = pcall(function(...)
+        return net.load_mission(...)
+    end, missionPath)
     if not success then
-        _HarnessInternal.log.error("Failed to load mission: " .. tostring(result), "LoadMission")
+        _HarnessInternal.log.error(
+            "Failed to load mission: " .. _HarnessInternal.safeString(result),
+            "LoadMission"
+        )
         return false
     end
 
@@ -262,10 +315,12 @@ end
 ---@return boolean success True if next mission load was initiated
 ---@usage LoadNextMission()
 function LoadNextMission()
-    local success, result = pcall(net.load_next_mission)
+    local success, result = pcall(function()
+        return net.load_next_mission()
+    end)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to load next mission: " .. tostring(result),
+            "Failed to load next mission: " .. _HarnessInternal.safeString(result),
             "LoadNextMission"
         )
         return false
@@ -279,11 +334,23 @@ end
 ---@return string? name Mission name or nil on error
 ---@usage local mission = GetMissionName()
 function GetMissionName()
-    if DCS and type(DCS.getMissionName) == "function" then
-        local success, name = pcall(net.dostring_in("gui", "return DCS.getMissionName()"))
+    local lookupOk, available = pcall(function()
+        return DCS and type(DCS.getMissionName) == "function"
+    end)
+    if not lookupOk then
+        _HarnessInternal.log.error(
+            "Failed to resolve DCS.getMissionName: " .. _HarnessInternal.safeString(available),
+            "GetMissionName"
+        )
+        return nil
+    end
+    if available then
+        local success, name = pcall(function()
+            return net.dostring_in("gui", "return DCS.getMissionName()")
+        end)
         if not success then
             _HarnessInternal.log.error(
-                "Failed to get mission name: " .. tostring(name),
+                "Failed to get mission name: " .. _HarnessInternal.safeString(name),
                 "GetMissionName"
             )
             return nil
@@ -315,10 +382,12 @@ function ForcePlayerSlot(playerId, side, slotId)
         return false
     end
 
-    local success, result = pcall(net.force_player_slot, playerId, side, slotId)
+    local success, result = pcall(function(...)
+        return net.force_player_slot(...)
+    end, playerId, side, slotId)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to force player slot: " .. tostring(result),
+            "Failed to force player slot: " .. _HarnessInternal.safeString(result),
             "ForcePlayerSlot"
         )
         return false

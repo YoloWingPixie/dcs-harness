@@ -100,7 +100,7 @@ function GetDrawings()
 
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get drawings: " .. tostring(result),
+            "Failed to get drawings: " .. _HarnessInternal.safeString(result),
             "Drawing.GetDrawings"
         )
         return nil

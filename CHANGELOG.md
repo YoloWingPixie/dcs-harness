@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `LOtoLL` now returns both latitude and longitude in its documented table. `LOtoMGRS` uses that corrected result.
+- Native wrappers now catch errors while finding a DCS method as well as calling it. Error reporting also handles error values that cannot be converted to text.
+- `GetMissionName` now runs the mission-name request inside its error protection.
+
 ### Removed
 
 ### Deprecated

@@ -21,10 +21,12 @@ function GetStaticByName(name)
         return nil
     end
 
-    local success, result = pcall(StaticObject.getByName, name)
+    local success, result = pcall(function(...)
+        return StaticObject.getByName(...)
+    end, name)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object by name: " .. tostring(result),
+            "Failed to get static object by name: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetByName"
         )
         return nil
@@ -43,10 +45,12 @@ function GetStaticID(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getID, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getID(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object ID: " .. tostring(result),
+            "Failed to get static object ID: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetID"
         )
         return nil
@@ -68,10 +72,12 @@ function GetStaticLife(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getLife, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getLife(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object life: " .. tostring(result),
+            "Failed to get static object life: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetLife"
         )
         return nil
@@ -93,10 +99,12 @@ function GetStaticCargoDisplayName(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCargoDisplayName, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCargoDisplayName(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get cargo display name: " .. tostring(result),
+            "Failed to get cargo display name: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCargoDisplayName"
         )
         return nil
@@ -118,10 +126,12 @@ function GetStaticCargoWeight(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCargoWeight, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCargoWeight(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get cargo weight: " .. tostring(result),
+            "Failed to get cargo weight: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCargoWeight"
         )
         return nil
@@ -146,10 +156,12 @@ function DestroyStaticObject(staticObject)
     -- Log that delete API was triggered
     _HarnessInternal.log.info("DestroyStaticObject triggered", "StaticObject.Destroy")
 
-    local success, result = pcall(staticObject.destroy, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.destroy(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to destroy static object: " .. tostring(result),
+            "Failed to destroy static object: " .. _HarnessInternal.safeString(result),
             "StaticObject.Destroy"
         )
         return nil
@@ -172,10 +184,12 @@ function GetStaticCategory(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCategory, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCategory(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object category: " .. tostring(result),
+            "Failed to get static object category: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCategory"
         )
         return nil
@@ -197,10 +211,12 @@ function GetStaticTypeName(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getTypeName, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getTypeName(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object type name: " .. tostring(result),
+            "Failed to get static object type name: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetTypeName"
         )
         return nil
@@ -222,10 +238,12 @@ function GetStaticDesc(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getDesc, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getDesc(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object description: " .. tostring(result),
+            "Failed to get static object description: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetDesc"
         )
         return nil
@@ -247,10 +265,12 @@ function IsStaticExist(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.isExist, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.isExist(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to check static object existence: " .. tostring(result),
+            "Failed to check static object existence: " .. _HarnessInternal.safeString(result),
             "StaticObject.IsExist"
         )
         return nil
@@ -272,10 +292,12 @@ function GetStaticCoalition(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCoalition, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCoalition(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object coalition: " .. tostring(result),
+            "Failed to get static object coalition: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCoalition"
         )
         return nil
@@ -297,10 +319,12 @@ function GetStaticCountry(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getCountry, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getCountry(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object country: " .. tostring(result),
+            "Failed to get static object country: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetCountry"
         )
         return nil
@@ -322,10 +346,12 @@ function GetStaticPoint(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getPoint, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getPoint(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object point: " .. tostring(result),
+            "Failed to get static object point: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetPoint"
         )
         return nil
@@ -347,10 +373,12 @@ function GetStaticPosition(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getPosition, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getPosition(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object position: " .. tostring(result),
+            "Failed to get static object position: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetPosition"
         )
         return nil
@@ -372,10 +400,12 @@ function GetStaticVelocity(staticObject)
         return nil
     end
 
-    local success, result = pcall(staticObject.getVelocity, staticObject)
+    local success, result = pcall(function(...)
+        return staticObject.getVelocity(...)
+    end, staticObject)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to get static object velocity: " .. tostring(result),
+            "Failed to get static object velocity: " .. _HarnessInternal.safeString(result),
             "StaticObject.GetVelocity"
         )
         return nil
@@ -438,7 +468,7 @@ function CreateStaticObject(countryId, staticData)
     -- Log that create API was triggered
     _HarnessInternal.log.info(
         "CreateStaticObject triggered: type="
-            .. tostring(staticData.type)
+            .. _HarnessInternal.safeString(staticData.type)
             .. " country="
             .. tostring(countryId)
             .. " name="

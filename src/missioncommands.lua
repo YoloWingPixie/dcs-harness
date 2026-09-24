@@ -37,17 +37,22 @@ function AddCommand(path, menuItem, handler, params)
         return nil
     end
 
-    if type(missionCommands) ~= "table" or type(missionCommands.addCommand) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table" or type(missionCommands.addCommand) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addCommand is unavailable",
             "MissionCommands.AddCommand"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addCommand, menuItem.name, path, handler, params)
+    local success, result = pcall(function(...)
+        return missionCommands.addCommand(...)
+    end, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add command: " .. tostring(result),
+            "Failed to add command: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddCommand"
         )
         return nil
@@ -78,17 +83,22 @@ function AddSubMenu(path, name)
         return nil
     end
 
-    if type(missionCommands) ~= "table" or type(missionCommands.addSubMenu) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table" or type(missionCommands.addSubMenu) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addSubMenu is unavailable",
             "MissionCommands.AddSubMenu"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addSubMenu, name, path)
+    local success, result = pcall(function(...)
+        return missionCommands.addSubMenu(...)
+    end, name, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add submenu: " .. tostring(result),
+            "Failed to add submenu: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddSubMenu"
         )
         return nil
@@ -110,17 +120,22 @@ function RemoveItem(path)
         return nil
     end
 
-    if type(missionCommands) ~= "table" or type(missionCommands.removeItem) ~= "function" then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table" or type(missionCommands.removeItem) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.removeItem is unavailable",
             "MissionCommands.RemoveItem"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.removeItem, path)
+    local success, result = pcall(function(...)
+        return missionCommands.removeItem(...)
+    end, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove item: " .. tostring(result),
+            "Failed to remove item: " .. _HarnessInternal.safeString(result),
             "MissionCommands.RemoveItem"
         )
         return nil
@@ -170,27 +185,23 @@ function AddCommandForCoalition(coalitionId, path, menuItem, handler, params)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addCommandForCoalition) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addCommandForCoalition) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addCommandForCoalition is unavailable",
             "MissionCommands.AddCommandForCoalition"
         )
         return nil
     end
-    local success, result = pcall(
-        missionCommands.addCommandForCoalition,
-        coalitionId,
-        menuItem.name,
-        path,
-        handler,
-        params
-    )
+    local success, result = pcall(function(...)
+        return missionCommands.addCommandForCoalition(...)
+    end, coalitionId, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition command: " .. tostring(result),
+            "Failed to add coalition command: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddCommandForCoalition"
         )
         return nil
@@ -230,20 +241,23 @@ function AddSubMenuForCoalition(coalitionId, path, name)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addSubMenuForCoalition) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addSubMenuForCoalition) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addSubMenuForCoalition is unavailable",
             "MissionCommands.AddSubMenuForCoalition"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addSubMenuForCoalition, coalitionId, name, path)
+    local success, result = pcall(function(...)
+        return missionCommands.addSubMenuForCoalition(...)
+    end, coalitionId, name, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add coalition submenu: " .. tostring(result),
+            "Failed to add coalition submenu: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddSubMenuForCoalition"
         )
         return nil
@@ -274,20 +288,23 @@ function RemoveItemForCoalition(coalitionId, path)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.removeItemForCoalition) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.removeItemForCoalition) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.removeItemForCoalition is unavailable",
             "MissionCommands.RemoveItemForCoalition"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.removeItemForCoalition, coalitionId, path)
+    local success, result = pcall(function(...)
+        return missionCommands.removeItemForCoalition(...)
+    end, coalitionId, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove coalition item: " .. tostring(result),
+            "Failed to remove coalition item: " .. _HarnessInternal.safeString(result),
             "MissionCommands.RemoveItemForCoalition"
         )
         return nil
@@ -337,21 +354,23 @@ function AddCommandForGroup(groupId, path, menuItem, handler, params)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addCommandForGroup) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addCommandForGroup) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addCommandForGroup is unavailable",
             "MissionCommands.AddCommandForGroup"
         )
         return nil
     end
-    local success, result =
-        pcall(missionCommands.addCommandForGroup, groupId, menuItem.name, path, handler, params)
+    local success, result = pcall(function(...)
+        return missionCommands.addCommandForGroup(...)
+    end, groupId, menuItem.name, path, handler, params)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add group command: " .. tostring(result),
+            "Failed to add group command: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddCommandForGroup"
         )
         return nil
@@ -391,20 +410,23 @@ function AddSubMenuForGroup(groupId, path, name)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.addSubMenuForGroup) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.addSubMenuForGroup) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.addSubMenuForGroup is unavailable",
             "MissionCommands.AddSubMenuForGroup"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.addSubMenuForGroup, groupId, name, path)
+    local success, result = pcall(function(...)
+        return missionCommands.addSubMenuForGroup(...)
+    end, groupId, name, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to add group submenu: " .. tostring(result),
+            "Failed to add group submenu: " .. _HarnessInternal.safeString(result),
             "MissionCommands.AddSubMenuForGroup"
         )
         return nil
@@ -435,20 +457,23 @@ function RemoveItemForGroup(groupId, path)
         return nil
     end
 
-    if
-        type(missionCommands) ~= "table"
-        or type(missionCommands.removeItemForGroup) ~= "function"
-    then
+    local lookupOk, unavailable = pcall(function()
+        return type(missionCommands) ~= "table"
+            or type(missionCommands.removeItemForGroup) ~= "function"
+    end)
+    if not lookupOk or unavailable then
         _HarnessInternal.log.error(
             "missionCommands.removeItemForGroup is unavailable",
             "MissionCommands.RemoveItemForGroup"
         )
         return nil
     end
-    local success, result = pcall(missionCommands.removeItemForGroup, groupId, path)
+    local success, result = pcall(function(...)
+        return missionCommands.removeItemForGroup(...)
+    end, groupId, path)
     if not success then
         _HarnessInternal.log.error(
-            "Failed to remove group item: " .. tostring(result),
+            "Failed to remove group item: " .. _HarnessInternal.safeString(result),
             "MissionCommands.RemoveItemForGroup"
         )
         return nil

@@ -54,6 +54,179 @@ Vector and terrain functions
 
 Road functions keep the native numeric DCS argument order and return DCS Vec2 values.
 
+Read a detected unit or weapon
+------------------------------
+
+These functions take the object from a detection entry. They work with both units
+and weapons. Check for ``nil`` because an object can disappear between reads.
+
+.. code-block:: lua
+
+   local object = detection.object
+   local id = GetObjectID(object)
+   local category = GetObjectCategory(object)
+   local position = GetObjectPoint(object)
+   local velocity = GetObjectVelocity(object)
+
+``GetObjectID`` returns the object's ``id_`` value unchanged. It accepts a number
+or a nonempty string. This is the ID used by detections. Mission Editor unit IDs
+are available through ``MissionUnitIndex`` below.
+
+``GetObjectCategory`` returns an ``Object.Category`` value. Position and velocity
+are new ``{x, y, z}`` tables. Position uses meters, with altitude in Y. Velocity
+uses meters per second. Invalid numbers cause the reader to return ``nil``.
+
+Read a sensor's listed ranges
+-----------------------------
+
+Pass one sensor entry from ``GetUnitSensors`` to read its air-detection ranges.
+
+.. code-block:: lua
+
+   local ranges = ReadSensorAirDetectionRanges(sensor)
+   if ranges then
+       local headOnRange = ranges.upperHeadOn
+       local maximalRange = ranges.maximal
+   end
+
+Both fields use meters. Either field can be absent. The function returns ``nil``
+when neither range is usable. It leaves out zero, negative values, numeric strings,
+NaN, and infinity. A bad head-on range does not remove a usable maximal range.
+
+The function keeps both ranges so your mission can choose which to use. These are
+the ranges listed by DCS; a target can still be undetected inside that distance.
+
+Find the closest future distance
+-------------------------------
+
+``EstimateCPAToPoint3D`` tells you when a moving object will get closest to a fixed
+point, including the difference in altitude. It assumes the object keeps its
+current velocity.
+
+.. code-block:: lua
+
+   local position = Vec3(1000, 500, 0)
+   local velocity = Vec3(-100, 0, 0)
+   local fixedPoint = Vec3(0, 0, 0)
+   local seconds, distance = EstimateCPAToPoint3D(position, velocity, fixedPoint)
+   -- 10 seconds; closest distance is 500 meters.
+
+The first result is seconds and the second is meters. An object moving away, or
+slower than 0.001 m/s, returns zero seconds and its current distance. Invalid
+inputs or a failed calculation return ``nil, nil``. Inputs are left unchanged.
+The existing horizontal closest-approach functions keep their behavior.
+
+Measure coverage of a circular area
+----------------------------------
+
+Use ``CircleCoveredArea2D`` to measure how much of one circle is covered by a list
+of other circles. Overlap counts only once. Circle centers use ground X/Y
+coordinates, and radii use meters.
+
+.. code-block:: lua
+
+   local areaToCover = { center = { x = 0, y = 0 }, radius = 1000 }
+   local coverageCircles = {
+       { center = { x = 500, y = 0 }, radius = 800 },
+       { center = { x = -500, y = 0 }, radius = 800 },
+   }
+   local covered = CircleCoveredArea2D(areaToCover, coverageCircles)
+   if covered then
+       local percentCovered = 100 * covered / (math.pi * areaToCover.radius ^ 2)
+   end
+
+The result is square meters, from zero through the area of the first circle.
+An empty list or no overlap returns zero. Invalid circles, gaps in the list, or
+numbers too large for the calculation return ``nil``. The function leaves all
+input tables unchanged and preserves gaps between circles.
+
+The calculation does all its work when called. Your mission controls the number
+of circles and how often to calculate coverage.
+
+Spread a grid search across calls
+--------------------------------
+
+Use these GeoGrid methods when you want to limit search work in each mission
+update. Add and update grid entries with the existing ``add`` and ``updatePosition``
+methods. Entries can use your own IDs and type names.
+
+.. code-block:: lua
+
+   local grid = GeoGrid(1000, { "Unit" })
+   grid:add("Unit", "Radar-1", Vec3(2000, 0, 500))
+
+   local search, reason = grid:beginRadiusQuery(Vec3(), 5000, { "Unit" }, 100)
+   local matches = {}
+
+   -- Run this part during each update until the status changes from MORE.
+   if search then
+       local found, work, status = grid:continueRadiusQuery(search, 50, matches)
+       for _, id in ipairs(matches) do
+           env.info("Found " .. id)
+       end
+   end
+
+The search above checks a ground radius of 5,000 meters and returns at most 100
+IDs across all calls. Each call uses at most 50 search steps. A step checks a grid
+square, an object type in that square, or an entry. A call can return no matches
+and still need more work. Zero steps pauses the search.
+
+.. list-table:: Search status
+   :header-rows: 1
+
+   * - Status
+     - What to do
+   * - ``GeoGridQueryStatus.MORE``
+     - Process this call's matches, then call again with the same search.
+   * - ``GeoGridQueryStatus.DONE``
+     - The search finished.
+   * - ``GeoGridQueryStatus.LIMIT``
+     - The result limit was reached. Other matches may still exist.
+   * - ``GeoGridQueryStatus.CLOSED``
+     - The search was stopped or the grid was cleared.
+   * - ``GeoGridQueryStatus.INVALID``
+     - Check the search, step count, and output table. The search must belong to this grid.
+
+Each call clears the previous entries from ``matches`` and reuses the same table.
+Finished or stopped searches return no more IDs. A search never returns the same
+ID twice. Each returned entry matches when checked, but an object added or moved
+during the search may be included or missed.
+
+The center and type list are copied when the search starts. Type lists must have
+no gaps and must use types registered with the grid. Invalid inputs or coordinates
+too large for the grid return ``nil, reason`` from ``beginRadiusQuery``.
+Call ``grid:closeRadiusQuery(search)`` when you no longer need a search.
+``grid:clear()`` stops all searches on that grid.
+
+Look up Mission Editor settings
+-------------------------------
+
+Build this lookup once during mission setup, then get a unit's settings by its
+Mission Editor name. It includes aircraft, helicopters, vehicles, ships, and static
+objects from all coalitions.
+
+.. code-block:: lua
+
+   local units, reason = MissionUnitIndex()
+   if units then
+       local radar = units:get("SAM Radar")
+       if radar then
+           local skill = radar.skill
+           local editorId = radar.unitId
+       end
+   end
+
+Available fields are ``name``, ``unitId``, ``typeName``, ``skill``, ``category``,
+``countryId``, and ``coalition``. Missing or invalid optional fields are left out.
+Skill keeps the editor text, including ``Random``, ``Player``, and ``Client``.
+
+``MissionUnitIndex()`` reads ``env.mission``. You can pass another mission table
+explicitly. Missing mission data or duplicate unit names return ``nil, reason``.
+Unknown names return ``nil`` from ``get``. Each result is a new table you can edit.
+
+Later spawns and changes to the mission table do not update the lookup. Call
+``MissionUnitIndex`` again when you want to rebuild it.
+
 Mission commands
 ----------------
 
@@ -268,6 +441,7 @@ Mission files
    EnsureMissionDirectory(relativeDirectory) -> absoluteDirectory|nil, reason|nil
    WriteMissionTextFile(relativePath, contents) -> absolutePath|nil, reason|nil
    WriteUniqueMissionTextFile(relativePath, contents, maxSuffix?) -> absolutePath|nil, reason|nil
+   ReplaceMissionTextFile(relativePath, contents) -> absolutePath|nil, reason|nil, recoveryPath|nil
 
 The public capability record is:
 
@@ -277,9 +451,41 @@ The public capability record is:
        writeDirectory = string,
    }
 
-Capabilities require protected access to ``_G.io``, ``_G.lfs``, ``io.open``, ``lfs.writedir``, ``lfs.mkdir``, and ``lfs.attributes``. Harness never modifies ``MissionScripting.lua``. Relative paths use ``/`` and must remain below ``lfs.writedir()``. Absolute paths, drive prefixes, NULs, empty components, ``.`` and ``..`` are rejected.
+These tools write below the DCS Saved Games directory returned by
+``lfs.writedir()``. Use a path such as ``Reports/status.txt``, with ``/`` between
+folders. Absolute paths, drive prefixes, empty folder names, ``.`` and ``..`` are
+rejected. File paths cannot contain NUL bytes.
+
+File access must already be available in your mission environment. If the required
+``io`` or ``lfs`` functions are missing, the tools return ``nil`` and a reason.
+Harness leaves ``MissionScripting.lua`` and your DCS configuration unchanged.
 
 ``WriteMissionTextFile`` does not overwrite an existing target. ``WriteUniqueMissionTextFile`` tries the requested name and then ``-001`` through the caller limit, which defaults to 999. Open, write, flush, and close are protected independently.
+
+Use ``ReplaceMissionTextFile`` when you want to update a report at the same path:
+
+.. code-block:: lua
+
+   local path, reason, recoveryPath = ReplaceMissionTextFile(
+       "Reports/status.txt",
+       "Mission running\n"
+   )
+   if not path then
+       local log = HarnessLogger("MissionReport")
+       log.error(reason)
+       if recoveryPath then
+           log.error("The previous file is at " .. recoveryPath)
+       end
+   end
+
+The file contains exactly the bytes you supply, including your line endings.
+An empty string saves an empty file. The save also requires ``os.rename`` and
+``os.remove``. Use one writer for each file path.
+
+If saving fails, the previous contents remain at the original path or at the
+returned ``recoveryPath``. Existing ``.harness-tmp`` and ``.harness-backup`` files
+are left untouched and cause a conflict. If the new file was saved but cleanup
+failed, the save still succeeds and the cleanup problem is logged.
 
 Time-weighted statistics
 ------------------------

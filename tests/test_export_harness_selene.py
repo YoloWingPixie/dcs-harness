@@ -119,6 +119,10 @@ ControllerSetROE(controller, "WEAPON_HOLD")
 ControllerSetAlarmState(controller, "RED")
 local grid = GeoGrid(5000, { "Track", "Battery" })
 local bus = EventBus()
+local status = GeoGridQueryStatus.MORE
+local numberIsValid = IsFiniteNumber(123)
+local objectPoint = GetObjectPoint({})
+local missionUnits = MissionUnitIndex()
 """,
                 encoding="utf-8",
             )

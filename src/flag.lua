@@ -15,9 +15,14 @@ function GetFlag(flagName)
         return 0
     end
 
-    local success, value = pcall(trigger.misc.getUserFlag, flagName)
+    local success, value = pcall(function(...)
+        return trigger.misc.getUserFlag(...)
+    end, flagName)
     if not success then
-        _HarnessInternal.log.error("Failed to get flag: " .. tostring(value), "GetFlag")
+        _HarnessInternal.log.error(
+            "Failed to get flag: " .. _HarnessInternal.safeString(value),
+            "GetFlag"
+        )
         return 0
     end
 
@@ -37,9 +42,14 @@ function SetFlag(flagName, value)
 
     value = value or 1
 
-    local success, result = pcall(trigger.action.setUserFlag, flagName, value)
+    local success, result = pcall(function(...)
+        return trigger.action.setUserFlag(...)
+    end, flagName, value)
     if not success then
-        _HarnessInternal.log.error("Failed to set flag: " .. tostring(result), "SetFlag")
+        _HarnessInternal.log.error(
+            "Failed to set flag: " .. _HarnessInternal.safeString(result),
+            "SetFlag"
+        )
         return false
     end
 

@@ -426,7 +426,10 @@ function CacheDecorator(func, getCacheKey, cacheType, verifyFunc)
 
     local validTypes = { unit = true, group = true, controller = true, generic = true }
     if not validTypes[cacheType] then
-        _HarnessInternal.log.error("Invalid cache type: " .. tostring(cacheType), "CacheDecorator")
+        _HarnessInternal.log.error(
+            "Invalid cache type: " .. _HarnessInternal.safeString(cacheType),
+            "CacheDecorator"
+        )
         return func
     end
 

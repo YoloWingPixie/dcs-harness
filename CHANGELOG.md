@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `IsFiniteVec2` and `IsFiniteVec3` no longer error on every call. In 1.3.0 they called a helper that had been removed, which broke every function that validates a vector.
+
 ### Removed
 
 ### Deprecated

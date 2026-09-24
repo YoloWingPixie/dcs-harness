@@ -118,10 +118,7 @@ end
 ---@return boolean isValid True if vec is a Vec3 with no NaN or infinite coordinates; false otherwise
 ---@usage if IsFiniteVec3(pos) then ... end
 function IsFiniteVec3(vec)
-    return IsVec3(vec)
-        and VectorInternal.isFiniteNumber(vec.x)
-        and VectorInternal.isFiniteNumber(vec.y)
-        and VectorInternal.isFiniteNumber(vec.z)
+    return IsVec3(vec) and IsFiniteNumber(vec.x) and IsFiniteNumber(vec.y) and IsFiniteNumber(vec.z)
 end
 
 --- Check if a position is a valid Vec3 and not at the world origin
@@ -148,9 +145,7 @@ end
 ---@return boolean isValid True if vec is a Vec2 with no NaN or infinite coordinates; false otherwise
 ---@usage if IsFiniteVec2(pos) then ... end
 function IsFiniteVec2(vec)
-    return IsVec2(vec)
-        and VectorInternal.isFiniteNumber(vec.x)
-        and VectorInternal.isFiniteNumber(vec.y)
+    return IsVec2(vec) and IsFiniteNumber(vec.x) and IsFiniteNumber(vec.y)
 end
 
 -- Conversion functions

@@ -9,20 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `IsFiniteVec2` and `IsFiniteVec3` validate vector structure and reject NaN and positive or negative infinity without changing `IsVec2` or `IsVec3`.
-
 ### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+
+## [1.3.0] - 2026-09-23
+### Added
+
+- Start and continue GeoGrid radius searches over several mission updates with a work limit for each call.
+- Read detected unit and weapon IDs, categories, positions, and velocities with the `GetObject*` functions.
+- Update a mission report with `ReplaceMissionTextFile`, keeping the previous file recoverable if saving fails.
+- Look up Mission Editor unit settings by name with `MissionUnitIndex`.
+- Read a sensor's listed air-detection ranges with `ReadSensorAirDetectionRanges`.
+- Find a moving object's closest future distance to a fixed point with `EstimateCPAToPoint3D`.
+- Measure the area of one circle covered by other circles with `CircleCoveredArea2D`.
+- Check that a number is finite with `IsFiniteNumber`, and that a vector is well formed and finite with `IsFiniteVec2` and `IsFiniteVec3` (NaN and infinity are rejected; `IsVec2` and `IsVec3` are unchanged).
 
 ### Fixed
 
 - `LOtoLL` now returns both latitude and longitude in its documented table. `LOtoMGRS` uses that corrected result.
 - Native wrappers now catch errors while finding a DCS method as well as calling it. Error reporting also handles error values that cannot be converted to text.
 - `GetMissionName` now runs the mission-name request inside its error protection.
-
-### Removed
-
-### Deprecated
-
 
 ## [1.2.0] - 2026-09-02
 ### Added
@@ -254,7 +266,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.1...v1.0.2

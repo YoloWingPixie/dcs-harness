@@ -13,12 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `IsFiniteVec2` and `IsFiniteVec3` no longer error on every call. In 1.3.0 they called a helper that had been removed, which broke every function that validates a vector.
-
 ### Removed
 
 ### Deprecated
 
+
+## [1.3.1] - 2026-09-23
+
+### Fixed
+
+- `IsFiniteVec2` and `IsFiniteVec3` no longer error on every call. In 1.3.0 they called a helper that had been removed, which broke every function that validates a vector.
 
 ## [1.3.0] - 2026-09-23
 ### Added
@@ -268,7 +272,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.0.2...v1.1.0

@@ -40,27 +40,7 @@ Vector and terrain functions
    GetClosestRoadPoint(position, roadType?) -> Vec2|nil
    FindRoadPath(from, to, roadType?) -> Vec2[]
 
-Use ``IsFiniteNumber(value)`` to check a number before using it in a calculation.
-It accepts zero, negatives, and fractions. It rejects strings, NaN (an invalid
-arithmetic result), and infinity.
-
-Use ``IsFiniteVec2`` or ``IsFiniteVec3`` to check a complete position or velocity.
-They return ``false`` if a required coordinate is missing, is not a number, or is
-NaN or infinity. Vec2 uses X/Y with no Z field. Vec3 uses X/Y/Z.
-The existing ``IsVec2`` and ``IsVec3`` still check only the coordinate types.
-
-.. code-block:: lua
-
-   if IsFiniteVec3(position) then
-       local ll = LOtoLL(position)
-       if ll then
-           env.info(string.format("Latitude %.4f, longitude %.4f", ll.latitude, ll.longitude))
-       end
-   end
-
-``LOtoLL`` returns both coordinates in a new table. It returns ``nil`` if the
-position is invalid, DCS cannot perform the conversion, or either result is
-missing. Zero latitude or longitude is valid.
+``IsFiniteVec2`` and ``IsFiniteVec3`` accept plain tables or vector instances with finite numeric coordinates. They return ``false`` for malformed vectors, NaN, and positive or negative infinity in any coordinate. Vec2 requires numeric X/Y and no Z component. Vec3 requires numeric X/Y/Z. ``IsVec2`` and ``IsVec3`` retain their structural checks and accept non-finite numeric coordinates.
 
 ``ToVec2`` normalizes a Vec2 or projects Vec3 X/Z to Vec2 X/Y. Terrain calls use this projection before calling ``land.getHeight`` or ``land.getSurfaceType``. Terrain height keeps the established zero fallback. Invalid surface queries return ``nil``.
 

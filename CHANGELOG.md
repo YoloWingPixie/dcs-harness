@@ -9,14 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Start and continue GeoGrid radius searches over several mission updates with a work limit for each call.
-- Read detected unit and weapon IDs, categories, positions, and velocities with the `GetObject*` functions.
-- Update a mission report with `ReplaceMissionTextFile`, keeping the previous file recoverable if saving fails.
-- Look up Mission Editor unit settings by name with `MissionUnitIndex`.
-- Read a sensor's listed air-detection ranges with `ReadSensorAirDetectionRanges`.
-- Find a moving object's closest future distance to a fixed point with `EstimateCPAToPoint3D`.
-- Measure the area of one circle covered by other circles with `CircleCoveredArea2D`.
-- Check that a number is finite with `IsFiniteNumber`, and that a vector is well formed and finite with `IsFiniteVec2` and `IsFiniteVec3` (NaN and infinity are rejected; `IsVec2` and `IsVec3` are unchanged).
+- `IsFiniteVec2` and `IsFiniteVec3` validate vector structure and reject NaN and positive or negative infinity without changing `IsVec2` or `IsVec3`.
 
 ### Changed
 

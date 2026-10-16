@@ -9,13 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Count the records that share an index value with `IndexedCollection:countAll`.
-
 ### Changed
-
-- `RingBuffer:get` (and `DeduplicatingQueue:get`) now takes the same time for every position instead of slowing down for items further from the front. Fractional positions still round down.
-- `RingBuffer:get` and `DeduplicatingQueue:get` now return `nil` for a NaN position. They previously returned the front item.
-- `IndexedCollection:getAll` takes time proportional to the matching records instead of the whole collection. Records still come back in the order they were added, including after `replace` moves a record to another index value.
 
 ### Fixed
 
@@ -23,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+
+## [1.4.0] - 2026-10-15
+### Added
+
+- Count the records that share an index value with `IndexedCollection:countAll`.
+
+### Changed
+
+- `RingBuffer:get` (and `DeduplicatingQueue:get`) now takes the same time for every position instead of slowing down for items further from the front. Fractional positions still round down.
+- `RingBuffer:get` and `DeduplicatingQueue:get` now return `nil` for a NaN position. They previously returned the front item.
+- `IndexedCollection:getAll` takes time proportional to the matching records instead of the whole collection. Records still come back in the order they were added, including after `replace` moves a record to another index value.
 
 ## [1.3.1] - 2026-09-23
 
@@ -278,7 +283,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IsNotAtMapOrigin` non-origin position guard
 - `RingBuffer:reverseIter` newest-to-oldest iteration with early exit
 
-[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/YoloWingPixie/dcs-harness/compare/v1.1.0...v1.2.0

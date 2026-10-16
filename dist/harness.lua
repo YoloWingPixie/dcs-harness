@@ -1151,16 +1151,18 @@ function RingBuffer(capacity, overwrite)
         return self._items[self._head]
     end
 
-    --- Get logical item by 1-based index (1 = head)
-    ---@param index number 1-based index into buffer contents
+    --- Get logical item by 1-based index (1 = head) in constant time
+    ---@param index number 1-based index into buffer contents (fractions round down; NaN returns nil)
     ---@return any? item Item at index or nil
     function ring:get(index)
-        if type(index) ~= "number" or index < 1 or index > self._size then
+        -- Negated range test so NaN fails it.
+        if type(index) ~= "number" or not (index >= 1 and index <= self._size) then
             return nil
         end
-        local pos = self._head
-        for _ = 2, index do
-            pos = nextIndex(pos)
+        -- Wrap by subtraction, not %, so a math.huge capacity still works.
+        local pos = self._head + math.floor(index) - 1
+        if pos > self._capacity then
+            pos = pos - self._capacity
         end
         return self._items[pos]
     end

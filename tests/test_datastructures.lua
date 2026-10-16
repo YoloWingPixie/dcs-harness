@@ -486,6 +486,179 @@ function TestDataStructures:testRingBufferRotate()
     lu.assertEquals(rb:size(), 3)
 end
 
+-- The O(index) walk RingBuffer:get used before 1.3.2, kept as the fuzz reference.
+local function referenceRingGet(rb, index)
+    if type(index) ~= "number" or index < 1 or index > rb._size then
+        return nil
+    end
+    local pos = rb._head
+    for _ = 2, index do
+        pos = pos >= rb._capacity and 1 or pos + 1
+    end
+    return rb._items[pos]
+end
+
+local function assertRingContents(rb, expected)
+    lu.assertEquals(rb:size(), #expected)
+    for index = 1, #expected do
+        lu.assertEquals(rb:get(index), expected[index])
+    end
+    lu.assertNil(rb:get(0))
+    lu.assertNil(rb:get(#expected + 1))
+end
+
+function TestDataStructures:testRingBufferGetWrappedHeadAfterPopThenPush()
+    local rb = RingBuffer(4, false)
+    for value = 1, 4 do
+        rb:push(value)
+    end
+    lu.assertEquals(rb:pop(), 1)
+    lu.assertEquals(rb:pop(), 2)
+    rb:push(5)
+    rb:push(6)
+    lu.assertEquals(rb._head, 3)
+    lu.assertEquals(rb._tail, 2)
+    assertRingContents(rb, { 3, 4, 5, 6 })
+end
+
+function TestDataStructures:testRingBufferGetAfterOverwriteWrap()
+    local rb = RingBuffer(3)
+    for value = 1, 8 do
+        rb:push(value)
+    end
+    assertRingContents(rb, { 6, 7, 8 })
+    rb:pop()
+    assertRingContents(rb, { 7, 8 })
+end
+
+function TestDataStructures:testRingBufferGetAfterClearAndEmptyReset()
+    local rb = RingBuffer(3)
+    for value = 1, 5 do
+        rb:push(value)
+    end
+    rb:clear()
+    assertRingContents(rb, {})
+    rb:push("a")
+    assertRingContents(rb, { "a" })
+
+    rb:push("b")
+    rb:pop()
+    rb:pop()
+    lu.assertEquals(rb._head, 1)
+    assertRingContents(rb, {})
+    rb:push("c")
+    rb:push("d")
+    assertRingContents(rb, { "c", "d" })
+end
+
+function TestDataStructures:testRingBufferGetAfterRotate()
+    local rb = RingBuffer(3, false)
+    rb:push("first")
+    rb:push("second")
+    rb:push("third")
+    rb:rotate()
+    rb:rotate()
+    assertRingContents(rb, { "third", "first", "second" })
+
+    rb:pop()
+    rb:rotate()
+    assertRingContents(rb, { "second", "first" })
+end
+
+function TestDataStructures:testRingBufferGetFractionalAndNonFiniteIndex()
+    local rb = RingBuffer(3)
+    for value = 1, 4 do
+        rb:push(value)
+    end
+    lu.assertEquals(rb:get(1.5), 2)
+    lu.assertEquals(rb:get(2.999), 3)
+    lu.assertNil(rb:get(0.999))
+    lu.assertNil(rb:get(3.5))
+    lu.assertNil(rb:get(0 / 0))
+    lu.assertNil(rb:get(math.huge))
+    lu.assertNil(rb:get(-math.huge))
+    lu.assertNil(rb:get("1"))
+    lu.assertNil(rb:get(nil))
+end
+
+function TestDataStructures:testRingBufferGetWithUnboundedCapacity()
+    local rb = RingBuffer(math.huge)
+    for value = 1, 5 do
+        rb:push(value)
+    end
+    rb:pop()
+    assertRingContents(rb, { 2, 3, 4, 5 })
+end
+
+local function nextFuzzValue(state)
+    return (state * 16807) % 2147483647
+end
+
+local function applyFuzzOperation(rb, model, roll, value)
+    if roll < 6 then
+        local ok, evicted = rb:push(value)
+        if rb._overwrite and #model == rb:capacity() then
+            lu.assertEquals(evicted, table.remove(model, 1))
+        end
+        if ok then
+            model[#model + 1] = value
+        end
+    elseif roll < 9 then
+        lu.assertEquals(rb:pop(), table.remove(model, 1))
+    elseif roll < 10 then
+        local rotated = rb:rotate()
+        lu.assertEquals(rotated, model[1])
+        if rotated ~= nil then
+            table.insert(model, table.remove(model, 1))
+        end
+    else
+        rb:clear()
+        for index = #model, 1, -1 do
+            model[index] = nil
+        end
+    end
+end
+
+local function assertRingMatchesReference(rb, model)
+    lu.assertEquals(rb:size(), #model)
+    for index = -1, rb:size() + 2, 0.5 do
+        lu.assertEquals(rb:get(index), referenceRingGet(rb, index))
+    end
+    for index = 1, #model do
+        lu.assertEquals(rb:get(index), model[index])
+    end
+end
+
+function TestDataStructures:testRingBufferGetMatchesReferenceWalk()
+    local state = 12345
+    for trial = 1, 60 do
+        local capacity = trial % 7 + 1
+        local rb = RingBuffer(capacity, trial % 2 == 0)
+        local model = {}
+        for step = 1, 200 do
+            state = nextFuzzValue(state)
+            applyFuzzOperation(rb, model, state % 41 == 0 and 10 or state % 10, step)
+            assertRingMatchesReference(rb, model)
+        end
+    end
+end
+
+function TestDataStructures:testDeduplicatingQueueGetByPosition()
+    local queue = DeduplicatingQueue(3, function(item)
+        return item
+    end)
+    queue:push("a")
+    queue:push("b")
+    queue:push("c")
+    queue:pop()
+    queue:push("d")
+    lu.assertEquals(queue:get(1), "b")
+    lu.assertEquals(queue:get(2), "c")
+    lu.assertEquals(queue:get(3), "d")
+    lu.assertNil(queue:get(4))
+    lu.assertNil(queue:get(0 / 0))
+end
+
 function TestDataStructures:testDeduplicatingQueue()
     local queue = DeduplicatingQueue(2, function(item)
         return item.id

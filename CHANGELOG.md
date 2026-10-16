@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `RingBuffer:get` (and `DeduplicatingQueue:get`) now takes the same time for every position instead of slowing down for items further from the front. Fractional positions still round down.
+- `RingBuffer:get` and `DeduplicatingQueue:get` now return `nil` for a NaN position. They previously returned the front item.
+
 ### Fixed
 
 ### Removed

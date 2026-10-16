@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Count the records that share an index value with `IndexedCollection:countAll`.
+
 ### Changed
 
 - `RingBuffer:get` (and `DeduplicatingQueue:get`) now takes the same time for every position instead of slowing down for items further from the front. Fractional positions still round down.
 - `RingBuffer:get` and `DeduplicatingQueue:get` now return `nil` for a NaN position. They previously returned the front item.
+- `IndexedCollection:getAll` takes time proportional to the matching records instead of the whole collection. Records still come back in the order they were added, including after `replace` moves a record to another index value.
 
 ### Fixed
 

@@ -750,6 +750,99 @@ function TestDataStructures:testIndexedCollection()
     lu.assertEquals(collection:values(), { replacement, second })
 end
 
+function TestDataStructures:testIndexedCollectionBucketsKeepAdmissionOrder()
+    local collection = IndexedCollection({
+        capacity = 8,
+        key = "id",
+        indexes = {
+            { name = "name", key = "name", unique = true },
+            { name = "team", key = "team" },
+        },
+    })
+    local alpha = { id = "alpha", name = "a", team = "blue" }
+    local bravo = { id = "bravo", name = "b", team = "blue" }
+    local charlie = { id = "charlie", name = "c", team = "blue" }
+    local delta = { id = "delta", name = "d", team = "red" }
+    lu.assertTrue(collection:add(alpha))
+    lu.assertTrue(collection:add(bravo))
+    lu.assertTrue(collection:add(charlie))
+    lu.assertTrue(collection:add(delta))
+    lu.assertEquals(collection:countAll("team", "blue"), 3)
+
+    lu.assertIs(collection:remove("bravo"), bravo)
+    lu.assertEquals(collection:getAll("team", "blue"), { alpha, charlie })
+
+    -- A record moved to another bucket takes its admission place there, not the end.
+    local alphaRed = { id = "alpha", name = "a", team = "red" }
+    lu.assertTrue(collection:replace(alphaRed))
+    lu.assertEquals(collection:getAll("team", "red"), { alphaRed, delta })
+    lu.assertEquals(collection:getAll("team", "blue"), { charlie })
+
+    -- A record replaced within its bucket keeps its place.
+    local deltaRed = { id = "delta", name = "d2", team = "red" }
+    lu.assertTrue(collection:replace(deltaRed))
+    lu.assertEquals(collection:getAll("team", "red"), { alphaRed, deltaRed })
+
+    -- A re-added key is a new admission.
+    lu.assertTrue(collection:add(bravo))
+    lu.assertEquals(collection:getAll("team", "blue"), { charlie, bravo })
+    lu.assertEquals(collection:countAll("team", "blue"), 2)
+    lu.assertEquals(collection:countAll("team", "green"), 0)
+
+    local output = { "stale", "stale", "stale" }
+    lu.assertIs(collection:getAll("team", "blue", output), output)
+    lu.assertEquals(output, { charlie, bravo })
+    lu.assertErrorMsgContains(
+        "Unknown non-unique IndexedCollection index",
+        collection.countAll,
+        collection,
+        "name",
+        "a"
+    )
+    lu.assertErrorMsgContains(
+        "Unknown non-unique IndexedCollection index",
+        collection.countAll,
+        collection,
+        "missing",
+        "a"
+    )
+end
+
+function TestDataStructures:testIndexedCollectionGetAllMatchesValuesFilter()
+    local collection = IndexedCollection({
+        capacity = 12,
+        key = "id",
+        indexes = { { name = "team", key = "team" } },
+    })
+    local teams = { "blue", "red", "green" }
+    local state = 4242
+    for step = 1, 2000 do
+        state = (state * 16807) % 2147483647
+        local id = state % 16
+        local record = { id = id, team = teams[math.floor(state / 16) % 3 + 1], step = step }
+        local operation = math.floor(state / 48) % 3
+        if operation == 0 then
+            collection:add(record)
+        elseif operation == 1 then
+            collection:replace(record)
+        else
+            collection:remove(id)
+        end
+        local records = collection:values()
+        for teamIndex = 1, #teams do
+            local team = teams[teamIndex]
+            local expected = {}
+            for position = 1, #records do
+                if records[position].team == team then
+                    expected[#expected + 1] = records[position]
+                end
+            end
+            lu.assertEquals(collection:getAll("team", team), expected)
+            lu.assertEquals(collection:countAll("team", team), #expected)
+        end
+    end
+end
+
 -- Memoize Tests
 function TestDataStructures:testMemoize()
     -- Test basic memoization

@@ -1452,6 +1452,9 @@ function IndexedCollection(specification)
         _byKey = {},
         _order = {},
         _indexValues = {},
+        -- Admission number per primary key; orders the keys inside each non-unique bucket.
+        _sequence = {},
+        _nextSequence = 0,
         _indexes = {},
         _indexesByName = {},
     }
@@ -1503,6 +1506,34 @@ function IndexedCollection(specification)
         return values
     end
 
+    local function removeFromBucket(index, value, primaryKey)
+        local bucket = index.values[value]
+        for position = 1, #bucket do
+            if bucket[position] == primaryKey then
+                table.remove(bucket, position)
+                break
+            end
+        end
+        if #bucket == 0 then
+            index.values[value] = nil
+        end
+    end
+
+    -- Places the key after every key admitted before it, so each bucket stays in admission order.
+    local function insertIntoBucket(index, value, primaryKey)
+        local bucket = index.values[value]
+        if not bucket then
+            bucket = {}
+            index.values[value] = bucket
+        end
+        local sequence = collection._sequence
+        local position = #bucket + 1
+        while position > 1 and sequence[bucket[position - 1]] > sequence[primaryKey] do
+            position = position - 1
+        end
+        table.insert(bucket, position, primaryKey)
+    end
+
     local function removeIndexes(primaryKey, values)
         for position = 1, #collection._indexes do
             local index = collection._indexes[position]
@@ -1510,30 +1541,29 @@ function IndexedCollection(specification)
             if value ~= nil and index.unique then
                 index.values[value] = nil
             elseif value ~= nil then
-                local bucket = index.values[value]
-                bucket[primaryKey] = nil
-                if next(bucket) == nil then
-                    index.values[value] = nil
-                end
+                removeFromBucket(index, value, primaryKey)
             end
         end
     end
 
-    local function addIndexes(primaryKey, record, values)
+    local function addIndexes(primaryKey, values)
         for position = 1, #collection._indexes do
             local index = collection._indexes[position]
             local value = values[position]
             if value ~= nil and index.unique then
                 index.values[value] = primaryKey
             elseif value ~= nil then
-                local bucket = index.values[value]
-                if not bucket then
-                    bucket = {}
-                    index.values[value] = bucket
-                end
-                bucket[primaryKey] = record
+                insertIntoBucket(index, value, primaryKey)
             end
         end
+    end
+
+    local function nonUniqueIndex(indexName)
+        local index = collection._indexesByName[indexName]
+        if not index or index.unique then
+            error("Unknown non-unique IndexedCollection index: " .. tostring(indexName))
+        end
+        return index
     end
 
     local function recordValues(record)
@@ -1568,7 +1598,9 @@ function IndexedCollection(specification)
         self._byKey[primaryKey] = record
         self._order[#self._order + 1] = primaryKey
         self._indexValues[primaryKey] = values
-        addIndexes(primaryKey, record, values)
+        self._nextSequence = self._nextSequence + 1
+        self._sequence[primaryKey] = self._nextSequence
+        addIndexes(primaryKey, values)
         return true
     end
 
@@ -1589,7 +1621,7 @@ function IndexedCollection(specification)
         removeIndexes(primaryKey, self._indexValues[primaryKey])
         self._byKey[primaryKey] = record
         self._indexValues[primaryKey] = values
-        addIndexes(primaryKey, record, values)
+        addIndexes(primaryKey, values)
         return true, previous
     end
 
@@ -1604,6 +1636,7 @@ function IndexedCollection(specification)
         removeIndexes(primaryKey, self._indexValues[primaryKey])
         self._byKey[primaryKey] = nil
         self._indexValues[primaryKey] = nil
+        self._sequence[primaryKey] = nil
         for position = 1, #self._order do
             if self._order[position] == primaryKey then
                 table.remove(self._order, position)
@@ -1662,22 +1695,24 @@ function IndexedCollection(specification)
     ---@param output table? Reusable output array
     ---@return table records Matching records in insertion order
     function collection:getAll(indexName, value, output)
-        local index = self._indexesByName[indexName]
-        if not index or index.unique then
-            error("Unknown non-unique IndexedCollection index: " .. tostring(indexName))
-        end
+        local bucket = nonUniqueIndex(indexName).values[value]
         local records = output or {}
         clear(records)
-        local bucket = index.values[value]
         if bucket then
-            for position = 1, #self._order do
-                local record = bucket[self._order[position]]
-                if record then
-                    records[#records + 1] = record
-                end
+            for position = 1, #bucket do
+                records[position] = self._byKey[bucket[position]]
             end
         end
         return records
+    end
+
+    --- Count records through a non-unique index
+    ---@param indexName string Index name
+    ---@param value any Indexed value
+    ---@return number count Number of records with the indexed value
+    function collection:countAll(indexName, value)
+        local bucket = nonUniqueIndex(indexName).values[value]
+        return bucket and #bucket or 0
     end
 
     --- Return all records in insertion order

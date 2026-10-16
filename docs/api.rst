@@ -198,6 +198,19 @@ too large for the grid return ``nil, reason`` from ``beginRadiusQuery``.
 Call ``grid:closeRadiusQuery(search)`` when you no longer need a search.
 ``grid:clear()`` stops all searches on that grid.
 
+Keyed collections
+-----------------
+
+::
+
+   IndexedCollection({ capacity, key, indexes }) -> collection
+   collection:getAll(indexName, value, output?) -> records
+   collection:countAll(indexName, value) -> integer
+
+``getAll`` and ``countAll`` read a non-unique index. ``getAll`` returns the matching records in the order they
+were added, clearing and reusing ``output`` when given. A ``replace`` keeps a record's place. Both take time
+proportional to the matching records, not the whole collection. Unique indexes are read with ``getUnique``.
+
 Look up Mission Editor settings
 -------------------------------
 
